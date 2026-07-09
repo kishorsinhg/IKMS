@@ -46,23 +46,27 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T012` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T019` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
 - Audit extension point exists in `backend/src/main/java/com/ikms/audit/AuditService.java`.
-- Frontend scaffold exists in `frontend/` with React/Vite app entrypoint, route placeholder, test setup, and package scripts.
+- Local user/auth domain, permission mapping, session auth endpoints, and bootstrap users exist in `backend/src/main/java/com/ikms/security/`.
+- Database-backed app settings exist in `backend/src/main/java/com/ikms/config/`.
+- File storage abstraction exists in `backend/src/main/java/com/ikms/storage/FileStorageService.java`.
+- Frontend now has a fetch client, `/api/auth/me`-driven protected routing, and a role-aware shell in `frontend/src/`.
 - Local PostgreSQL/pgvector runtime exists in `infra/docker-compose.yml`.
 - Developer onboarding notes exist in `docs/10-operations/local-development.md`.
 - The repository had been at the initial spec/artifacts commit before the scaffold checkpoint was committed.
 - Repository workflow now expects small task-slice branches and pull requests instead of direct `main` development.
 - PR process guidance lives in `docs/10-operations/pull-request-workflow.md` and `.github/PULL_REQUEST_TEMPLATE.md`.
+- Default bootstrap users: `indexer`, `processor`, `supervisor`, `admin` with password `ChangeMe123!` unless bootstrap is disabled.
 
-Start the next session by reviewing `specs/001-insurance-broker-ikms/tasks.md` and the current git history, then continue with the foundational slice.
+Start the next session by reviewing `specs/001-insurance-broker-ikms/tasks.md`, `docs/10-operations/local-development.md`, and the current git history, then continue with the remaining foundation slice.
 
 Recommended first implementation slice:
 
-- Next branch target after this slice: `T013-T019` for security domain, authentication wiring, permission checks, frontend API client, and protected route shell
-- After that: `T020-T022` for Testcontainers, frontend test setup validation, and the Foundation review artifact
+- Next branch target after this slice: `T020-T022` for Testcontainers, frontend test setup validation, and the Foundation review artifact
+- After that: `T023-T033` for pre-implementation hardening, beginning with CSV import and authentication-governance coverage
 - T023-T033: pre-implementation hardening and Hardening review
 - T034-T047: US1 MVP client profile and Client Profile review

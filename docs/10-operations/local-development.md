@@ -31,8 +31,15 @@
 - Backend: `http://localhost:8080`
 - PostgreSQL: `localhost:5432`
 
+## Default Bootstrap Users
+
+- Username: `indexer`, Password: `ChangeMe123!`
+- Username: `processor`, Password: `ChangeMe123!`
+- Username: `supervisor`, Password: `ChangeMe123!`
+- Username: `admin`, Password: `ChangeMe123!`
+
 ## Notes
 
 - The backend is configured to use Flyway migrations from `backend/src/main/resources/db/migration/`.
 - The frontend expects the backend API base URL in `VITE_API_BASE_URL`.
-- Early setup work creates scaffolding only; domain features and migrations come in later phases.
+- The backend seeds default users and baseline app settings when the local database is empty; disable with `ikms.security.bootstrap.enabled=false`.

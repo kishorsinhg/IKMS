@@ -33,13 +33,13 @@
 - [x] T010 Implement shared API error response model in `backend/src/main/java/com/ikms/common/api/ApiError.java`
 - [x] T011 Implement global exception handling in `backend/src/main/java/com/ikms/common/api/GlobalExceptionHandler.java`
 - [x] T012 Implement audit event writer interface in `backend/src/main/java/com/ikms/audit/AuditService.java`
-- [ ] T013 Implement local user, role, and permission model in `backend/src/main/java/com/ikms/security/domain/`
-- [ ] T014 Implement Spring Security username/password authentication in `backend/src/main/java/com/ikms/security/`
-- [ ] T015 Implement role permission checks for Indexer, Processor, Supervisor, and Administrator in `backend/src/main/java/com/ikms/security/PermissionService.java`
-- [ ] T016 Implement file storage abstraction for originals and redacted files in `backend/src/main/java/com/ikms/storage/FileStorageService.java`
-- [ ] T017 Implement database-backed configuration registry in `backend/src/main/java/com/ikms/config/AppSettingService.java`
-- [ ] T018 Implement frontend API client foundation in `frontend/src/api/client.ts`
-- [ ] T019 Implement frontend route shell and protected route handling in `frontend/src/app/`
+- [x] T013 Implement local user, role, and permission model in `backend/src/main/java/com/ikms/security/domain/`
+- [x] T014 Implement Spring Security username/password authentication in `backend/src/main/java/com/ikms/security/`
+- [x] T015 Implement role permission checks for Indexer, Processor, Supervisor, and Administrator in `backend/src/main/java/com/ikms/security/PermissionService.java`
+- [x] T016 Implement file storage abstraction for originals and redacted files in `backend/src/main/java/com/ikms/storage/FileStorageService.java`
+- [x] T017 Implement database-backed configuration registry in `backend/src/main/java/com/ikms/config/AppSettingService.java`
+- [x] T018 Implement frontend API client foundation in `frontend/src/api/client.ts`
+- [x] T019 Implement frontend route shell and protected route handling in `frontend/src/app/`
 - [ ] T020 [P] Add backend Testcontainers setup for PostgreSQL/pgvector in `backend/src/test/java/com/ikms/support/PostgresIntegrationTest.java`
 - [ ] T021 [P] Add frontend test setup in `frontend/src/test/setup.ts`
 - [ ] T022 Complete Foundation code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/foundation-review.md`
