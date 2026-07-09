@@ -58,8 +58,8 @@ Current implementation checkpoint:
 - Local PostgreSQL/pgvector runtime exists in `infra/docker-compose.yml`.
 - Developer onboarding notes exist in `docs/10-operations/local-development.md`.
 - The repository had been at the initial spec/artifacts commit before the scaffold checkpoint was committed.
-- Repository workflow now expects small task-slice branches and pull requests instead of direct `main` development.
-- PR process guidance lives in `docs/10-operations/pull-request-workflow.md` and `.github/PULL_REQUEST_TEMPLATE.md`.
+- Repository workflow now defaults to direct commits on `main`; PR review is optional and not required.
+- Current development process guidance lives in `docs/10-operations/pull-request-workflow.md`.
 - Default bootstrap users: `indexer`, `processor`, `supervisor`, `admin` with password `ChangeMe123!` unless bootstrap is disabled.
 
 Start the next session by reviewing `specs/001-insurance-broker-ikms/tasks.md`, `docs/10-operations/local-development.md`, and the current git history, then continue with the remaining foundation slice.

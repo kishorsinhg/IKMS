@@ -14,4 +14,5 @@
 | DEC-010 | 2026-07-07 | Processor sees redacted content; Supervisor sees PII/original. | Matches role separation. | Accepted |
 | DEC-011 | 2026-07-07 | Original files are preserved and versioned. | Audit and legal evidence. | Accepted |
 | DEC-012 | 2026-07-07 | Exact duplicate hashes are blocked/skipped. | Prevents clutter while preserving versions. | Accepted |
-| DEC-013 | 2026-07-09 | Implementation work uses small task-slice branches and pull requests instead of direct `main` development. | Keeps human and LLM review narrow, auditable, and resilient across interrupted sessions. | Accepted |
+| DEC-013 | 2026-07-09 | Implementation work uses small task-slice branches and pull requests instead of direct `main` development. | Keeps human and LLM review narrow, auditable, and resilient across interrupted sessions. | Superseded |
+| DEC-014 | 2026-07-09 | Implementation work proceeds directly on `main` by default; PR review is optional and not part of the required workflow. | Reduces process overhead and keeps delivery moving faster for this repository. | Accepted |
