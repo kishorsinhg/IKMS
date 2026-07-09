@@ -46,8 +46,11 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T008` are completed locally and should be kept in sync with `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T012` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
+- Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
+- Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
+- Audit extension point exists in `backend/src/main/java/com/ikms/audit/AuditService.java`.
 - Frontend scaffold exists in `frontend/` with React/Vite app entrypoint, route placeholder, test setup, and package scripts.
 - Local PostgreSQL/pgvector runtime exists in `infra/docker-compose.yml`.
 - Developer onboarding notes exist in `docs/10-operations/local-development.md`.
@@ -59,6 +62,7 @@ Start the next session by reviewing `specs/001-insurance-broker-ikms/tasks.md` a
 
 Recommended first implementation slice:
 
-- T009-T022: foundational backend/frontend/security/storage/audit scaffolding and Foundation review
+- Next branch target after this slice: `T013-T019` for security domain, authentication wiring, permission checks, frontend API client, and protected route shell
+- After that: `T020-T022` for Testcontainers, frontend test setup validation, and the Foundation review artifact
 - T023-T033: pre-implementation hardening and Hardening review
 - T034-T047: US1 MVP client profile and Client Profile review

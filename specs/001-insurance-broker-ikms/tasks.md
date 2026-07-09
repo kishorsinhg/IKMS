@@ -29,10 +29,10 @@
 
 **Critical**: No user story implementation should start until this phase is complete.
 
-- [ ] T009 Create initial database migration framework in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T010 Implement shared API error response model in `backend/src/main/java/com/ikms/common/api/ApiError.java`
-- [ ] T011 Implement global exception handling in `backend/src/main/java/com/ikms/common/api/GlobalExceptionHandler.java`
-- [ ] T012 Implement audit event writer interface in `backend/src/main/java/com/ikms/audit/AuditService.java`
+- [x] T009 Create initial database migration framework in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T010 Implement shared API error response model in `backend/src/main/java/com/ikms/common/api/ApiError.java`
+- [x] T011 Implement global exception handling in `backend/src/main/java/com/ikms/common/api/GlobalExceptionHandler.java`
+- [x] T012 Implement audit event writer interface in `backend/src/main/java/com/ikms/audit/AuditService.java`
 - [ ] T013 Implement local user, role, and permission model in `backend/src/main/java/com/ikms/security/domain/`
 - [ ] T014 Implement Spring Security username/password authentication in `backend/src/main/java/com/ikms/security/`
 - [ ] T015 Implement role permission checks for Indexer, Processor, Supervisor, and Administrator in `backend/src/main/java/com/ikms/security/PermissionService.java`
