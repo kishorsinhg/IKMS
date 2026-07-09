@@ -31,4 +31,5 @@ The artifact set is intentionally modular. Each file should stay focused and rea
 - Put task-specific context for future agents in `11-handoff/ai-handoff.md`.
 - Follow `docs/11-handoff/README.md` for handoff update rules.
 - Follow `docs/13-worklog/README.md` for daily worklog rules.
+- Follow `docs/10-operations/pull-request-workflow.md` for branch, PR, and review conventions.
 - Keep test cases traceable to requirement IDs.

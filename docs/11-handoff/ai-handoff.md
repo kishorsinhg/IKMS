@@ -52,6 +52,8 @@ Current implementation checkpoint:
 - Local PostgreSQL/pgvector runtime exists in `infra/docker-compose.yml`.
 - Developer onboarding notes exist in `docs/10-operations/local-development.md`.
 - The repository had been at the initial spec/artifacts commit before the scaffold checkpoint was committed.
+- Repository workflow now expects small task-slice branches and pull requests instead of direct `main` development.
+- PR process guidance lives in `docs/10-operations/pull-request-workflow.md` and `.github/PULL_REQUEST_TEMPLATE.md`.
 
 Start the next session by reviewing `specs/001-insurance-broker-ikms/tasks.md` and the current git history, then continue with the foundational slice.
 
