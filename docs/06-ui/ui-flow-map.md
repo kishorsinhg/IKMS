@@ -3,6 +3,7 @@
 The authoritative V1 UI contract lives at:
 
 - `specs/001-insurance-broker-ikms/contracts/ui.md`
+- `docs/06-ui/ui-design-guidelines.md`
 
 This file remains as the stable `docs/` navigation point for UI flow design.
 
