@@ -12,14 +12,14 @@
 
 **Purpose**: Initialize the monorepo, tooling, and local runtime skeleton.
 
-- [ ] T001 Create backend Spring Boot project structure in `backend/`
-- [ ] T002 Create frontend React/Vite project structure in `frontend/`
-- [ ] T003 [P] Create local PostgreSQL/pgvector Docker setup in `infra/docker-compose.yml`
-- [ ] T004 [P] Create backend environment template in `backend/src/main/resources/application.yml`
-- [ ] T005 [P] Create frontend environment template in `frontend/.env.example`
-- [ ] T006 Configure backend build, test, and dependency management in `backend/pom.xml`
-- [ ] T007 Configure frontend build, test, lint, and formatting in `frontend/package.json`
-- [ ] T008 Add repository developer quickstart notes in `docs/10-operations/local-development.md`
+- [x] T001 Create backend Spring Boot project structure in `backend/`
+- [x] T002 Create frontend React/Vite project structure in `frontend/`
+- [x] T003 [P] Create local PostgreSQL/pgvector Docker setup in `infra/docker-compose.yml`
+- [x] T004 [P] Create backend environment template in `backend/src/main/resources/application.yml`
+- [x] T005 [P] Create frontend environment template in `frontend/.env.example`
+- [x] T006 Configure backend build, test, and dependency management in `backend/pom.xml`
+- [x] T007 Configure frontend build, test, lint, and formatting in `frontend/package.json`
+- [x] T008 Add repository developer quickstart notes in `docs/10-operations/local-development.md`
 
 ---
 
@@ -317,4 +317,3 @@ Task: "Add review queue UI tests in frontend/src/features/intake/ReviewQueue.tes
 ### Validation
 
 Use `specs/001-insurance-broker-ikms/quickstart.md` as the acceptance validation guide after each completed slice.
-

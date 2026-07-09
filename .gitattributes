@@ -1,0 +1,17 @@
+* text=auto
+
+*.md text
+*.txt text
+*.java text
+*.js text
+*.ts text
+*.tsx text
+*.json text
+*.yml text
+*.yaml text
+
+*.docx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary

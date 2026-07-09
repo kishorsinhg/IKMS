@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Java
+target/
+*.class
+
+# Node / React
+node_modules/
+dist/
+build/
+.env
+.env.local
+
+# Logs
+*.log
+
+# Docker
+*.pid
+
+# OS / temp
+.tmp/
+.temp/
