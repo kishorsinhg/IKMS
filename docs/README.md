@@ -19,7 +19,7 @@ The artifact set is intentionally modular. Each file should stay focused and rea
 - `10-operations/` - deployment, backup, monitoring, runbooks
 - `11-handoff/` - AI handoff notes for future Codex sessions
 - `12-decisions/` - ADRs and decision log
-- `13-worklog/` - chronological work notes
+- `13-worklog/` - daily work notes and execution history
 - `14-release/` - changelog, release notes, version checklist
 - `templates/` - reusable artifact templates
 
@@ -29,5 +29,6 @@ The artifact set is intentionally modular. Each file should stay focused and rea
 - Keep each artifact concise and link to related files instead of duplicating large sections.
 - Record decisions in `12-decisions/decision-log.md`; do not bury decisions in long prose.
 - Put task-specific context for future agents in `11-handoff/ai-handoff.md`.
+- Follow `docs/11-handoff/README.md` for handoff update rules.
+- Follow `docs/13-worklog/README.md` for daily worklog rules.
 - Keep test cases traceable to requirement IDs.
-
