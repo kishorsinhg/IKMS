@@ -1,0 +1,19 @@
+Intelligent Knowledge Management System
+1.This is generic platform and can be used by domian and industry by configuring required information.
+2.Knowledge sources can be document, email, notes, records
+3.Document can be auto indexed and classified using AI
+4.Human in loop is needed to reindex or correction
+5.There is a concept of Master Entity and Related Entity. While defining entity I can decide which is master and which is related entity.For e.g. In case of Insurance Customer is master Entity and Policy,Beneficiary etc.. are related entity. 
+6.Master Entity is customer profile where all documents, emails, notes,tasks,history appears in a single view of that customer.We store and show all interaction with customer in this view
+7. When ever we receive document it goes through Index-->Classify-->Human Review if not less confidence-->Link to Customer-->Store-->Retrieve
+8.OCR/ICR via AI mostly Mistral cloud.
+9.Considering simple monolithic application
+10. RAG search is required
+11. Entity,Metadata for Entity, Document Type, metadata for Document type are configurable entity.
+12. Indexer, Processor, Supervisor, Administrator are four roles
+14. Indexer can index document which are not auto indexed.
+15. Processor can search, retrieve, view customer and document but hide PII information
+16. Supervisor can do everything what Processor can do plus view PII information
+17. Administrator has system access and configure configurable information.
+18. auditing, governence,guardrail,security everything as it is no change.
+19. Want to make application simple and can be used by small legal, insurance boker like company having 20-25 users.
