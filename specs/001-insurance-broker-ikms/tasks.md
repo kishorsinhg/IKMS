@@ -119,15 +119,15 @@
 - [x] T053 [P] [US2] Create Email entity in `backend/src/main/java/com/ikms/email/`
 - [x] T054 [P] [US2] Create ReviewQueueItem entity in `backend/src/main/java/com/ikms/review/`
 - [x] T055 [US2] Extend migration for documents, versions, emails, and review queue in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T056 [US2] Implement hash-based duplicate detection in `backend/src/main/java/com/ikms/document/DuplicateDetectionService.java`
-- [ ] T057 [US2] Implement manual upload and original preservation in `backend/src/main/java/com/ikms/document/DocumentUploadService.java`
-- [ ] T058 [US2] Implement document versioning rules in `backend/src/main/java/com/ikms/document/DocumentVersionService.java`
-- [ ] T059 [US2] Implement text extraction adapter for PDF/DOCX in `backend/src/main/java/com/ikms/worker/extract/TextExtractionService.java`
-- [ ] T060 [US2] Implement AI classification and metadata extraction adapter in `backend/src/main/java/com/ikms/ai/ClassificationService.java`
-- [ ] T061 [US2] Implement shared folder polling worker in `backend/src/main/java/com/ikms/worker/intake/SharedFolderIntakeWorker.java`
-- [ ] T062 [US2] Implement IMAP mailbox intake worker in `backend/src/main/java/com/ikms/worker/intake/ImapIntakeWorker.java`
-- [ ] T063 [US2] Implement email attachment-to-document linking in `backend/src/main/java/com/ikms/email/EmailAttachmentService.java`
-- [ ] T064 [US2] Implement review queue services and endpoints in `backend/src/main/java/com/ikms/review/`
+- [x] T056 [US2] Implement hash-based duplicate detection in `backend/src/main/java/com/ikms/document/DuplicateDetectionService.java`
+- [x] T057 [US2] Implement manual upload and original preservation in `backend/src/main/java/com/ikms/document/DocumentUploadService.java`
+- [x] T058 [US2] Implement document versioning rules in `backend/src/main/java/com/ikms/document/DocumentVersionService.java`
+- [x] T059 [US2] Implement text extraction adapter for PDF/DOCX in `backend/src/main/java/com/ikms/worker/extract/TextExtractionService.java`
+- [x] T060 [US2] Implement AI classification and metadata extraction adapter in `backend/src/main/java/com/ikms/ai/ClassificationService.java`
+- [x] T061 [US2] Implement shared folder polling worker in `backend/src/main/java/com/ikms/worker/intake/SharedFolderIntakeWorker.java`
+- [x] T062 [US2] Implement IMAP mailbox intake worker in `backend/src/main/java/com/ikms/worker/intake/ImapIntakeWorker.java`
+- [x] T063 [US2] Implement email attachment-to-document linking in `backend/src/main/java/com/ikms/email/EmailAttachmentService.java`
+- [x] T064 [US2] Implement review queue services and endpoints in `backend/src/main/java/com/ikms/review/`
 - [ ] T065 [US2] Implement document, email, and review queue API bindings in `frontend/src/api/intake.ts`
 - [ ] T066 [US2] Implement manual upload, intake status, and duplicate result UI in `frontend/src/features/intake/`
 - [ ] T067 [US2] Implement review queue link/correct/approve UI in `frontend/src/features/intake/review/`

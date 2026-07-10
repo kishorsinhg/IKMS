@@ -15,4 +15,13 @@ public final class ReviewContracts {
       ReviewQueueStatus status,
       UUID assignedTo) {
   }
+
+  public record LinkClientRequest(UUID clientId) {
+  }
+
+  public record CorrectMetadataRequest(String title) {
+  }
+
+  public record ReviewDecisionRequest(String reason) {
+  }
 }

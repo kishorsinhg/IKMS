@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T055` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T064` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -87,12 +87,14 @@ Current implementation checkpoint:
   - Documents, emails, AI Q&A, and activity sections are placeholders pending later user stories.
 - Intake/review schema and entity baseline now exists in `backend/src/main/java/com/ikms/document/`, `backend/src/main/java/com/ikms/email/`, and `backend/src/main/java/com/ikms/review/`.
 - Intake and review queue UI baseline pages now exist in `frontend/src/features/intake/`.
-- The current intake/review checkpoint covers tests and schema/entity foundation only; duplicate detection, upload services, versioning, workers, and review actions are not yet implemented.
+- Duplicate detection, manual upload/original preservation, and document versioning rules now exist in `backend/src/main/java/com/ikms/document/`.
+- Extraction/classification adapters, shared folder + IMAP workers, email attachment linking, and review queue endpoints now exist in `backend/src/main/java/com/ikms/ai/`, `backend/src/main/java/com/ikms/worker/`, `backend/src/main/java/com/ikms/email/`, and `backend/src/main/java/com/ikms/review/`.
+- The current intake/review checkpoint still does not include frontend intake API bindings, live upload/review UI behavior, client knowledge display, or the US2 review artifact.
 
 Start the next session by reviewing `git status`, confirming the US1 client profile slice is committed, then continue with intake and review.
 
 Recommended first implementation slice:
 
-- Next branch target: continue `T056-T069` for User Story 2 intake and review.
-- Start with `T056-T058` for duplicate detection, manual upload/original preservation, and document versioning rules.
-- Then continue through `T059-T069` for extraction/classification adapters, intake workers, review actions/UI, client knowledge display, and review artifact.
+- Next branch target: continue `T065-T069` for User Story 2 intake and review.
+- Start with `T065-T068` for frontend intake/review API bindings, live upload and review UI behavior, and client knowledge display.
+- Then complete `T069` with the intake/review code review artifact.
