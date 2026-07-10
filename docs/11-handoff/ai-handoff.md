@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T047` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T055` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -85,11 +85,14 @@ Current implementation checkpoint:
   - CSV import is still not persisted into the real client model.
   - Notes support create/list only; edit/delete remains unimplemented.
   - Documents, emails, AI Q&A, and activity sections are placeholders pending later user stories.
+- Intake/review schema and entity baseline now exists in `backend/src/main/java/com/ikms/document/`, `backend/src/main/java/com/ikms/email/`, and `backend/src/main/java/com/ikms/review/`.
+- Intake and review queue UI baseline pages now exist in `frontend/src/features/intake/`.
+- The current intake/review checkpoint covers tests and schema/entity foundation only; duplicate detection, upload services, versioning, workers, and review actions are not yet implemented.
 
 Start the next session by reviewing `git status`, confirming the US1 client profile slice is committed, then continue with intake and review.
 
 Recommended first implementation slice:
 
-- Next branch target: `T048-T069` for User Story 2 intake and review, beginning with upload/duplicate/review workflow tests and core document/email/review entities.
-- Start with `T048-T055` so tests and schema/entity baseline for documents, emails, versions, and review queue land together.
-- Then continue through `T056-T069` for duplicate detection, upload/version services, intake workers, review UI, and review artifact.
+- Next branch target: continue `T056-T069` for User Story 2 intake and review.
+- Start with `T056-T058` for duplicate detection, manual upload/original preservation, and document versioning rules.
+- Then continue through `T059-T069` for extraction/classification adapters, intake workers, review actions/UI, client knowledge display, and review artifact.

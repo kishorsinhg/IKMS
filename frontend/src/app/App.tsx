@@ -6,6 +6,8 @@ import { ApiClientError } from "../api/client";
 import { ClientProfilePage } from "../features/clients/ClientProfilePage";
 import { ClientsWorkspacePage } from "../features/clients/ClientsWorkspacePage";
 import { ClientImportPage } from "../features/clients/import/ClientImportPage";
+import { IntakePage } from "../features/intake/IntakePage";
+import { ReviewQueuePage } from "../features/intake/review/ReviewQueuePage";
 
 const currentUserQueryKey = ["auth", "me"];
 
@@ -32,8 +34,8 @@ export function App() {
           <Route path="/clients" element={<ClientsWorkspacePage />} />
           <Route path="/clients/import" element={<ClientImportPage />} />
           <Route path="/clients/:clientId" element={<ClientProfilePage />} />
-          <Route path="/review-queue" element={<PlaceholderPage title="Review queue" />} />
-          <Route path="/intake" element={<PlaceholderPage title="Intake operations" />} />
+          <Route path="/review-queue" element={<ReviewQueuePage />} />
+          <Route path="/intake" element={<IntakePage />} />
           <Route path="/search" element={<PlaceholderPage title="Client search and AI Q&A" />} />
           <Route path="/administration" element={<PlaceholderPage title="Administration" />} />
           <Route path="/audit" element={<PlaceholderPage title="Audit and governance" />} />

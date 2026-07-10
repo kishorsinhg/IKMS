@@ -108,17 +108,17 @@
 
 ### Tests For User Story 2
 
-- [ ] T048 [P] [US2] Add document upload and duplicate tests in `backend/src/test/java/com/ikms/document/DocumentUploadTest.java`
-- [ ] T049 [P] [US2] Add review queue workflow tests in `backend/src/test/java/com/ikms/review/ReviewQueueWorkflowTest.java`
-- [ ] T050 [P] [US2] Add intake UI tests in `frontend/src/features/intake/IntakePage.test.tsx`
-- [ ] T051 [P] [US2] Add review queue UI tests in `frontend/src/features/intake/ReviewQueue.test.tsx`
+- [x] T048 [P] [US2] Add document upload and duplicate tests in `backend/src/test/java/com/ikms/document/DocumentUploadTest.java`
+- [x] T049 [P] [US2] Add review queue workflow tests in `backend/src/test/java/com/ikms/review/ReviewQueueWorkflowTest.java`
+- [x] T050 [P] [US2] Add intake UI tests in `frontend/src/features/intake/IntakePage.test.tsx`
+- [x] T051 [P] [US2] Add review queue UI tests in `frontend/src/features/intake/ReviewQueue.test.tsx`
 
 ### Implementation For User Story 2
 
-- [ ] T052 [P] [US2] Create Document and DocumentVersion entities in `backend/src/main/java/com/ikms/document/`
-- [ ] T053 [P] [US2] Create Email entity in `backend/src/main/java/com/ikms/email/`
-- [ ] T054 [P] [US2] Create ReviewQueueItem entity in `backend/src/main/java/com/ikms/review/`
-- [ ] T055 [US2] Extend migration for documents, versions, emails, and review queue in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T052 [P] [US2] Create Document and DocumentVersion entities in `backend/src/main/java/com/ikms/document/`
+- [x] T053 [P] [US2] Create Email entity in `backend/src/main/java/com/ikms/email/`
+- [x] T054 [P] [US2] Create ReviewQueueItem entity in `backend/src/main/java/com/ikms/review/`
+- [x] T055 [US2] Extend migration for documents, versions, emails, and review queue in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
 - [ ] T056 [US2] Implement hash-based duplicate detection in `backend/src/main/java/com/ikms/document/DuplicateDetectionService.java`
 - [ ] T057 [US2] Implement manual upload and original preservation in `backend/src/main/java/com/ikms/document/DocumentUploadService.java`
 - [ ] T058 [US2] Implement document versioning rules in `backend/src/main/java/com/ikms/document/DocumentVersionService.java`
