@@ -19,6 +19,8 @@ export interface ClientDocumentSummary {
   source: string;
   processingStatus: string;
   reviewStatus: string;
+  redactionStatus: "NOT_NEEDED" | "PENDING" | "AVAILABLE" | "FAILED" | "BLOCKED";
+  containsPii: boolean;
   currentVersionId: string | null;
   parentEmailId: string | null;
   createdAt: string;

@@ -14,6 +14,15 @@ describe("ClientProfilePage", () => {
     });
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "user-1",
+        username: "processor",
+        displayName: "Processor",
+        email: "processor@example.com",
+        status: "ACTIVE",
+        roles: ["PROCESSOR"],
+        permissions: ["CLIENT_VIEW", "SEARCH_CLIENT_KNOWLEDGE", "ASK_CLIENT_AI", "VIEW_REDACTED_DOCUMENTS"],
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
         id: "client-1",
         clientId: "TMP-1",
         clientIdTemporary: true,
@@ -36,6 +45,8 @@ describe("ClientProfilePage", () => {
           source: "MANUAL_UPLOAD",
           processingStatus: "CLASSIFIED",
           reviewStatus: "APPROVED",
+          redactionStatus: "AVAILABLE",
+          containsPii: true,
           currentVersionId: "ver-1",
           parentEmailId: null,
           createdAt: "2026-07-10T10:00:00Z",

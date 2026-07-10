@@ -24,10 +24,15 @@ public class DocumentController {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
   private final DocumentRepository documentRepository;
+  private final DocumentVersionRepository documentVersionRepository;
   private final DocumentUploadService documentUploadService;
 
-  public DocumentController(DocumentRepository documentRepository, DocumentUploadService documentUploadService) {
+  public DocumentController(
+      DocumentRepository documentRepository,
+      DocumentVersionRepository documentVersionRepository,
+      DocumentUploadService documentUploadService) {
     this.documentRepository = documentRepository;
+    this.documentVersionRepository = documentVersionRepository;
     this.documentUploadService = documentUploadService;
   }
 
@@ -66,16 +71,23 @@ public class DocumentController {
   @GetMapping("/api/clients/{clientId}/documents")
   public List<DocumentContracts.DocumentSummaryResponse> listClientDocuments(@PathVariable UUID clientId) {
     return documentRepository.findByClient_IdOrderByCreatedAtDesc(clientId).stream()
-        .map(document -> new DocumentContracts.DocumentSummaryResponse(
-            document.getId(),
-            document.getClient() == null ? null : document.getClient().getId(),
-            document.getTitle(),
-            document.getSource().name(),
-            document.getProcessingStatus().name(),
-            document.getReviewStatus().name(),
-            document.getCurrentVersionId() == null ? null : document.getCurrentVersionId().toString(),
-            document.getParentEmail() == null ? null : document.getParentEmail().getId().toString(),
-            document.getCreatedAt()))
+        .map(document -> {
+          DocumentVersion currentVersion = documentVersionRepository.findByDocument_IdAndCurrentTrue(document.getId())
+              .orElse(null);
+          boolean containsPii = document.getClient() != null;
+          return new DocumentContracts.DocumentSummaryResponse(
+              document.getId(),
+              document.getClient() == null ? null : document.getClient().getId(),
+              document.getTitle(),
+              document.getSource().name(),
+              document.getProcessingStatus().name(),
+              document.getReviewStatus().name(),
+              currentVersion == null ? RedactionStatus.PENDING.name() : currentVersion.getRedactionStatus().name(),
+              containsPii,
+              document.getCurrentVersionId() == null ? null : document.getCurrentVersionId().toString(),
+              document.getParentEmail() == null ? null : document.getParentEmail().getId().toString(),
+              document.getCreatedAt());
+        })
         .toList();
   }
 

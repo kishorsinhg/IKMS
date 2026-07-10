@@ -3,6 +3,7 @@ package com.ikms.client;
 import com.ikms.note.NoteContracts;
 import com.ikms.note.NoteService;
 import com.ikms.security.AppUserPrincipal;
+import com.ikms.security.PiiMaskingService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -22,10 +23,12 @@ public class ClientController {
 
   private final ClientService clientService;
   private final NoteService noteService;
+  private final PiiMaskingService piiMaskingService;
 
-  public ClientController(ClientService clientService, NoteService noteService) {
+  public ClientController(ClientService clientService, NoteService noteService, PiiMaskingService piiMaskingService) {
     this.clientService = clientService;
     this.noteService = noteService;
+    this.piiMaskingService = piiMaskingService;
   }
 
   @GetMapping
@@ -42,8 +45,10 @@ public class ClientController {
   }
 
   @GetMapping("/{clientId}")
-  public ClientContracts.ClientProfileResponse get(@PathVariable UUID clientId) {
-    return clientService.get(clientId);
+  public ClientContracts.ClientProfileResponse get(@PathVariable UUID clientId, Authentication authentication) {
+    return piiMaskingService.maskClientProfile(
+        clientService.get(clientId),
+        principal(authentication).permissions());
   }
 
   @PatchMapping("/{clientId}")

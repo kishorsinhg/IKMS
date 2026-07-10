@@ -1,7 +1,10 @@
 package com.ikms.email;
 
+import com.ikms.security.AppUserPrincipal;
+import com.ikms.security.PiiMaskingService;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,13 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmailController {
 
   private final EmailRepository emailRepository;
+  private final PiiMaskingService piiMaskingService;
 
-  public EmailController(EmailRepository emailRepository) {
+  public EmailController(EmailRepository emailRepository, PiiMaskingService piiMaskingService) {
     this.emailRepository = emailRepository;
+    this.piiMaskingService = piiMaskingService;
   }
 
   @GetMapping("/api/clients/{clientId}/emails")
-  public List<EmailContracts.EmailSummaryResponse> listClientEmails(@PathVariable UUID clientId) {
+  public List<EmailContracts.EmailSummaryResponse> listClientEmails(
+      @PathVariable UUID clientId,
+      Authentication authentication) {
     return emailRepository.findByClient_IdOrderByReceivedAtDesc(clientId).stream()
         .map(email -> new EmailContracts.EmailSummaryResponse(
             email.getId(),
@@ -29,6 +36,11 @@ public class EmailController {
             email.getProcessingStatus().name(),
             email.getReviewStatus().name(),
             email.getReceivedAt()))
+        .map(email -> piiMaskingService.maskEmailSummary(email, principal(authentication).permissions()))
         .toList();
+  }
+
+  private AppUserPrincipal principal(Authentication authentication) {
+    return (AppUserPrincipal) authentication.getPrincipal();
   }
 }

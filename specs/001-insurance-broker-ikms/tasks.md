@@ -146,19 +146,19 @@
 
 ### Tests For User Story 4
 
-- [ ] T070 [P] [US4] Add PII masking and permission tests in `backend/src/test/java/com/ikms/security/PiiAccessControlTest.java`
-- [ ] T071 [P] [US4] Add redacted preview/download tests in `backend/src/test/java/com/ikms/document/RedactedDocumentAccessTest.java`
-- [ ] T072 [P] [US4] Add Processor/Supervisor UI permission tests in `frontend/src/features/clients/PiiVisibility.test.tsx`
+- [x] T070 [P] [US4] Add PII masking and permission tests in `backend/src/test/java/com/ikms/security/PiiAccessControlTest.java`
+- [x] T071 [P] [US4] Add redacted preview/download tests in `backend/src/test/java/com/ikms/document/RedactedDocumentAccessTest.java`
+- [x] T072 [P] [US4] Add Processor/Supervisor UI permission tests in `frontend/src/features/clients/PiiVisibility.test.tsx`
 
 ### Implementation For User Story 4
 
-- [ ] T073 [US4] Implement metadata PII masking service in `backend/src/main/java/com/ikms/security/PiiMaskingService.java`
-- [ ] T074 [US4] Implement document redaction adapter and failure states in `backend/src/main/java/com/ikms/document/DocumentRedactionService.java`
-- [ ] T075 [US4] Enforce redacted preview/download routing in `backend/src/main/java/com/ikms/document/DocumentAccessController.java`
-- [ ] T076 [US4] Enforce PII filtering before search retrieval and AI context assembly in `backend/src/main/java/com/ikms/security/SecurityTrimService.java`
-- [ ] T077 [US4] Add PII/original access audit events in `backend/src/main/java/com/ikms/audit/AuditService.java`
-- [ ] T078 [US4] Add frontend masked-field and redacted-action states in `frontend/src/features/clients/knowledge/`
-- [ ] T079 [US4] Complete PII Protection code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us4-pii-protection-review.md`
+- [x] T073 [US4] Implement metadata PII masking service in `backend/src/main/java/com/ikms/security/PiiMaskingService.java`
+- [x] T074 [US4] Implement document redaction adapter and failure states in `backend/src/main/java/com/ikms/document/DocumentRedactionService.java`
+- [x] T075 [US4] Enforce redacted preview/download routing in `backend/src/main/java/com/ikms/document/DocumentAccessController.java`
+- [x] T076 [US4] Enforce PII filtering before search retrieval and AI context assembly in `backend/src/main/java/com/ikms/security/SecurityTrimService.java`
+- [x] T077 [US4] Add PII/original access audit events in `backend/src/main/java/com/ikms/audit/AuditService.java`
+- [x] T078 [US4] Add frontend masked-field and redacted-action states in `frontend/src/features/clients/knowledge/`
+- [x] T079 [US4] Complete PII Protection code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us4-pii-protection-review.md`
 
 **Checkpoint**: Processor cannot receive unredacted PII through profile, preview, download, search, or AI paths.
 

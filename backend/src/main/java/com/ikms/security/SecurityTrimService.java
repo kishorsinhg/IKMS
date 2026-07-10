@@ -7,6 +7,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class SecurityTrimService {
 
+  private final PiiMaskingService piiMaskingService;
+
+  public SecurityTrimService(PiiMaskingService piiMaskingService) {
+    this.piiMaskingService = piiMaskingService;
+  }
+
   public SecurityTrimDecision evaluateDocumentPreview(Set<Permission> permissions, boolean containsPii,
       boolean redactionAvailable) {
     return evaluateDocumentAccess(permissions, containsPii, redactionAvailable, "preview");
@@ -22,7 +28,7 @@ public class SecurityTrimService {
       return SecurityTrimDecision.denied("Missing search permission.");
     }
     if (containsPii && !permissions.contains(Permission.VIEW_PII)) {
-      return SecurityTrimDecision.denied("PII-bearing search results must be trimmed.");
+      return SecurityTrimDecision.allowed(true, false, "PII-bearing search results must be trimmed.");
     }
     return SecurityTrimDecision.allowed(false, containsPii && permissions.contains(Permission.VIEW_PII), "Allowed");
   }
@@ -32,9 +38,25 @@ public class SecurityTrimService {
       return SecurityTrimDecision.denied("Missing AI permission.");
     }
     if (containsPii && !permissions.contains(Permission.VIEW_PII)) {
-      return SecurityTrimDecision.denied("PII-bearing context must be excluded.");
+      return SecurityTrimDecision.allowed(true, false, "PII-bearing context must be trimmed.");
     }
     return SecurityTrimDecision.allowed(false, containsPii && permissions.contains(Permission.VIEW_PII), "Allowed");
+  }
+
+  public String trimSearchResult(Set<Permission> permissions, String text, boolean containsPii) {
+    SecurityTrimDecision decision = evaluateSearchRetrieval(permissions, containsPii);
+    if (!decision.allowed()) {
+      throw new IllegalArgumentException(decision.reason());
+    }
+    return decision.redactionRequired() ? piiMaskingService.trimFreeText(text, permissions) : text;
+  }
+
+  public String trimAiContext(Set<Permission> permissions, String text, boolean containsPii) {
+    SecurityTrimDecision decision = evaluateAiContextAssembly(permissions, containsPii);
+    if (!decision.allowed()) {
+      throw new IllegalArgumentException(decision.reason());
+    }
+    return decision.redactionRequired() ? piiMaskingService.trimFreeText(text, permissions) : text;
   }
 
   private SecurityTrimDecision evaluateDocumentAccess(Set<Permission> permissions, boolean containsPii,

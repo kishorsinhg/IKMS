@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { getCurrentUser } from "../../api/auth";
 import { createNote, getClient, listNotes } from "../../api/clients";
 import { listClientDocuments, listClientEmails } from "../../api/intake";
 import { DocumentsSection, EmailsSection } from "./knowledge/KnowledgeSections";
@@ -14,6 +15,11 @@ export function ClientProfilePage() {
   const { clientId } = useParams();
   const queryClient = useQueryClient();
   const [noteText, setNoteText] = useState("");
+  const currentUserQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: getCurrentUser,
+    retry: false,
+  });
 
   const clientQuery = useQuery({
     queryKey: clientId ? clientQueryKey(clientId) : ["clients", "profile", "empty"],
@@ -65,15 +71,16 @@ export function ClientProfilePage() {
     );
   }
 
-  if (clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading) {
+  if (clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading || currentUserQuery.isLoading) {
     return <div>Loading client profile...</div>;
   }
 
-  if (clientQuery.isError) {
+  if (clientQuery.isError || currentUserQuery.isError) {
     return <div>Unable to load the selected client profile.</div>;
   }
 
   const client = clientQuery.data!;
+  const currentUser = currentUserQuery.data!;
 
   function handleCreateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,7 +106,7 @@ export function ClientProfilePage() {
           title="Client Profile"
           description={`${client.clientType} · ${client.status}${client.primaryEmail ? ` · ${client.primaryEmail}` : ""}`}
         />
-        <DocumentsSection documents={documentsQuery.data} />
+        <DocumentsSection documents={documentsQuery.data} permissions={currentUser.permissions} />
         <EmailsSection emails={emailsQuery.data} />
         <section style={cardStyle}>
           <h3 style={{ marginTop: 0 }}>Notes</h3>

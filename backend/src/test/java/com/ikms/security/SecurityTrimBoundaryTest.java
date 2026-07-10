@@ -13,7 +13,7 @@ class SecurityTrimBoundaryTest {
 
   @BeforeEach
   void setUp() {
-    securityTrimService = new SecurityTrimService();
+    securityTrimService = new SecurityTrimService(new PiiMaskingService());
   }
 
   @Test
@@ -52,7 +52,7 @@ class SecurityTrimBoundaryTest {
   }
 
   @Test
-  void processorShouldBeDeniedPiiSearchAndAiContext() {
+  void processorShouldReceiveTrimmedPiiSearchAndAiContext() {
     SecurityTrimService.SecurityTrimDecision searchDecision = securityTrimService.evaluateSearchRetrieval(
         Set.of(Permission.SEARCH_CLIENT_KNOWLEDGE),
         true);
@@ -60,7 +60,9 @@ class SecurityTrimBoundaryTest {
         Set.of(Permission.ASK_CLIENT_AI),
         true);
 
-    assertThat(searchDecision.allowed()).isFalse();
-    assertThat(aiDecision.allowed()).isFalse();
+    assertThat(searchDecision.allowed()).isTrue();
+    assertThat(searchDecision.redactionRequired()).isTrue();
+    assertThat(aiDecision.allowed()).isTrue();
+    assertThat(aiDecision.redactionRequired()).isTrue();
   }
 }

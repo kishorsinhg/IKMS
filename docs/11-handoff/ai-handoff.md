@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T069` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T079` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -97,9 +97,17 @@ Current implementation checkpoint:
 - Known follow-up gaps from the intake/review review:
   - Review detail payloads still expose queue metadata only, not richer extracted evidence.
   - Shared-folder and IMAP status cards are not yet backed by live worker telemetry endpoints.
+- PII masking now applies to client profile and email summary responses for users without `VIEW_PII`.
+- Redacted/original document preview and download routing now exists in `backend/src/main/java/com/ikms/document/DocumentAccessController.java`.
+- Placeholder document redaction generation now exists in `backend/src/main/java/com/ikms/document/DocumentRedactionService.java`.
+- The client knowledge UI now distinguishes processor redacted actions from supervisor original actions in `frontend/src/features/clients/knowledge/`.
+- PII protection review artifact exists at `docs/09-testing/reviews/us4-pii-protection-review.md`.
+- Known follow-up gaps from the PII protection review:
+  - Redaction generation is still placeholder text output, not file-format-aware PDF/DOCX redaction.
+  - Document `containsPii` behavior is still inferred coarsely from client linkage rather than explicit metadata/config flags.
 
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US2 slice, then continue with the next priority story.
 
 Recommended first implementation slice:
 
-- Next branch target: begin User Story 4 with `T070-T079` for PII masking, redacted document access, and role-based client knowledge visibility.
+- Next branch target: begin User Story 3 with `T080-T093` for client-scoped search, RAG context assembly, and AI Q&A.

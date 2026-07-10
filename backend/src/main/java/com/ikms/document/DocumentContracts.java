@@ -31,6 +31,8 @@ public final class DocumentContracts {
       String source,
       String processingStatus,
       String reviewStatus,
+      String redactionStatus,
+      boolean containsPii,
       String currentVersionId,
       String parentEmailId,
       Instant createdAt) {
