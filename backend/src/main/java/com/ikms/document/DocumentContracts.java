@@ -1,6 +1,7 @@
 package com.ikms.document;
 
 import jakarta.validation.constraints.NotBlank;
+import java.time.Instant;
 import java.util.UUID;
 
 public final class DocumentContracts {
@@ -21,5 +22,17 @@ public final class DocumentContracts {
       String outcome,
       String reviewStatus,
       String duplicateOfDocumentId) {
+  }
+
+  public record DocumentSummaryResponse(
+      UUID id,
+      UUID clientId,
+      String title,
+      String source,
+      String processingStatus,
+      String reviewStatus,
+      String currentVersionId,
+      String parentEmailId,
+      Instant createdAt) {
   }
 }

@@ -128,11 +128,11 @@
 - [x] T062 [US2] Implement IMAP mailbox intake worker in `backend/src/main/java/com/ikms/worker/intake/ImapIntakeWorker.java`
 - [x] T063 [US2] Implement email attachment-to-document linking in `backend/src/main/java/com/ikms/email/EmailAttachmentService.java`
 - [x] T064 [US2] Implement review queue services and endpoints in `backend/src/main/java/com/ikms/review/`
-- [ ] T065 [US2] Implement document, email, and review queue API bindings in `frontend/src/api/intake.ts`
-- [ ] T066 [US2] Implement manual upload, intake status, and duplicate result UI in `frontend/src/features/intake/`
-- [ ] T067 [US2] Implement review queue link/correct/approve UI in `frontend/src/features/intake/review/`
-- [ ] T068 [US2] Add document and email sections to client profile in `frontend/src/features/clients/knowledge/`
-- [ ] T069 [US2] Complete Intake and Review code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us2-intake-review.md`
+- [x] T065 [US2] Implement document, email, and review queue API bindings in `frontend/src/api/intake.ts`
+- [x] T066 [US2] Implement manual upload, intake status, and duplicate result UI in `frontend/src/features/intake/`
+- [x] T067 [US2] Implement review queue link/correct/approve UI in `frontend/src/features/intake/review/`
+- [x] T068 [US2] Add document and email sections to client profile in `frontend/src/features/clients/knowledge/`
+- [x] T069 [US2] Complete Intake and Review code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us2-intake-review.md`
 
 **Checkpoint**: Intake and review create searchable client-linked knowledge records, even before RAG is enabled.
 

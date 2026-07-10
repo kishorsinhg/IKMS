@@ -2,9 +2,13 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { createNote, getClient, listNotes } from "../../api/clients";
+import { listClientDocuments, listClientEmails } from "../../api/intake";
+import { DocumentsSection, EmailsSection } from "./knowledge/KnowledgeSections";
 
 const clientQueryKey = (clientId: string) => ["clients", "profile", clientId];
 const notesQueryKey = (clientId: string) => ["clients", clientId, "notes"];
+const documentsQueryKey = (clientId: string) => ["clients", clientId, "documents"];
+const emailsQueryKey = (clientId: string) => ["clients", clientId, "emails"];
 
 export function ClientProfilePage() {
   const { clientId } = useParams();
@@ -19,6 +23,16 @@ export function ClientProfilePage() {
   const notesQuery = useQuery({
     queryKey: clientId ? notesQueryKey(clientId) : ["clients", "notes", "empty"],
     queryFn: () => listNotes(clientId!),
+    enabled: Boolean(clientId),
+  });
+  const documentsQuery = useQuery({
+    queryKey: clientId ? documentsQueryKey(clientId) : ["clients", "documents", "empty"],
+    queryFn: () => listClientDocuments(clientId!),
+    enabled: Boolean(clientId),
+  });
+  const emailsQuery = useQuery({
+    queryKey: clientId ? emailsQueryKey(clientId) : ["clients", "emails", "empty"],
+    queryFn: () => listClientEmails(clientId!),
     enabled: Boolean(clientId),
   });
   const noteMutation = useMutation({
@@ -51,7 +65,7 @@ export function ClientProfilePage() {
     );
   }
 
-  if (clientQuery.isLoading || notesQuery.isLoading) {
+  if (clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading) {
     return <div>Loading client profile...</div>;
   }
 
@@ -85,8 +99,8 @@ export function ClientProfilePage() {
           title="Client Profile"
           description={`${client.clientType} · ${client.status}${client.primaryEmail ? ` · ${client.primaryEmail}` : ""}`}
         />
-        <ProfileSection title="Documents" description="Document intake and versions will appear here." />
-        <ProfileSection title="Emails" description="Mailbox and attachment history will appear here." />
+        <DocumentsSection documents={documentsQuery.data} />
+        <EmailsSection emails={emailsQuery.data} />
         <section style={cardStyle}>
           <h3 style={{ marginTop: 0 }}>Notes</h3>
           <form onSubmit={handleCreateNote} style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>

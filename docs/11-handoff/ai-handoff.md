@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T064` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T069` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -86,15 +86,20 @@ Current implementation checkpoint:
   - Notes support create/list only; edit/delete remains unimplemented.
   - Documents, emails, AI Q&A, and activity sections are placeholders pending later user stories.
 - Intake/review schema and entity baseline now exists in `backend/src/main/java/com/ikms/document/`, `backend/src/main/java/com/ikms/email/`, and `backend/src/main/java/com/ikms/review/`.
-- Intake and review queue UI baseline pages now exist in `frontend/src/features/intake/`.
 - Duplicate detection, manual upload/original preservation, and document versioning rules now exist in `backend/src/main/java/com/ikms/document/`.
 - Extraction/classification adapters, shared folder + IMAP workers, email attachment linking, and review queue endpoints now exist in `backend/src/main/java/com/ikms/ai/`, `backend/src/main/java/com/ikms/worker/`, `backend/src/main/java/com/ikms/email/`, and `backend/src/main/java/com/ikms/review/`.
-- The current intake/review checkpoint still does not include frontend intake API bindings, live upload/review UI behavior, client knowledge display, or the US2 review artifact.
+- Live intake API bindings now exist in `frontend/src/api/intake.ts`.
+- `frontend/src/features/intake/IntakePage.tsx` now performs multipart PDF/DOCX upload, shows duplicate outcomes, and exposes intake routing controls.
+- `frontend/src/features/intake/review/ReviewQueuePage.tsx` now lists queue items, filters by status/reason, links clients, corrects metadata, and approves/rejects items.
+- Client profile document/email sections now live in `frontend/src/features/clients/knowledge/`.
+- Backend runtime now includes multipart upload and client knowledge list endpoints plus a local filesystem storage bean in `backend/src/main/java/com/ikms/document/DocumentController.java`, `backend/src/main/java/com/ikms/email/EmailController.java`, and `backend/src/main/java/com/ikms/storage/LocalFileStorageService.java`.
+- Intake/review review artifact exists at `docs/09-testing/reviews/us2-intake-review.md`.
+- Known follow-up gaps from the intake/review review:
+  - Review detail payloads still expose queue metadata only, not richer extracted evidence.
+  - Shared-folder and IMAP status cards are not yet backed by live worker telemetry endpoints.
 
-Start the next session by reviewing `git status`, confirming the US1 client profile slice is committed, then continue with intake and review.
+Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US2 slice, then continue with the next priority story.
 
 Recommended first implementation slice:
 
-- Next branch target: continue `T065-T069` for User Story 2 intake and review.
-- Start with `T065-T068` for frontend intake/review API bindings, live upload and review UI behavior, and client knowledge display.
-- Then complete `T069` with the intake/review code review artifact.
+- Next branch target: begin User Story 4 with `T070-T079` for PII masking, redacted document access, and role-based client knowledge visibility.
