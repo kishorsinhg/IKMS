@@ -27,6 +27,13 @@ class ApiClient {
     });
   }
 
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: "PATCH",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
   async postForm<T>(path: string, body: FormData): Promise<T> {
     return this.request<T>(path, {
       method: "POST",

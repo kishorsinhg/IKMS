@@ -78,23 +78,23 @@
 
 ### Tests For User Story 1
 
-- [ ] T034 [P] [US1] Add client API contract tests in `backend/src/test/java/com/ikms/client/ClientControllerContractTest.java`
-- [ ] T035 [P] [US1] Add client profile UI tests in `frontend/src/features/clients/ClientProfile.test.tsx`
-- [ ] T036 [P] [US1] Add note API tests in `backend/src/test/java/com/ikms/note/NoteControllerContractTest.java`
+- [x] T034 [P] [US1] Add client API contract tests in `backend/src/test/java/com/ikms/client/ClientControllerContractTest.java`
+- [x] T035 [P] [US1] Add client profile UI tests in `frontend/src/features/clients/ClientProfile.test.tsx`
+- [x] T036 [P] [US1] Add note API tests in `backend/src/test/java/com/ikms/note/NoteControllerContractTest.java`
 
 ### Implementation For User Story 1
 
-- [ ] T037 [P] [US1] Create Client JPA entity and repository in `backend/src/main/java/com/ikms/client/`
-- [ ] T038 [P] [US1] Create Note JPA entity and repository in `backend/src/main/java/com/ikms/note/`
-- [ ] T039 [US1] Extend baseline migration for clients and notes in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T040 [US1] Implement temporary ClientID generation and uniqueness validation in `backend/src/main/java/com/ikms/client/ClientIdService.java`
-- [ ] T041 [US1] Implement client profile service in `backend/src/main/java/com/ikms/client/ClientService.java`
-- [ ] T042 [US1] Implement note service with audit events in `backend/src/main/java/com/ikms/note/NoteService.java`
-- [ ] T043 [US1] Implement client and note REST endpoints in `backend/src/main/java/com/ikms/client/ClientController.java`
-- [ ] T044 [US1] Implement client search and profile API bindings in `frontend/src/api/clients.ts`
-- [ ] T045 [US1] Implement client list, create/edit, and profile pages in `frontend/src/features/clients/`
-- [ ] T046 [US1] Implement notes section in `frontend/src/features/clients/notes/`
-- [ ] T047 [US1] Complete Client Profile code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us1-client-profile-review.md`
+- [x] T037 [P] [US1] Create Client JPA entity and repository in `backend/src/main/java/com/ikms/client/`
+- [x] T038 [P] [US1] Create Note JPA entity and repository in `backend/src/main/java/com/ikms/note/`
+- [x] T039 [US1] Extend baseline migration for clients and notes in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T040 [US1] Implement temporary ClientID generation and uniqueness validation in `backend/src/main/java/com/ikms/client/ClientIdService.java`
+- [x] T041 [US1] Implement client profile service in `backend/src/main/java/com/ikms/client/ClientService.java`
+- [x] T042 [US1] Implement note service with audit events in `backend/src/main/java/com/ikms/note/NoteService.java`
+- [x] T043 [US1] Implement client and note REST endpoints in `backend/src/main/java/com/ikms/client/ClientController.java`
+- [x] T044 [US1] Implement client search and profile API bindings in `frontend/src/api/clients.ts`
+- [x] T045 [US1] Implement client list, create/edit, and profile pages in `frontend/src/features/clients/`
+- [x] T046 [US1] Implement notes section in `frontend/src/features/clients/notes/`
+- [x] T047 [US1] Complete Client Profile code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us1-client-profile-review.md`
 
 **Checkpoint**: Client profile MVP is usable without document intake, AI, or advanced administration.
 

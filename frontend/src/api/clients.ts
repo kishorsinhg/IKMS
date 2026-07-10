@@ -1,5 +1,53 @@
 import { apiClient } from "./client";
 
+export type ClientType = "INDIVIDUAL" | "BUSINESS";
+export type ClientStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";
+
+export interface ClientSummary {
+  id: string;
+  clientId: string;
+  clientIdTemporary: boolean;
+  clientType: ClientType;
+  status: ClientStatus;
+  displayName: string;
+}
+
+export interface ClientProfile extends ClientSummary {
+  legalName: string | null;
+  primaryEmail: string | null;
+  primaryPhone: string | null;
+  contactPerson: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClientRequest {
+  clientId?: string;
+  clientType: ClientType;
+  displayName: string;
+  legalName?: string;
+  primaryEmail?: string;
+  primaryPhone?: string;
+  contactPerson?: string;
+}
+
+export interface UpdateClientRequest extends CreateClientRequest {
+  status: ClientStatus;
+}
+
+export interface Note {
+  id: string;
+  clientId: string;
+  noteText: string;
+  status: "ACTIVE" | "DELETED";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateNoteRequest {
+  noteText: string;
+}
+
 export interface ClientImportRowResult {
   lineNumber: number;
   clientId: string;
@@ -26,4 +74,29 @@ export function importClients(file: File) {
   const formData = new FormData();
   formData.set("file", file);
   return apiClient.postForm<ClientImportResult>("/api/clients/import", formData);
+}
+
+export function listClients(query = "") {
+  const search = query ? `?query=${encodeURIComponent(query)}` : "";
+  return apiClient.get<ClientSummary[]>(`/api/clients${search}`);
+}
+
+export function createClient(request: CreateClientRequest) {
+  return apiClient.post<ClientProfile>("/api/clients", request);
+}
+
+export function getClient(clientId: string) {
+  return apiClient.get<ClientProfile>(`/api/clients/${clientId}`);
+}
+
+export function updateClient(clientId: string, request: UpdateClientRequest) {
+  return apiClient.patch<ClientProfile>(`/api/clients/${clientId}`, request);
+}
+
+export function listNotes(clientId: string) {
+  return apiClient.get<Note[]>(`/api/clients/${clientId}/notes`);
+}
+
+export function createNote(clientId: string, request: CreateNoteRequest) {
+  return apiClient.post<Note>(`/api/clients/${clientId}/notes`, request);
 }
