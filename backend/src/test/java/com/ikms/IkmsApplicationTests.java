@@ -3,6 +3,7 @@ package com.ikms;
 import com.ikms.client.ClientRepository;
 import com.ikms.ai.AiInteractionRepository;
 import com.ikms.ai.EmbeddingChunkRepository;
+import com.ikms.audit.AuditLogRepository;
 import com.ikms.config.domain.AiProviderSettingRepository;
 import com.ikms.config.domain.DocumentTypeRepository;
 import com.ikms.config.domain.MailboxConfigRepository;
@@ -78,6 +79,9 @@ class IkmsApplicationTests {
 
   @MockBean
   private AiProviderSettingRepository aiProviderSettingRepository;
+
+  @MockBean
+  private AuditLogRepository auditLogRepository;
 
   @Test
   void contextLoads() {

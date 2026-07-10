@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T104` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T114` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -116,9 +116,16 @@ Current implementation checkpoint:
 - Known follow-up gaps from the administration review:
   - User management is read-only in this slice.
   - Secret-bearing mailbox/provider credential handling is not implemented yet.
+- Audit events now persist into `audit_log` through `backend/src/main/java/com/ikms/audit/LoggingAuditService.java`.
+- Audit search/export services and controller now exist in `backend/src/main/java/com/ikms/audit/`.
+- Audit API bindings and UI now exist in `frontend/src/api/audit.ts` and `frontend/src/features/audit/`.
+- Audit and governance review artifact exists at `docs/09-testing/reviews/us6-audit-governance-review.md`.
+- Known follow-up gaps from the audit/governance review:
+  - Audit filtering is intentionally narrow and does not yet include category/outcome facets.
+  - CSV export is previewed in-page instead of downloaded as a browser file.
 
-Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US2 slice, then continue with the next priority story.
+Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US6 slice, then continue with the next priority story.
 
 Recommended first implementation slice:
 
-- Next branch target: begin User Story 6 with `T105-T114` for audit search, export, and governance UI.
+- Next branch target: begin Phase 9 polish with `T115-T121`.

@@ -1,9 +1,10 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { CurrentUser, Permission, getCurrentUser, login, logout } from "../api/auth";
+import { Permission, getCurrentUser, login, logout } from "../api/auth";
 import { ApiClientError } from "../api/client";
 import { AdminConfigurationPage } from "../features/admin/AdminConfigurationPage";
+import { AuditPage } from "../features/audit/AuditPage";
 import { ClientProfilePage } from "../features/clients/ClientProfilePage";
 import { ClientsWorkspacePage } from "../features/clients/ClientsWorkspacePage";
 import { ClientImportPage } from "../features/clients/import/ClientImportPage";
@@ -40,7 +41,7 @@ export function App() {
           <Route path="/intake" element={<IntakePage />} />
           <Route path="/search" element={<SearchLandingPage />} />
           <Route path="/administration" element={<AdminConfigurationPage />} />
-          <Route path="/audit" element={<PlaceholderPage title="Audit and governance" />} />
+          <Route path="/audit" element={<AuditPage />} />
         </Route>
       </Route>
     </Routes>
@@ -183,18 +184,6 @@ function LoginPage() {
         </button>
       </form>
     </main>
-  );
-}
-
-function PlaceholderPage({ title }: { title: string }) {
-  const user = useCurrentUser().data as CurrentUser;
-
-  return (
-    <section>
-      <h2>{title}</h2>
-      <p>Protected application shell is active for {user.displayName}.</p>
-      <p>Permissions: {user.permissions.join(", ")}</p>
-    </section>
   );
 }
 

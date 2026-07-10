@@ -229,19 +229,19 @@
 
 ### Tests For User Story 6
 
-- [ ] T105 [P] [US6] Add audit search and export tests in `backend/src/test/java/com/ikms/audit/AuditExportTest.java`
-- [ ] T106 [P] [US6] Add audit UI tests in `frontend/src/features/audit/AuditPage.test.tsx`
+- [x] T105 [P] [US6] Add audit search and export tests in `backend/src/test/java/com/ikms/audit/AuditExportTest.java`
+- [x] T106 [P] [US6] Add audit UI tests in `frontend/src/features/audit/AuditPage.test.tsx`
 
 ### Implementation For User Story 6
 
-- [ ] T107 [US6] Finalize AuditLog entity and indexes in `backend/src/main/java/com/ikms/audit/AuditLog.java`
-- [ ] T108 [US6] Extend migration for audit retention and search indexes in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T109 [US6] Implement audit search service in `backend/src/main/java/com/ikms/audit/AuditSearchService.java`
-- [ ] T110 [US6] Implement audit CSV export in `backend/src/main/java/com/ikms/audit/AuditExportService.java`
-- [ ] T111 [US6] Implement audit endpoints in `backend/src/main/java/com/ikms/audit/AuditController.java`
-- [ ] T112 [US6] Implement audit API bindings in `frontend/src/api/audit.ts`
-- [ ] T113 [US6] Implement audit search and export UI in `frontend/src/features/audit/`
-- [ ] T114 [US6] Complete Audit and Governance code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us6-audit-governance-review.md`
+- [x] T107 [US6] Finalize AuditLog entity and indexes in `backend/src/main/java/com/ikms/audit/AuditLog.java`
+- [x] T108 [US6] Extend migration for audit retention and search indexes in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T109 [US6] Implement audit search service in `backend/src/main/java/com/ikms/audit/AuditSearchService.java`
+- [x] T110 [US6] Implement audit CSV export in `backend/src/main/java/com/ikms/audit/AuditExportService.java`
+- [x] T111 [US6] Implement audit endpoints in `backend/src/main/java/com/ikms/audit/AuditController.java`
+- [x] T112 [US6] Implement audit API bindings in `frontend/src/api/audit.ts`
+- [x] T113 [US6] Implement audit search and export UI in `frontend/src/features/audit/`
+- [x] T114 [US6] Complete Audit and Governance code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us6-audit-governance-review.md`
 
 **Checkpoint**: Audit activity is searchable and exportable for governance review.
 

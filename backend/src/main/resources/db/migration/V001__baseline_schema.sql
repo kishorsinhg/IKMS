@@ -4,7 +4,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  retained_until TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '2555 days'),
   actor_user_id UUID,
+  actor_username VARCHAR(80),
   client_id UUID,
   category VARCHAR(64) NOT NULL,
   action VARCHAR(128) NOT NULL,
@@ -12,11 +14,14 @@ CREATE TABLE audit_log (
   target_type VARCHAR(64),
   target_id VARCHAR(128),
   pii_access BOOLEAN NOT NULL DEFAULT FALSE,
-  details JSONB NOT NULL DEFAULT '{}'::jsonb
+  details TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE INDEX idx_audit_log_occurred_at ON audit_log (occurred_at DESC);
 CREATE INDEX idx_audit_log_client_id ON audit_log (client_id);
+CREATE INDEX idx_audit_log_actor_username ON audit_log (actor_username);
+CREATE INDEX idx_audit_log_action ON audit_log (action);
+CREATE INDEX idx_audit_log_actor_occurred_at ON audit_log (actor_username, occurred_at DESC);
 
 CREATE TABLE app_user (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -226,6 +231,7 @@ CREATE INDEX idx_document_type_active ON document_type (active);
 CREATE INDEX idx_metadata_field_active ON metadata_field (active);
 
 COMMENT ON TABLE audit_log IS 'Baseline audit event store for later foundation and governance slices.';
+COMMENT ON COLUMN audit_log.retained_until IS 'Default audit retention horizon for governance export and review.';
 COMMENT ON COLUMN audit_log.details IS 'Extensible event payload for audit metadata.';
 COMMENT ON TABLE app_user IS 'Local authenticated users for IKMS foundation authentication.';
 COMMENT ON TABLE app_setting IS 'Key-value registry for broker and system configuration.';
