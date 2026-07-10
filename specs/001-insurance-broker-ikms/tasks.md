@@ -40,9 +40,9 @@
 - [x] T017 Implement database-backed configuration registry in `backend/src/main/java/com/ikms/config/AppSettingService.java`
 - [x] T018 Implement frontend API client foundation in `frontend/src/api/client.ts`
 - [x] T019 Implement frontend route shell and protected route handling in `frontend/src/app/`
-- [ ] T020 [P] Add backend Testcontainers setup for PostgreSQL/pgvector in `backend/src/test/java/com/ikms/support/PostgresIntegrationTest.java`
-- [ ] T021 [P] Add frontend test setup in `frontend/src/test/setup.ts`
-- [ ] T022 Complete Foundation code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/foundation-review.md`
+- [x] T020 [P] Add backend Testcontainers setup for PostgreSQL/pgvector in `backend/src/test/java/com/ikms/support/PostgresIntegrationTest.java`
+- [x] T021 [P] Add frontend test setup in `frontend/src/test/setup.ts`
+- [x] T022 Complete Foundation code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/foundation-review.md`
 
 **Checkpoint**: Authentication, authorization hooks, storage abstraction, migration framework, audit writer, and app shell are ready.
 

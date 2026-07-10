@@ -51,7 +51,17 @@ function ProtectedRoute() {
   }
 
   if (currentUserQuery.isError) {
-    return <div>Unable to load the current user session.</div>;
+    return (
+      <div>
+        Unable to load the current user session. Confirm the backend is running on
+        {" "}
+        <code>http://localhost:8080</code>
+        {" "}
+        and CORS allows
+        {" "}
+        <code>http://localhost:5173</code>.
+      </div>
+    );
   }
 
   return <Outlet />;
