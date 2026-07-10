@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T114` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T121` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -123,9 +123,18 @@ Current implementation checkpoint:
 - Known follow-up gaps from the audit/governance review:
   - Audit filtering is intentionally narrow and does not yet include category/outcome facets.
   - CSV export is previewed in-page instead of downloaded as a browser file.
+- Playwright quickstart coverage now exists in `frontend/tests/quickstart.spec.ts` with config in `frontend/playwright.config.ts`.
+- Backend local validation seed data now exists in `backend/src/main/resources/db/dev/V900__dev_seed.sql`.
+- Quickstart validation summary now exists in `docs/13-worklog/worklog.md`.
+- Release changelog now reflects delivered foundation, story, and polish slices in `docs/14-release/changelog.md`.
+- Release readiness review now exists in `docs/14-release/release-readiness-review.md`.
+- Current remaining practical gaps after closeout:
+  - Playwright dependency was added to `frontend/package.json`, but a local install and browser download were not executed in this session.
+  - Full manual quickstart signoff still depends on a live backend/frontend/database run, especially for IMAP/shared-folder intake.
+  - Several V1 implementation compromises remain intentionally documented from earlier reviews: placeholder redaction output, keyword-only retrieval, rule-based answer synthesis, read-only user admin, and in-page CSV preview.
 
-Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US6 slice, then continue with the next priority story.
+Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the Phase 9 closeout slice, then choose between live quickstart validation hardening or post-V1 enhancements.
 
 Recommended first implementation slice:
 
-- Next branch target: begin Phase 9 polish with `T115-T121`.
+- Next branch target: optional follow-up hardening after live quickstart execution, not core backlog work.

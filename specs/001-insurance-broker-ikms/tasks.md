@@ -251,13 +251,13 @@
 
 **Purpose**: Confirm the whole V1 behaves as specified and is ready for implementation handoff or demo.
 
-- [ ] T115 [P] Add Playwright quickstart scenario coverage in `frontend/tests/quickstart.spec.ts`
-- [ ] T116 [P] Add backend seed data for local validation in `backend/src/main/resources/db/dev/V900__dev_seed.sql`
-- [ ] T117 Run and document quickstart validation results in `docs/13-worklog/worklog.md`
-- [ ] T118 Update AI handoff with built status and remaining gaps in `docs/11-handoff/ai-handoff.md`
-- [ ] T119 Update changelog for implemented feature slices in `docs/14-release/changelog.md`
-- [ ] T120 Review security, audit, PII, and guardrail coverage against `docs/08-security/security-baseline.md`
-- [ ] T121 Complete release readiness review using `docs/14-release/release-readiness-review-template.md` and save results in `docs/14-release/release-readiness-review.md`
+- [x] T115 [P] Add Playwright quickstart scenario coverage in `frontend/tests/quickstart.spec.ts`
+- [x] T116 [P] Add backend seed data for local validation in `backend/src/main/resources/db/dev/V900__dev_seed.sql`
+- [x] T117 Run and document quickstart validation results in `docs/13-worklog/worklog.md`
+- [x] T118 Update AI handoff with built status and remaining gaps in `docs/11-handoff/ai-handoff.md`
+- [x] T119 Update changelog for implemented feature slices in `docs/14-release/changelog.md`
+- [x] T120 Review security, audit, PII, and guardrail coverage against `docs/08-security/security-baseline.md`
+- [x] T121 Complete release readiness review using `docs/14-release/release-readiness-review-template.md` and save results in `docs/14-release/release-readiness-review.md`
 
 ---
 

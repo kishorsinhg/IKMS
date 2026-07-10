@@ -50,3 +50,17 @@ If redaction fails or confidence is unacceptable, Processor access is blocked.
 - Decision-making requests must be refused.
 - Conflicting evidence must be surfaced.
 
+## 2026-07-10 Coverage Review
+
+- Security trimming status: implemented as a shared pre-retrieval contract and applied in client search plus AI context assembly.
+- PII masking status: implemented for client profile fields, email summaries, and processor-visible knowledge paths.
+- Redaction status: processor preview/download is routed to redacted artifacts; supervisor can access originals; current redaction output remains placeholder text content.
+- Audit status: authentication, intake, review, document access, PII/original access, configuration, and AI interactions now emit persisted audit records searchable through `/api/audit`.
+- AI guardrail status: no-evidence, citation, conflict surfacing, and decision-refusal behaviors are implemented; answer synthesis remains rule-based rather than provider-backed.
+- Retention status: policy workflow and tests exist, but retained/deleted file lifecycle integration is still not fully wired to persisted records.
+
+## Remaining Gaps
+
+- Prompt injection detection is documented as a requirement, but current ingestion/retrieval implementation does not yet include an explicit detector.
+- Retrieval remains keyword-driven and not vector-ranked despite pgvector-ready schema support.
+- Administrator user lifecycle and secret-bearing provider credentials remain intentionally incomplete.
