@@ -1,6 +1,8 @@
 package com.ikms;
 
 import com.ikms.client.ClientRepository;
+import com.ikms.ai.AiInteractionRepository;
+import com.ikms.ai.EmbeddingChunkRepository;
 import com.ikms.document.DocumentRepository;
 import com.ikms.document.DocumentVersionRepository;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,12 @@ class IkmsApplicationTests {
 
   @MockBean
   private FileStorageService fileStorageService;
+
+  @MockBean
+  private EmbeddingChunkRepository embeddingChunkRepository;
+
+  @MockBean
+  private AiInteractionRepository aiInteractionRepository;
 
   @Test
   void contextLoads() {

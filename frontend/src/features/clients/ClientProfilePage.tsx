@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getCurrentUser } from "../../api/auth";
 import { createNote, getClient, listNotes } from "../../api/clients";
 import { listClientDocuments, listClientEmails } from "../../api/intake";
+import { ClientSearchPanel } from "../search/ClientSearchPanel";
 import { DocumentsSection, EmailsSection } from "./knowledge/KnowledgeSections";
 
 const clientQueryKey = (clientId: string) => ["clients", "profile", clientId];
@@ -131,7 +132,7 @@ export function ClientProfilePage() {
             {notesQuery.data?.length === 0 ? <span>No notes yet.</span> : null}
           </div>
         </section>
-        <ProfileSection title="AI Q&A" description="Client-scoped evidence-based answers only." />
+        <ClientSearchPanel clientId={clientId} />
         <ProfileSection title="Audit/Activity" description="Client-level audit and operational events." />
       </div>
     </section>

@@ -172,23 +172,23 @@
 
 ### Tests For User Story 3
 
-- [ ] T080 [P] [US3] Add client search API tests in `backend/src/test/java/com/ikms/search/ClientSearchTest.java`
-- [ ] T081 [P] [US3] Add RAG answer guardrail tests in `backend/src/test/java/com/ikms/ai/ClientQuestionAnsweringTest.java`
-- [ ] T082 [P] [US3] Add search and Q&A UI tests in `frontend/src/features/search/ClientSearchAsk.test.tsx`
+- [x] T080 [P] [US3] Add client search API tests in `backend/src/test/java/com/ikms/search/ClientSearchTest.java`
+- [x] T081 [P] [US3] Add RAG answer guardrail tests in `backend/src/test/java/com/ikms/ai/ClientQuestionAnsweringTest.java`
+- [x] T082 [P] [US3] Add search and Q&A UI tests in `frontend/src/features/search/ClientSearchAsk.test.tsx`
 
 ### Implementation For User Story 3
 
-- [ ] T083 [P] [US3] Create EmbeddingChunk and AIInteraction entities in `backend/src/main/java/com/ikms/ai/`
-- [ ] T084 [US3] Extend migration for embedding chunks and AI interactions in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T085 [US3] Implement chunking and embedding pipeline in `backend/src/main/java/com/ikms/ai/EmbeddingIndexService.java`
-- [ ] T086 [US3] Implement keyword, metadata, and vector retrieval in `backend/src/main/java/com/ikms/search/ClientSearchService.java`
-- [ ] T087 [US3] Implement security-trimmed RAG context assembly in `backend/src/main/java/com/ikms/ai/RagContextService.java`
-- [ ] T088 [US3] Implement no-evidence, citation, conflict, and decision-refusal logic in `backend/src/main/java/com/ikms/ai/ClientQuestionAnsweringService.java`
-- [ ] T089 [US3] Implement search and ask endpoints in `backend/src/main/java/com/ikms/search/ClientSearchController.java`
-- [ ] T090 [US3] Implement AI feedback endpoint in `backend/src/main/java/com/ikms/ai/AiFeedbackController.java`
-- [ ] T091 [US3] Implement search and ask API bindings in `frontend/src/api/search.ts`
-- [ ] T092 [US3] Implement client-scoped search and AI Q&A panel in `frontend/src/features/search/`
-- [ ] T093 [US3] Complete Search and AI Q&A code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us3-search-ai-review.md`
+- [x] T083 [P] [US3] Create EmbeddingChunk and AIInteraction entities in `backend/src/main/java/com/ikms/ai/`
+- [x] T084 [US3] Extend migration for embedding chunks and AI interactions in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T085 [US3] Implement chunking and embedding pipeline in `backend/src/main/java/com/ikms/ai/EmbeddingIndexService.java`
+- [x] T086 [US3] Implement keyword, metadata, and vector retrieval in `backend/src/main/java/com/ikms/search/ClientSearchService.java`
+- [x] T087 [US3] Implement security-trimmed RAG context assembly in `backend/src/main/java/com/ikms/ai/RagContextService.java`
+- [x] T088 [US3] Implement no-evidence, citation, conflict, and decision-refusal logic in `backend/src/main/java/com/ikms/ai/ClientQuestionAnsweringService.java`
+- [x] T089 [US3] Implement search and ask endpoints in `backend/src/main/java/com/ikms/search/ClientSearchController.java`
+- [x] T090 [US3] Implement AI feedback endpoint in `backend/src/main/java/com/ikms/ai/AiFeedbackController.java`
+- [x] T091 [US3] Implement search and ask API bindings in `frontend/src/api/search.ts`
+- [x] T092 [US3] Implement client-scoped search and AI Q&A panel in `frontend/src/features/search/`
+- [x] T093 [US3] Complete Search and AI Q&A code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us3-search-ai-review.md`
 
 **Checkpoint**: Client-level RAG works with citations and guardrails against no-evidence and prohibited decisions.
 

@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T079` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T093` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -105,9 +105,15 @@ Current implementation checkpoint:
 - Known follow-up gaps from the PII protection review:
   - Redaction generation is still placeholder text output, not file-format-aware PDF/DOCX redaction.
   - Document `containsPii` behavior is still inferred coarsely from client linkage rather than explicit metadata/config flags.
+- Client-scoped search and AI Q&A now exist in `backend/src/main/java/com/ikms/search/`, `backend/src/main/java/com/ikms/ai/`, and `frontend/src/features/search/`.
+- `embedding_chunk` and `ai_interaction` baseline persistence now exist in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`.
+- Search and AI review artifact exists at `docs/09-testing/reviews/us3-search-ai-review.md`.
+- Known follow-up gaps from the search/AI review:
+  - Retrieval remains keyword-driven with placeholder chunk indexing, not real vector similarity.
+  - Answer synthesis is rule-based and not yet provider-backed.
 
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US2 slice, then continue with the next priority story.
 
 Recommended first implementation slice:
 
-- Next branch target: begin User Story 3 with `T080-T093` for client-scoped search, RAG context assembly, and AI Q&A.
+- Next branch target: begin User Story 5 with `T094-T104` for broker knowledge configuration and admin screens.

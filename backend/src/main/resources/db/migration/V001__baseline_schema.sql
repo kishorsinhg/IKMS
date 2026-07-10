@@ -141,6 +141,28 @@ CREATE TABLE review_queue_item (
   resolved_at TIMESTAMPTZ
 );
 
+CREATE TABLE embedding_chunk (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client (id) ON DELETE CASCADE,
+  source_type VARCHAR(32) NOT NULL,
+  source_id UUID NOT NULL,
+  chunk_text TEXT NOT NULL,
+  embedding_reference VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ai_interaction (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL REFERENCES client (id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT,
+  status VARCHAR(32) NOT NULL,
+  cited_sources TEXT,
+  helpful_feedback BOOLEAN,
+  feedback_comment TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_app_user_status ON app_user (status);
 CREATE INDEX idx_client_display_name ON client (display_name);
 CREATE INDEX idx_client_status ON client (status);
@@ -149,6 +171,8 @@ CREATE INDEX idx_email_item_client_id ON email_item (client_id);
 CREATE INDEX idx_document_client_id ON document (client_id);
 CREATE INDEX idx_document_parent_email_id ON document (parent_email_id);
 CREATE INDEX idx_review_queue_status_reason ON review_queue_item (status, reason);
+CREATE INDEX idx_embedding_chunk_client_id ON embedding_chunk (client_id, created_at DESC);
+CREATE INDEX idx_ai_interaction_client_id ON ai_interaction (client_id, created_at DESC);
 
 COMMENT ON TABLE audit_log IS 'Baseline audit event store for later foundation and governance slices.';
 COMMENT ON COLUMN audit_log.details IS 'Extensible event payload for audit metadata.';
@@ -160,3 +184,5 @@ COMMENT ON TABLE email_item IS 'Mailbox-derived email knowledge items for client
 COMMENT ON TABLE document IS 'Logical document records linked to clients and optional parent emails.';
 COMMENT ON TABLE document_version IS 'Preserved document file versions and extraction/redaction state.';
 COMMENT ON TABLE review_queue_item IS 'Human review tasks for intake, extraction, linking, and duplicate exceptions.';
+COMMENT ON TABLE embedding_chunk IS 'Client-scoped text chunks reserved for keyword/vector retrieval workflows.';
+COMMENT ON TABLE ai_interaction IS 'Client-level AI question and feedback history.';
