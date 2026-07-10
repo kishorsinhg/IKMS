@@ -51,6 +51,7 @@ public class SecurityBootstrapInitializer implements ApplicationRunner {
 
     if (appSettingService.getAll().isEmpty()) {
       appSettingService.put("security.session.timeout-minutes", "30", "Default local session timeout.");
+      appSettingService.put("security.failed-login.max-attempts", "5", "Default failed login lockout threshold.");
       appSettingService.put("review.mode", "confidence", "Default review mode for local development.");
     }
   }

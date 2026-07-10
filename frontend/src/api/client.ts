@@ -27,12 +27,21 @@ class ApiClient {
     });
   }
 
+  async postForm<T>(path: string, body: FormData): Promise<T> {
+    return this.request<T>(path, {
+      method: "POST",
+      body,
+      headers: {},
+    });
+  }
+
   private async request<T>(path: string, init: RequestInit): Promise<T> {
+    const isFormData = init.body instanceof FormData;
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(init.headers ?? {}),
       },
     });

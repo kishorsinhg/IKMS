@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T022` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T033` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -67,11 +67,21 @@ Current implementation checkpoint:
 - Frontend test setup now resets DOM and mocked globals between test runs in `frontend/src/test/setup.ts`.
 - Foundation review artifact exists at `docs/09-testing/reviews/foundation-review.md`.
 - Generated `frontend/vite.config.js` and `frontend/vite.config.d.ts` are gitignored and should not be committed.
+- CSV import validation/API/UI baseline now exists in `backend/src/main/java/com/ikms/client/` and `frontend/src/features/clients/import/`.
+- Authentication governance now applies failed-login tracking, lockout, session timeout, and login audit via `backend/src/main/java/com/ikms/security/AuthenticationGovernanceService.java`.
+- Shared security trimming contract now exists in `backend/src/main/java/com/ikms/security/SecurityTrimService.java`.
+- Retention workflow policy contract now exists in `backend/src/main/java/com/ikms/retention/RetentionWorkflowService.java`.
+- Lightweight SLA policy checks exist in `backend/src/main/java/com/ikms/performance/V1SlaPolicy.java`.
+- Hardening review artifact exists at `docs/09-testing/reviews/hardening-review.md`.
+- Known follow-up gaps from hardening review:
+  - CSV import validates and reports results but does not yet persist Client records.
+  - Security trim is a policy contract and is not yet wired into document/search/AI endpoints.
+  - Retention workflow is policy-level only and not yet connected to stored records/files.
 
-Start the next session by reviewing `git status`, confirming the foundation slice is committed, then continue with pre-implementation hardening.
+Start the next session by reviewing `git status`, confirming the pre-implementation hardening slice is committed, then continue with the US1 client-profile build.
 
 Recommended first implementation slice:
 
-- Next branch target: `T023-T033` for pre-implementation hardening, beginning with CSV import and authentication-governance coverage
-- T023-T033: pre-implementation hardening and Hardening review
-- T034-T047: US1 MVP client profile and Client Profile review
+- Next branch target: `T034-T047` for US1 MVP client profile and Client Profile review
+- Start with `T034-T039` so contract tests, UI tests, client/note entities, and baseline schema can land together.
+- Then continue through `T040-T047` for client ID rules, profile/note services, endpoints, UI, and review.

@@ -1,0 +1,121 @@
+import { FormEvent, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { ClientImportResult, importClients } from "../../../api/clients";
+import { ApiClientError } from "../../../api/client";
+
+export function ClientImportPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<ClientImportResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const importMutation = useMutation({
+    mutationFn: importClients,
+    onSuccess: (response) => {
+      setResult(response);
+      setErrorMessage(null);
+    },
+    onError: (error: ApiClientError) => {
+      setErrorMessage(error.message);
+    },
+  });
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!file) {
+      setErrorMessage("Select a CSV file to import.");
+      return;
+    }
+    importMutation.mutate(file);
+  }
+
+  return (
+    <section style={{ display: "grid", gap: "1.5rem" }}>
+      <header>
+        <h2 style={{ marginBottom: "0.35rem" }}>Client CSV Import</h2>
+        <p style={{ margin: 0, color: "#6d6253" }}>
+          Validate client rows and surface duplicate warnings before broader client-profile implementation.
+        </p>
+      </header>
+
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: "560px" }}>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        />
+        <button type="submit" disabled={importMutation.isPending} style={buttonStyle}>
+          {importMutation.isPending ? "Importing..." : "Import CSV"}
+        </button>
+      </form>
+
+      {errorMessage ? <div style={{ color: "#9f2d2d" }}>{errorMessage}</div> : null}
+
+      {result ? (
+        <section style={{ display: "grid", gap: "1rem" }}>
+          <div style={summaryStyle}>
+            <strong>{result.filename}</strong>
+            <span>{result.acceptedRows} accepted</span>
+            <span>{result.warningCount} warnings</span>
+            <span>{result.errorCount} errors</span>
+          </div>
+
+          {result.fileErrors.length > 0 ? (
+            <div style={{ color: "#9f2d2d" }}>{result.fileErrors.join(" ")}</div>
+          ) : null}
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Client ID</th>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Warnings</th>
+                  <th>Errors</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.map((row) => (
+                  <tr key={row.lineNumber}>
+                    <td>{row.lineNumber}</td>
+                    <td>{row.clientId || "Missing"}</td>
+                    <td>{row.displayName || "Missing"}</td>
+                    <td>{row.accepted ? "Accepted" : "Rejected"}</td>
+                    <td>{row.warnings.join(", ") || "-"}</td>
+                    <td>{row.errors.join(", ") || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
+const buttonStyle: React.CSSProperties = {
+  width: "fit-content",
+  padding: "0.75rem 1.1rem",
+  borderRadius: "999px",
+  border: "none",
+  background: "#1f1c18",
+  color: "#fffaf0",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const summaryStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "1rem",
+  flexWrap: "wrap",
+  padding: "1rem",
+  borderRadius: "1rem",
+  background: "#f2e8d6",
+};
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+};

@@ -54,17 +54,17 @@
 
 **Critical**: Complete these tasks before broad document access, search, RAG, or administrative workflows are considered implementation-ready.
 
-- [ ] T023 Add explicit CSV client import tests in `backend/src/test/java/com/ikms/client/ClientImportTest.java`
-- [ ] T024 [US1] Implement CSV client import validation, duplicate warnings, and audit events in `backend/src/main/java/com/ikms/client/ClientImportService.java`
-- [ ] T025 [US1] Add CSV import API and UI entry points in `backend/src/main/java/com/ikms/client/ClientImportController.java` and `frontend/src/features/clients/import/`
-- [ ] T026 Add account status, failed-login tracking, lockout, session timeout, and login audit tests in `backend/src/test/java/com/ikms/security/AuthenticationGovernanceTest.java`
-- [ ] T027 Extend authentication implementation for account status, failed-login tracking, lockout, session timeout, and login audit in `backend/src/main/java/com/ikms/security/`
-- [ ] T028 Add foundation-level security trimming tests for search, preview, download, and AI context assembly in `backend/src/test/java/com/ikms/security/SecurityTrimBoundaryTest.java`
-- [ ] T029 Implement shared security-trim contract before document access, search retrieval, and AI context assembly in `backend/src/main/java/com/ikms/security/SecurityTrimService.java`
-- [ ] T030 Add retention, legal hold, deletion, and anonymization tests in `backend/src/test/java/com/ikms/retention/RetentionWorkflowTest.java`
-- [ ] T031 Implement retention policy, legal hold, controlled deletion, and anonymization workflow services in `backend/src/main/java/com/ikms/retention/`
-- [ ] T032 Add lightweight performance/SLA validation for client profile open and intake routing in `backend/src/test/java/com/ikms/performance/V1SlaValidationTest.java`
-- [ ] T033 Complete Pre-Implementation Hardening code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/hardening-review.md`
+- [x] T023 Add explicit CSV client import tests in `backend/src/test/java/com/ikms/client/ClientImportTest.java`
+- [x] T024 [US1] Implement CSV client import validation, duplicate warnings, and audit events in `backend/src/main/java/com/ikms/client/ClientImportService.java`
+- [x] T025 [US1] Add CSV import API and UI entry points in `backend/src/main/java/com/ikms/client/ClientImportController.java` and `frontend/src/features/clients/import/`
+- [x] T026 Add account status, failed-login tracking, lockout, session timeout, and login audit tests in `backend/src/test/java/com/ikms/security/AuthenticationGovernanceTest.java`
+- [x] T027 Extend authentication implementation for account status, failed-login tracking, lockout, session timeout, and login audit in `backend/src/main/java/com/ikms/security/`
+- [x] T028 Add foundation-level security trimming tests for search, preview, download, and AI context assembly in `backend/src/test/java/com/ikms/security/SecurityTrimBoundaryTest.java`
+- [x] T029 Implement shared security-trim contract before document access, search retrieval, and AI context assembly in `backend/src/main/java/com/ikms/security/SecurityTrimService.java`
+- [x] T030 Add retention, legal hold, deletion, and anonymization tests in `backend/src/test/java/com/ikms/retention/RetentionWorkflowTest.java`
+- [x] T031 Implement retention policy, legal hold, controlled deletion, and anonymization workflow services in `backend/src/main/java/com/ikms/retention/`
+- [x] T032 Add lightweight performance/SLA validation for client profile open and intake routing in `backend/src/test/java/com/ikms/performance/V1SlaValidationTest.java`
+- [x] T033 Complete Pre-Implementation Hardening code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/hardening-review.md`
 
 **Checkpoint**: FR-005, FR-030, FR-032, FR-039, SC-001, and SC-002 have explicit implementation and validation coverage.
 

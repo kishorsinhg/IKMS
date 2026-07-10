@@ -9,12 +9,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final AuthenticationManager authenticationManager;
+  private final AuthenticationGovernanceService authenticationGovernanceService;
 
-  public AuthController(AuthenticationManager authenticationManager) {
+  public AuthController(
+      AuthenticationManager authenticationManager,
+      AuthenticationGovernanceService authenticationGovernanceService) {
     this.authenticationManager = authenticationManager;
+    this.authenticationGovernanceService = authenticationGovernanceService;
   }
 
   @PostMapping("/login")
@@ -36,13 +43,23 @@ public class AuthController {
       @Valid @RequestBody LoginRequest request,
       HttpServletRequest httpRequest,
       HttpServletResponse httpResponse) {
-    Authentication authentication = authenticationManager.authenticate(
-        UsernamePasswordAuthenticationToken.unauthenticated(request.username(), request.password()));
+    Authentication authentication;
+    try {
+      authentication = authenticationManager.authenticate(
+          UsernamePasswordAuthenticationToken.unauthenticated(request.username(), request.password()));
+    } catch (AuthenticationException exception) {
+      authenticationGovernanceService.recordFailedLogin(request.username(), exception);
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password.", exception);
+    }
 
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
     new HttpSessionSecurityContextRepository().saveContext(context, httpRequest, httpResponse);
+    httpRequest.getSession(false).setMaxInactiveInterval(authenticationGovernanceService.sessionTimeoutSeconds());
+    authenticationGovernanceService.recordSuccessfulLogin(
+        ((AppUserPrincipal) authentication.getPrincipal()).id(),
+        request.username());
 
     return CurrentUserResponse.from((AppUserPrincipal) authentication.getPrincipal());
   }

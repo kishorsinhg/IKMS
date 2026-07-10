@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { CurrentUser, Permission, getCurrentUser, login, logout } from "../api/auth";
 import { ApiClientError } from "../api/client";
+import { ClientImportPage } from "../features/clients/import/ClientImportPage";
 
 const currentUserQueryKey = ["auth", "me"];
 
@@ -26,7 +27,8 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/clients" replace />} />
-          <Route path="/clients" element={<PlaceholderPage title="Clients workspace" />} />
+          <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/clients/import" element={<ClientImportPage />} />
           <Route path="/review-queue" element={<PlaceholderPage title="Review queue" />} />
           <Route path="/intake" element={<PlaceholderPage title="Intake operations" />} />
           <Route path="/search" element={<PlaceholderPage title="Client search and AI Q&A" />} />
@@ -189,6 +191,31 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+function ClientsPage() {
+  const user = useCurrentUser().data as CurrentUser;
+
+  return (
+    <section style={{ display: "grid", gap: "1rem" }}>
+      <div>
+        <h2 style={{ marginBottom: "0.35rem" }}>Clients workspace</h2>
+        <p style={{ margin: 0 }}>Protected application shell is active for {user.displayName}.</p>
+      </div>
+
+      <div style={shellStyles.panel}>
+        <strong>Pre-implementation hardening</strong>
+        <p style={{ margin: "0.35rem 0 0" }}>
+          CSV import validation is available ahead of the full client profile build.
+        </p>
+        <Link to="/clients/import" style={shellStyles.primaryLink}>
+          Open client CSV import
+        </Link>
+      </div>
+
+      <p>Permissions: {user.permissions.join(", ")}</p>
+    </section>
+  );
+}
+
 function useCurrentUser() {
   return useQuery({
     queryKey: currentUserQueryKey,
@@ -246,6 +273,24 @@ const shellStyles: Record<string, React.CSSProperties> = {
   },
   content: {
     padding: "2.5rem",
+  },
+  panel: {
+    display: "grid",
+    gap: "0.5rem",
+    padding: "1.25rem",
+    borderRadius: "1rem",
+    background: "#fff8ee",
+    border: "1px solid rgba(31, 28, 24, 0.1)",
+    maxWidth: "42rem",
+  },
+  primaryLink: {
+    width: "fit-content",
+    padding: "0.75rem 1rem",
+    borderRadius: "999px",
+    textDecoration: "none",
+    background: "#1f1c18",
+    color: "#fffaf0",
+    fontWeight: 700,
   },
   loginPage: {
     minHeight: "100vh",
