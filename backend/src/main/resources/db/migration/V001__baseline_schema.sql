@@ -163,6 +163,55 @@ CREATE TABLE ai_interaction (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE document_type (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(120) NOT NULL UNIQUE,
+  description VARCHAR(255),
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE metadata_field (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  field_key VARCHAR(120) NOT NULL UNIQUE,
+  label VARCHAR(120) NOT NULL,
+  pii BOOLEAN NOT NULL DEFAULT FALSE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shared_folder_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  path VARCHAR(255) NOT NULL UNIQUE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE mailbox_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(120) NOT NULL UNIQUE,
+  host VARCHAR(120) NOT NULL,
+  username VARCHAR(120) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE review_setting (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mode VARCHAR(40) NOT NULL,
+  low_confidence_threshold DOUBLE PRECISION NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ai_provider_setting (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_name VARCHAR(80) NOT NULL,
+  model_name VARCHAR(120) NOT NULL,
+  ocr_provider VARCHAR(80) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_app_user_status ON app_user (status);
 CREATE INDEX idx_client_display_name ON client (display_name);
 CREATE INDEX idx_client_status ON client (status);
@@ -173,6 +222,8 @@ CREATE INDEX idx_document_parent_email_id ON document (parent_email_id);
 CREATE INDEX idx_review_queue_status_reason ON review_queue_item (status, reason);
 CREATE INDEX idx_embedding_chunk_client_id ON embedding_chunk (client_id, created_at DESC);
 CREATE INDEX idx_ai_interaction_client_id ON ai_interaction (client_id, created_at DESC);
+CREATE INDEX idx_document_type_active ON document_type (active);
+CREATE INDEX idx_metadata_field_active ON metadata_field (active);
 
 COMMENT ON TABLE audit_log IS 'Baseline audit event store for later foundation and governance slices.';
 COMMENT ON COLUMN audit_log.details IS 'Extensible event payload for audit metadata.';
@@ -186,3 +237,9 @@ COMMENT ON TABLE document_version IS 'Preserved document file versions and extra
 COMMENT ON TABLE review_queue_item IS 'Human review tasks for intake, extraction, linking, and duplicate exceptions.';
 COMMENT ON TABLE embedding_chunk IS 'Client-scoped text chunks reserved for keyword/vector retrieval workflows.';
 COMMENT ON TABLE ai_interaction IS 'Client-level AI question and feedback history.';
+COMMENT ON TABLE document_type IS 'Configurable document types for broker knowledge classification.';
+COMMENT ON TABLE metadata_field IS 'Configurable metadata labels with optional PII flag.';
+COMMENT ON TABLE shared_folder_config IS 'Configured shared folder intake locations.';
+COMMENT ON TABLE mailbox_config IS 'Configured IMAP mailbox intake sources.';
+COMMENT ON TABLE review_setting IS 'Review workflow thresholds and operating mode.';
+COMMENT ON TABLE ai_provider_setting IS 'Configured AI and OCR provider settings.';

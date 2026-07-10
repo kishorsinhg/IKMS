@@ -3,6 +3,12 @@ package com.ikms;
 import com.ikms.client.ClientRepository;
 import com.ikms.ai.AiInteractionRepository;
 import com.ikms.ai.EmbeddingChunkRepository;
+import com.ikms.config.domain.AiProviderSettingRepository;
+import com.ikms.config.domain.DocumentTypeRepository;
+import com.ikms.config.domain.MailboxConfigRepository;
+import com.ikms.config.domain.MetadataFieldRepository;
+import com.ikms.config.domain.ReviewSettingRepository;
+import com.ikms.config.domain.SharedFolderConfigRepository;
 import com.ikms.document.DocumentRepository;
 import com.ikms.document.DocumentVersionRepository;
 import org.junit.jupiter.api.Test;
@@ -54,6 +60,24 @@ class IkmsApplicationTests {
 
   @MockBean
   private AiInteractionRepository aiInteractionRepository;
+
+  @MockBean
+  private DocumentTypeRepository documentTypeRepository;
+
+  @MockBean
+  private MetadataFieldRepository metadataFieldRepository;
+
+  @MockBean
+  private SharedFolderConfigRepository sharedFolderConfigRepository;
+
+  @MockBean
+  private MailboxConfigRepository mailboxConfigRepository;
+
+  @MockBean
+  private ReviewSettingRepository reviewSettingRepository;
+
+  @MockBean
+  private AiProviderSettingRepository aiProviderSettingRepository;
 
   @Test
   void contextLoads() {

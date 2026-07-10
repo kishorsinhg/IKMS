@@ -202,20 +202,20 @@
 
 ### Tests For User Story 5
 
-- [ ] T094 [P] [US5] Add admin configuration API tests in `backend/src/test/java/com/ikms/admin/AdminConfigurationTest.java`
-- [ ] T095 [P] [US5] Add admin UI tests in `frontend/src/features/admin/AdminConfiguration.test.tsx`
+- [x] T094 [P] [US5] Add admin configuration API tests in `backend/src/test/java/com/ikms/admin/AdminConfigurationTest.java`
+- [x] T095 [P] [US5] Add admin UI tests in `frontend/src/features/admin/AdminConfiguration.test.tsx`
 
 ### Implementation For User Story 5
 
-- [ ] T096 [P] [US5] Create DocumentType and MetadataField entities in `backend/src/main/java/com/ikms/config/domain/`
-- [ ] T097 [P] [US5] Create intake and AI setting entities in `backend/src/main/java/com/ikms/config/domain/`
-- [ ] T098 [US5] Extend migration for configuration tables in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
-- [ ] T099 [US5] Implement document type and metadata configuration services in `backend/src/main/java/com/ikms/config/KnowledgeConfigurationService.java`
-- [ ] T100 [US5] Implement shared folder, IMAP, review mode, and AI provider settings services in `backend/src/main/java/com/ikms/config/IntakeAiConfigurationService.java`
-- [ ] T101 [US5] Implement admin configuration endpoints in `backend/src/main/java/com/ikms/config/AdminConfigurationController.java`
-- [ ] T102 [US5] Implement admin API bindings in `frontend/src/api/admin.ts`
-- [ ] T103 [US5] Implement admin configuration screens in `frontend/src/features/admin/`
-- [ ] T104 [US5] Complete Administration code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us5-administration-review.md`
+- [x] T096 [P] [US5] Create DocumentType and MetadataField entities in `backend/src/main/java/com/ikms/config/domain/`
+- [x] T097 [P] [US5] Create intake and AI setting entities in `backend/src/main/java/com/ikms/config/domain/`
+- [x] T098 [US5] Extend migration for configuration tables in `backend/src/main/resources/db/migration/V001__baseline_schema.sql`
+- [x] T099 [US5] Implement document type and metadata configuration services in `backend/src/main/java/com/ikms/config/KnowledgeConfigurationService.java`
+- [x] T100 [US5] Implement shared folder, IMAP, review mode, and AI provider settings services in `backend/src/main/java/com/ikms/config/IntakeAiConfigurationService.java`
+- [x] T101 [US5] Implement admin configuration endpoints in `backend/src/main/java/com/ikms/config/AdminConfigurationController.java`
+- [x] T102 [US5] Implement admin API bindings in `frontend/src/api/admin.ts`
+- [x] T103 [US5] Implement admin configuration screens in `frontend/src/features/admin/`
+- [x] T104 [US5] Complete Administration code review using `docs/templates/code-review-template.md` and save results in `docs/09-testing/reviews/us5-administration-review.md`
 
 **Checkpoint**: Administrator can configure V1 broker rules without code changes.
 

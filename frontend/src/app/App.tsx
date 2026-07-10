@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { CurrentUser, Permission, getCurrentUser, login, logout } from "../api/auth";
 import { ApiClientError } from "../api/client";
+import { AdminConfigurationPage } from "../features/admin/AdminConfigurationPage";
 import { ClientProfilePage } from "../features/clients/ClientProfilePage";
 import { ClientsWorkspacePage } from "../features/clients/ClientsWorkspacePage";
 import { ClientImportPage } from "../features/clients/import/ClientImportPage";
@@ -38,7 +39,7 @@ export function App() {
           <Route path="/review-queue" element={<ReviewQueuePage />} />
           <Route path="/intake" element={<IntakePage />} />
           <Route path="/search" element={<SearchLandingPage />} />
-          <Route path="/administration" element={<PlaceholderPage title="Administration" />} />
+          <Route path="/administration" element={<AdminConfigurationPage />} />
           <Route path="/audit" element={<PlaceholderPage title="Audit and governance" />} />
         </Route>
       </Route>

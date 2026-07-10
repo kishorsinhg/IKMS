@@ -46,7 +46,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 
 Current implementation checkpoint:
 
-- `T001-T093` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- `T001-T104` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -111,9 +111,14 @@ Current implementation checkpoint:
 - Known follow-up gaps from the search/AI review:
   - Retrieval remains keyword-driven with placeholder chunk indexing, not real vector similarity.
   - Answer synthesis is rule-based and not yet provider-backed.
+- Administration config entities, endpoints, and UI now exist in `backend/src/main/java/com/ikms/config/` and `frontend/src/features/admin/`.
+- Admin configuration review artifact exists at `docs/09-testing/reviews/us5-administration-review.md`.
+- Known follow-up gaps from the administration review:
+  - User management is read-only in this slice.
+  - Secret-bearing mailbox/provider credential handling is not implemented yet.
 
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the US2 slice, then continue with the next priority story.
 
 Recommended first implementation slice:
 
-- Next branch target: begin User Story 5 with `T094-T104` for broker knowledge configuration and admin screens.
+- Next branch target: begin User Story 6 with `T105-T114` for audit search, export, and governance UI.
