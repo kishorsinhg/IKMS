@@ -1,5 +1,7 @@
 package com.ikms.config;
 
+import com.ikms.ai.AiProviderClient;
+import com.ikms.ai.AiProviderSettingsService;
 import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
@@ -26,6 +28,7 @@ public class IntakeAiConfigurationService {
   private final MailboxConfigRepository mailboxConfigRepository;
   private final ReviewSettingRepository reviewSettingRepository;
   private final AiProviderSettingRepository aiProviderSettingRepository;
+  private final AiProviderClient aiProviderClient;
   private final AuditService auditService;
 
   public IntakeAiConfigurationService(
@@ -33,11 +36,13 @@ public class IntakeAiConfigurationService {
       MailboxConfigRepository mailboxConfigRepository,
       ReviewSettingRepository reviewSettingRepository,
       AiProviderSettingRepository aiProviderSettingRepository,
+      AiProviderClient aiProviderClient,
       AuditService auditService) {
     this.sharedFolderConfigRepository = sharedFolderConfigRepository;
     this.mailboxConfigRepository = mailboxConfigRepository;
     this.reviewSettingRepository = reviewSettingRepository;
     this.aiProviderSettingRepository = aiProviderSettingRepository;
+    this.aiProviderClient = aiProviderClient;
     this.auditService = auditService;
   }
 
@@ -137,6 +142,47 @@ public class IntakeAiConfigurationService {
     return toAiResponse(saved);
   }
 
+  @Transactional(readOnly = true)
+  public AdminConfigurationContracts.AiProviderValidationResponse validateAiProviderSetting(
+      AdminConfigurationContracts.AiProviderValidationRequest request,
+      UUID actorUserId) {
+    AiProviderSetting existing = aiProviderSettingRepository.findAll().stream().findFirst().orElseGet(this::defaultAiSetting);
+    AiProviderSettingsService.ProviderSettings candidateSettings = new AiProviderSettingsService.ProviderSettings(
+        request.providerName().trim(),
+        request.modelName().trim(),
+        request.embeddingModelName().trim(),
+        trimToNull(request.apiBaseUrl()),
+        resolveApiKey(request.apiKey(), existing),
+        request.ocrProvider().trim(),
+        request.active());
+    var validation = aiProviderClient.validate(candidateSettings);
+    auditService.write(new AuditEvent(
+        Instant.now(),
+        "CONFIG",
+        "AI_PROVIDER_SETTING_VALIDATED",
+        validation.valid() ? AuditOutcome.SUCCESS : AuditOutcome.FAILURE,
+        actorUserId,
+        null,
+        "Configuration",
+        existing.getId() == null ? "ai-provider-setting" : existing.getId().toString(),
+        false,
+        Map.of(
+            "provider", candidateSettings.providerName(),
+            "model", candidateSettings.modelName(),
+            "embeddingModel", candidateSettings.embeddingModelName(),
+            "ocrProvider", candidateSettings.ocrProvider(),
+            "status", validation.status(),
+            "message", validation.message())));
+    return new AdminConfigurationContracts.AiProviderValidationResponse(
+        validation.valid(),
+        validation.chatModelReachable(),
+        validation.embeddingModelReachable(),
+        validation.ocrProviderSupported(),
+        validation.status(),
+        validation.message(),
+        Instant.now());
+  }
+
   private void apply(MailboxConfig item, AdminConfigurationContracts.MailboxConfigRequest request) {
     item.setName(request.name().trim());
     item.setHost(request.host().trim());
@@ -179,6 +225,13 @@ public class IntakeAiConfigurationService {
         setting.getOcrProvider(),
         setting.isActive(),
         setting.getUpdatedAt());
+  }
+
+  private static String resolveApiKey(String candidateApiKey, AiProviderSetting existing) {
+    if (candidateApiKey != null && !candidateApiKey.isBlank()) {
+      return candidateApiKey.trim();
+    }
+    return existing.getApiKey();
   }
 
   private static String trimToNull(String value) {

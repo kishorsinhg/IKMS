@@ -81,3 +81,53 @@ Release closeout has strong automated coverage, but full quickstart signoff is s
   - `mvn test -Dtest=ClientQuestionAnsweringTest,ClientSearchTest,EmbeddingIndexServiceTest,TextExtractionServiceTest`
 - Frontend targeted validation passed:
   - `npm test -- --run src/features/search/ClientSearchAsk.test.tsx src/features/admin/AdminConfiguration.test.tsx`
+
+### Session Update: 2026-07-13 Provider Validation Hardening
+
+- Added an administrator-facing AI/OCR provider validation endpoint and admin UI action so the configured chat model, embedding model, and OCR provider support can be checked before relying on saved settings.
+- Added timeout-based provider probe behavior in the shared AI client and surfaced validation status/messages instead of silently relying on save-only configuration changes.
+- Added audit coverage for provider validation success and failure outcomes.
+
+### Additional Validation Executed
+
+- Backend targeted validation passed:
+  - `mvn test -Dtest=AdminConfigurationTest,AiProviderClientTest`
+- Frontend targeted validation passed:
+  - `npm test -- --run src/features/admin/AdminConfiguration.test.tsx`
+
+### Session Update: 2026-07-13 OCR Extraction Integration
+
+- Added provider-backed OCR extraction for scanned or image-only PDFs using the configured Mistral OCR model when native PDF parsing yields no usable text.
+- Preserved OCR output as page-aware extraction segments so downstream indexing and citations continue to carry page provenance.
+- Propagated OCR confidence into document extraction confidence so low-confidence OCR output can route intake items to review.
+- Corrected extraction provider labeling so native PDF/DOCX parsing records `pdfbox` or `apache-poi`, while OCR-backed extraction records the actual OCR model used.
+
+### Additional Validation Executed
+
+- Backend targeted validation passed:
+  - `mvn test -Dtest=TextExtractionServiceTest,AiProviderClientTest,DocumentIntakeProcessingServiceTest`
+- Live Mistral OCR probe succeeded against `sample/pdf_scanned_ocr.pdf` using `mistral-ocr-latest`, returning page-wise markdown and confidence metadata.
+
+### Session Update: 2026-07-13 Provider-Generated Client Answers
+
+- Replaced the rule-based client answer assembly path with provider-generated answer synthesis constrained to retrieved, authorized evidence.
+- Kept refusal, no-evidence handling, prompt-injection filtering, citations, and conflict detection in the service layer so the model only synthesizes the final answer from already-approved context.
+- Added a deterministic fallback path so if provider synthesis fails, client AI still returns an evidence-based answer instead of breaking the workflow.
+
+### Additional Validation Executed
+
+- Backend targeted validation passed:
+  - `mvn test -Dtest=ClientQuestionAnsweringTest,AiProviderClientTest`
+
+### Session Update: 2026-07-13 Retrieval Observability Hardening
+
+- Added retrieval observability metadata so search results now carry retrieval path and citation quality, and AI answers now carry retrieval mode plus warning messages.
+- Surfaced provider degradation when vector retrieval cannot run, falling back to keyword/metadata retrieval while preserving a visible warning trail.
+- Added citation-quality validation so document evidence missing strong location provenance is flagged for downstream answer warnings and UI visibility.
+
+### Additional Validation Executed
+
+- Backend targeted validation passed:
+  - `mvn test -Dtest=ClientQuestionAnsweringTest,AiProviderClientTest,ClientSearchTest`
+- Frontend targeted validation passed:
+  - `npm test -- --run src/features/search/ClientSearchAsk.test.tsx`

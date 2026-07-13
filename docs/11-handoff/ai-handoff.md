@@ -169,6 +169,35 @@ Updated state after the latest evidence-and-retrieval refinement slice:
 - Client search uses hybrid retrieval with persisted chunk metadata and local chunk-neighbor expansion so cross-document conversations can cite evidence from multiple sources linked to the same client.
 - Client AI citations and search result cards now expose `pageNumber` and `sourceSection` for evidence display.
 
+Updated state after `T136` provider validation hardening:
+
+- `/api/admin/ai-settings/validate` now lets administrators validate chat-model reachability, embedding-model reachability, and OCR provider support without persisting a config change first.
+- Validation reuses the stored API key when the form leaves the key blank, which supports post-save verification without exposing the secret in the read API.
+- `AiProviderClient` now uses explicit connect/read timeouts for provider probes and returns structured readiness/degraded status messages for the admin workflow.
+- Provider validation writes `AI_PROVIDER_SETTING_VALIDATED` audit events with success or failure outcome details.
+
+Updated state after `T137` OCR-backed extraction:
+
+- `TextExtractionService` now falls back to provider-backed OCR for PDFs when native parsing yields no usable text, using the configured OCR model from `AiProviderSettingsService`.
+- OCR extraction now returns page-aware segments built from the OCR response pages, preserving page numbers for downstream indexing and citations.
+- OCR page confidence is aggregated into extraction confidence and used by `DocumentIntakeProcessingService` when invoking review routing, so weak OCR results can trigger `LOW_EXTRACTION_CONFIDENCE`.
+- Native parsing paths now record accurate extractor identifiers (`pdfbox`, `apache-poi`, `plain-text`) instead of labeling every extraction with the configured OCR model.
+- Live validation confirmed the stored Mistral configuration can OCR `sample/pdf_scanned_ocr.pdf` with `mistral-ocr-latest` and return page-level markdown plus confidence scores.
+
+Updated state after `T138` provider-generated answer synthesis:
+
+- `ClientQuestionAnsweringService` now asks the configured provider to synthesize the final client answer from retrieved evidence snippets instead of concatenating excerpts directly.
+- Refusal checks, no-evidence handling, prompt-injection filtering, conflict detection, and citation construction remain server-controlled; only the final answer wording is delegated to the provider.
+- If provider answer synthesis fails or returns no usable content, the service falls back to the prior deterministic evidence summary path so client AI remains available.
+- `AiProviderClient` now supports evidence-constrained answer synthesis via `/chat/completions` using the configured chat model.
+
+Updated state after `T139` retrieval fallback and observability hardening:
+
+- `ClientSearchService` now exposes an internal `SearchOutcome` with retrieval mode and warnings so RAG consumers can distinguish hybrid vector retrieval from keyword fallback or browse-only flows.
+- Search results now carry retrieval-path metadata and citation-quality metadata, and the client search UI shows those diagnostics alongside result cards.
+- AI answers now return `retrievalMode` plus warning messages, including provider-degradation warnings and weak-citation warnings when document evidence lacks strong page/section provenance.
+- Vector retrieval degradation is no longer silent: when embeddings or pgvector retrieval are unavailable, the system records that keyword/metadata fallback was used and surfaces that status to the AI workflow and UI.
+
 Process note for future sessions:
 
 - Before any new code changes, update `spec.md`, `plan.md`, and `tasks.md` first so each implementation slice has explicit artifact coverage before work begins.

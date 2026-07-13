@@ -1,11 +1,16 @@
 package com.ikms.worker.extract;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.ikms.ai.AiProviderClient;
 import com.ikms.ai.AiProviderSettingsService;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.util.List;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -19,19 +24,22 @@ import org.junit.jupiter.api.Test;
 class TextExtractionServiceTest {
 
   private TextExtractionService service;
+  private AiProviderClient aiProviderClient;
 
   @BeforeEach
   void setUp() {
     AiProviderSettingsService settingsService = mock(AiProviderSettingsService.class);
     when(settingsService.current()).thenReturn(new AiProviderSettingsService.ProviderSettings(
-        "openai",
-        "gpt-5-mini",
-        "text-embedding-3-large",
-        "https://api.openai.com/v1",
+        "mistral",
+        "mistral-small-latest",
+        "mistral-embed",
+        "https://api.mistral.ai/v1",
         "secret",
-        "tesseract",
+        "mistral-ocr-latest",
         true));
-    service = new TextExtractionService(settingsService);
+    aiProviderClient = mock(AiProviderClient.class);
+    when(aiProviderClient.ocr(any(), any(), any())).thenReturn(java.util.Optional.empty());
+    service = new TextExtractionService(settingsService, aiProviderClient);
   }
 
   @Test
@@ -59,7 +67,7 @@ class TextExtractionServiceTest {
         "tesseract"));
 
     assertThat(result.extractedText()).contains("Policy renewal due on 01 August");
-    assertThat(result.provider()).isEqualTo("tesseract");
+    assertThat(result.provider()).isEqualTo("pdfbox");
   }
 
   @Test
@@ -81,5 +89,28 @@ class TextExtractionServiceTest {
 
     assertThat(result.extractedText()).contains("Carrier contact updated for policy 42.");
     assertThat(result.language()).isEqualTo("en");
+    assertThat(result.provider()).isEqualTo("apache-poi");
+  }
+
+  @Test
+  void usesOcrForScannedPdfWhenNativeExtractionIsBlank() {
+    when(aiProviderClient.ocr(any(), any(), any())).thenReturn(java.util.Optional.of(
+        new AiProviderClient.OcrResult(
+            "mistral-ocr-latest",
+            List.of(
+                new AiProviderClient.OcrPage(1, "# OCR Title\n\nScanned policy text", 0.93),
+                new AiProviderClient.OcrPage(2, "Follow-up page text", 0.89)))));
+
+    var result = service.extract(new TextExtractionService.ExtractionRequest(
+        "scanned.pdf",
+        "application/pdf",
+        "%PDF-scan".getBytes(),
+        "mistral-ocr-latest"));
+
+    assertThat(result.provider()).isEqualTo("mistral-ocr-latest");
+    assertThat(result.extractedText()).contains("OCR Title").contains("Scanned policy text").contains("Follow-up page text");
+    assertThat(result.segments()).hasSize(2);
+    assertThat(result.segments().getFirst().pageNumber()).isEqualTo(1);
+    assertThat(result.extractionConfidence()).isEqualByComparingTo(new BigDecimal("0.9100"));
   }
 }

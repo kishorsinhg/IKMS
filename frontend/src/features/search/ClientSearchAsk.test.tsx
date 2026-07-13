@@ -60,6 +60,8 @@ describe("ClientSearchAsk", () => {
             citation: "Document: Policy Schedule",
             pageNumber: 7,
             sourceSection: "document-version",
+            retrievalPath: "VECTOR_HYBRID",
+            citationQuality: "HIGH",
             occurredAt: "2026-07-10T10:00:00Z",
           },
         ]), { status: 200, headers: { "content-type": "application/json" } });
@@ -79,6 +81,8 @@ describe("ClientSearchAsk", () => {
               sourceSection: "document-version",
             },
           ],
+          retrievalMode: "HYBRID_VECTOR",
+          warnings: ["Some retrieved evidence has limited location metadata and may produce weaker citations."],
           createdAt: "2026-07-10T10:00:00Z",
         }), { status: 200, headers: { "content-type": "application/json" } });
       }
@@ -108,6 +112,8 @@ describe("ClientSearchAsk", () => {
 
     await waitFor(() => expect(screen.getByText("Answered")).toBeInTheDocument());
     expect(screen.getByText("Policy Schedule: renewal due next month")).toBeInTheDocument();
+    expect(screen.getByText("HYBRID_VECTOR")).toBeInTheDocument();
+    expect(screen.getByText("VECTOR_HYBRID")).toBeInTheDocument();
     expect(screen.getAllByText("Page 7").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Helpful" })).toBeInTheDocument();
   });

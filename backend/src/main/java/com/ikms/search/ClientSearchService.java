@@ -75,16 +75,26 @@ public class ClientSearchService {
   }
 
   public List<SearchContracts.SearchResultResponse> search(UUID clientId, String query, Set<Permission> permissions) {
+    return searchDetailed(clientId, query, permissions).results();
+  }
+
+  public SearchOutcome searchDetailed(UUID clientId, String query, Set<Permission> permissions) {
     String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
     List<Document> documents = documentRepository.findByClient_IdOrderByCreatedAtDesc(clientId);
     List<Email> emails = emailRepository.findByClient_IdOrderByReceivedAtDesc(clientId);
     List<Note> notes = noteRepository.findByClient_IdAndStatusOrderByCreatedAtDesc(clientId, NoteStatus.ACTIVE);
     Map<String, CandidateMatch> matches = new HashMap<>();
+    List<String> warnings = new ArrayList<>();
+    String retrievalMode = normalizedQuery.isBlank() ? "BROWSE" : "KEYWORD_FALLBACK";
 
     if (!normalizedQuery.isBlank()) {
       Set<String> queryTokens = tokenize(normalizedQuery);
-      List<SimilarChunk> similarChunks = findSimilarChunks(clientId, normalizedQuery);
-      for (SimilarChunk chunk : similarChunks) {
+      VectorRetrievalOutcome vectorOutcome = findSimilarChunks(clientId, normalizedQuery);
+      retrievalMode = vectorOutcome.retrievalMode();
+      if (vectorOutcome.warning() != null && !vectorOutcome.warning().isBlank()) {
+        warnings.add(vectorOutcome.warning());
+      }
+      for (SimilarChunk chunk : vectorOutcome.chunks()) {
         mergeMatch(
             matches,
             chunk.sourceType(),
@@ -92,7 +102,8 @@ public class ClientSearchService {
             Math.max(0d, 3d - chunk.distance()),
             expandChunkContext(chunk),
             chunk.pageNumber(),
-            chunk.sourceSection());
+            chunk.sourceSection(),
+            "VECTOR_HYBRID");
       }
 
       for (EmbeddingChunk chunk : embeddingChunkRepository.findByClientIdOrderByCreatedAtDesc(clientId)) {
@@ -105,7 +116,7 @@ public class ClientSearchService {
           String matchedText = keywordScore >= metadataScore
               ? chunk.getChunkText()
               : nullSafe(chunk.getMetadataSummary()) + " " + chunk.getChunkText();
-          mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), hybridScore + 1.2d, matchedText, chunk.getPageNumber(), chunk.getSourceSection());
+          mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), hybridScore + 1.2d, matchedText, chunk.getPageNumber(), chunk.getSourceSection(), "KEYWORD_CHUNK");
         }
       }
 
@@ -117,7 +128,8 @@ public class ClientSearchService {
             2.5d,
             metadataValue.getField().getLabel() + ": " + metadataValue.getTextValue(),
             null,
-            metadataValue.getField().getLabel());
+            metadataValue.getField().getLabel(),
+            "METADATA");
       }
     }
 
@@ -132,6 +144,9 @@ public class ClientSearchService {
         if (!normalizedQuery.isBlank() && haystack.contains(normalizedQuery)) {
           score += 1d;
         }
+        String retrievalPath = match == null
+            ? (normalizedQuery.isBlank() ? "BROWSE" : haystack.contains(normalizedQuery) ? "SOURCE_TEXT" : "BROWSE")
+            : match.retrievalPath();
         String excerpt = excerpt(match == null ? null : match.matchedText(), version == null ? null : version.getExtractedText(),
             document.getTitle(), normalizedQuery);
         boolean containsPii = contentSensitivityService.documentContainsPii(document.getId());
@@ -144,6 +159,8 @@ public class ClientSearchService {
                 "Document: " + document.getTitle(),
                 match == null ? null : match.pageNumber(),
                 match == null ? null : match.sourceSection(),
+                retrievalPath,
+                citationQuality("DOCUMENT", match == null ? null : match.pageNumber(), match == null ? null : match.sourceSection()),
                 document.getCreatedAt()),
             score));
       }
@@ -157,6 +174,9 @@ public class ClientSearchService {
         if (!normalizedQuery.isBlank() && haystack.contains(normalizedQuery)) {
           score += 1d;
         }
+        String retrievalPath = match == null
+            ? (normalizedQuery.isBlank() ? "BROWSE" : haystack.contains(normalizedQuery) ? "SOURCE_TEXT" : "BROWSE")
+            : match.retrievalPath();
         String excerpt = excerpt(match == null ? null : match.matchedText(), email.getBodyText(), email.getSubject(), normalizedQuery);
         boolean containsPii = contentSensitivityService.emailContainsPii(email.getId());
         candidates.add(new SearchResultCandidate(
@@ -168,6 +188,8 @@ public class ClientSearchService {
                 "Email: " + email.getSubject(),
                 match == null ? null : match.pageNumber(),
                 match == null ? null : match.sourceSection(),
+                retrievalPath,
+                citationQuality("EMAIL", match == null ? null : match.pageNumber(), match == null ? null : match.sourceSection()),
                 email.getReceivedAt()),
             score));
       }
@@ -181,6 +203,9 @@ public class ClientSearchService {
         if (!normalizedQuery.isBlank() && haystack.contains(normalizedQuery)) {
           score += 1d;
         }
+        String retrievalPath = match == null
+            ? (normalizedQuery.isBlank() ? "BROWSE" : haystack.contains(normalizedQuery) ? "SOURCE_TEXT" : "BROWSE")
+            : match.retrievalPath();
         boolean containsPii = contentSensitivityService.noteContainsPii(note.getId());
         candidates.add(new SearchResultCandidate(
             new SearchContracts.SearchResultResponse(
@@ -194,18 +219,24 @@ public class ClientSearchService {
                 "Note created " + note.getCreatedAt(),
                 match == null ? null : match.pageNumber(),
                 match == null ? null : match.sourceSection(),
+                retrievalPath,
+                citationQuality("NOTE", match == null ? null : match.pageNumber(), match == null ? null : match.sourceSection()),
                 note.getCreatedAt()),
             score));
       }
     }
 
-    return candidates.stream()
+    List<SearchContracts.SearchResultResponse> results = candidates.stream()
         .sorted(Comparator
             .comparing(SearchResultCandidate::score, Comparator.reverseOrder())
             .thenComparing(candidate -> candidate.result().occurredAt(), Comparator.nullsLast(Comparator.reverseOrder())))
         .map(SearchResultCandidate::result)
         .limit(20)
         .toList();
+    if (results.stream().anyMatch(result -> "LOW".equals(result.citationQuality()))) {
+      warnings.add("Some retrieved evidence has limited location metadata and may produce weaker citations.");
+    }
+    return new SearchOutcome(results, retrievalMode, warnings);
   }
 
   private static void mergeMatch(
@@ -215,13 +246,14 @@ public class ClientSearchService {
       double score,
       String matchedText,
       Integer pageNumber,
-      String sourceSection) {
+      String sourceSection,
+      String retrievalPath) {
     matches.merge(
         key(sourceType, sourceId),
-        new CandidateMatch(score, matchedText, pageNumber, sourceSection),
+        new CandidateMatch(score, matchedText, pageNumber, sourceSection, retrievalPath),
         (left, right) -> left.score() >= right.score()
-            ? new CandidateMatch(left.score() + right.score(), left.matchedText(), left.pageNumber(), left.sourceSection())
-            : new CandidateMatch(left.score() + right.score(), right.matchedText(), right.pageNumber(), right.sourceSection()));
+            ? new CandidateMatch(left.score() + right.score(), left.matchedText(), left.pageNumber(), left.sourceSection(), left.retrievalPath())
+            : new CandidateMatch(left.score() + right.score(), right.matchedText(), right.pageNumber(), right.sourceSection(), right.retrievalPath()));
   }
 
   private static String key(String sourceType, UUID sourceId) {
@@ -274,25 +306,36 @@ public class ClientSearchService {
     return value == null ? "" : value;
   }
 
-  private record CandidateMatch(double score, String matchedText, Integer pageNumber, String sourceSection) {
+  private static String citationQuality(String sourceType, Integer pageNumber, String sourceSection) {
+    boolean hasLocation = pageNumber != null || (sourceSection != null && !sourceSection.isBlank());
+    if ("DOCUMENT".equals(sourceType)) {
+      return hasLocation ? "HIGH" : "LOW";
+    }
+    return hasLocation ? "HIGH" : "MEDIUM";
+  }
+
+  private record CandidateMatch(double score, String matchedText, Integer pageNumber, String sourceSection, String retrievalPath) {
   }
 
   private record SearchResultCandidate(SearchContracts.SearchResultResponse result, double score) {
   }
 
-  private List<SimilarChunk> findSimilarChunks(UUID clientId, String normalizedQuery) {
+  private VectorRetrievalOutcome findSimilarChunks(UUID clientId, String normalizedQuery) {
     var providerSettings = aiProviderSettingsService.current();
     var queryEmbedding = aiProviderClient.embed(providerSettings, List.of(normalizedQuery))
         .filter(result -> !result.isEmpty() && result.getFirst() != null && !result.getFirst().isEmpty())
         .map(result -> result.getFirst())
         .orElse(List.of());
     if (queryEmbedding.isEmpty()) {
-      return List.of();
+      return new VectorRetrievalOutcome(
+          List.of(),
+          "KEYWORD_FALLBACK",
+          "Embedding provider was unavailable for this query; keyword and metadata fallback were used.");
     }
 
     String vectorLiteral = toVectorLiteral(queryEmbedding);
     try {
-      return jdbcTemplate.query(
+      List<SimilarChunk> chunks = jdbcTemplate.query(
           """
               select source_type, source_id, chunk_text, chunk_index, page_number,
                      source_title, source_section, metadata_summary,
@@ -316,8 +359,12 @@ public class ClientSearchService {
           vectorLiteral,
           clientId,
           vectorLiteral);
+      return new VectorRetrievalOutcome(chunks, "HYBRID_VECTOR", null);
     } catch (Exception ignored) {
-      return List.of();
+      return new VectorRetrievalOutcome(
+          List.of(),
+          "KEYWORD_FALLBACK",
+          "Vector retrieval was unavailable for this query; keyword and metadata fallback were used.");
     }
   }
 
@@ -360,5 +407,17 @@ public class ClientSearchService {
       String sourceSection,
       String metadataSummary,
       double distance) {
+  }
+
+  public record SearchOutcome(
+      List<SearchContracts.SearchResultResponse> results,
+      String retrievalMode,
+      List<String> warnings) {
+  }
+
+  private record VectorRetrievalOutcome(
+      List<SimilarChunk> chunks,
+      String retrievalMode,
+      String warning) {
   }
 }

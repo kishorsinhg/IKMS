@@ -34,6 +34,8 @@ export function ClientSearchPanel({ clientId }: { clientId: string }) {
               <strong>{result.title}</strong>
               <span>{result.excerpt}</span>
               {result.pageNumber ? <small>Page {result.pageNumber}</small> : null}
+              <small>{result.retrievalPath}</small>
+              {result.citationQuality !== "HIGH" ? <small>Citation quality: {result.citationQuality}</small> : null}
               <small>{result.citation}</small>
             </article>
           ))}
@@ -56,7 +58,15 @@ export function ClientSearchPanel({ clientId }: { clientId: string }) {
         {askMutation.data ? (
           <article style={answerCardStyle}>
             <strong>{askMutation.data.status}</strong>
+            <small>{askMutation.data.retrievalMode}</small>
             <p style={{ margin: 0 }}>{askMutation.data.answer}</p>
+            {askMutation.data.warnings.length > 0 ? (
+              <div style={warningListStyle}>
+                {askMutation.data.warnings.map((warning) => (
+                  <small key={warning}>{warning}</small>
+                ))}
+              </div>
+            ) : null}
             <div style={resultListStyle}>
               {askMutation.data.citations.map((citation) => (
                 <div key={`${citation.sourceType}-${citation.sourceId}`} style={citationStyle}>
@@ -132,6 +142,12 @@ const citationStyle: React.CSSProperties = {
 const feedbackRowStyle: React.CSSProperties = {
   display: "flex",
   gap: "0.75rem",
+};
+
+const warningListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "0.25rem",
+  color: "#7a4b00",
 };
 
 const buttonStyle: React.CSSProperties = {

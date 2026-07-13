@@ -58,6 +58,17 @@ describe("AdminConfigurationPage", () => {
           updatedAt: "2026-07-10T10:00:00Z",
         }), { status: 200, headers: { "content-type": "application/json" } });
       }
+      if (url.endsWith("/api/admin/ai-settings/validate") && init?.method === "POST") {
+        return new Response(JSON.stringify({
+          valid: true,
+          chatModelReachable: true,
+          embeddingModelReachable: true,
+          ocrProviderSupported: true,
+          status: "READY",
+          message: "Provider configuration validated.",
+          checkedAt: "2026-07-10T10:05:00Z",
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
       return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -114,5 +125,25 @@ describe("AdminConfigurationPage", () => {
         }),
       }),
     ));
+
+    await user.click(screen.getByRole("button", { name: "Validate AI settings" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/admin/ai-settings/validate",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          providerName: "openai",
+          modelName: "gpt-5-mini",
+          embeddingModelName: "text-embedding-3-large",
+          apiBaseUrl: "https://api.openai.com/v1",
+          apiKey: "",
+          ocrProvider: "tesseract",
+          active: true,
+        }),
+      }),
+    ));
+
+    expect(screen.getByText(/READY: Provider configuration validated\./)).toBeInTheDocument();
   });
 });

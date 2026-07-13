@@ -72,6 +72,8 @@ class ClientSearchTest {
           "Document: Policy Schedule",
           4,
           "document-version",
+          "VECTOR_HYBRID",
+          "HIGH",
           Instant.parse("2026-07-10T09:00:00Z")));
     }
 
@@ -88,6 +90,8 @@ class ClientSearchTest {
               "renewal due next month",
               4,
               "document-version")),
+          "HYBRID_VECTOR",
+          List.of(),
           Instant.parse("2026-07-10T09:00:00Z"));
     }
   }

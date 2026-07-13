@@ -62,6 +62,16 @@ export interface AiProviderSettingConfig {
   updatedAt: string;
 }
 
+export interface AiProviderValidationResult {
+  valid: boolean;
+  chatModelReachable: boolean;
+  embeddingModelReachable: boolean;
+  ocrProviderSupported: boolean;
+  status: string;
+  message: string;
+  checkedAt: string;
+}
+
 export function listAdminUsers() {
   return apiClient.get<AdminUser[]>("/api/admin/users");
 }
@@ -120,4 +130,16 @@ export function updateAiSetting(request: {
   active: boolean;
 }) {
   return apiClient.patch<AiProviderSettingConfig>("/api/admin/ai-settings", request);
+}
+
+export function validateAiSetting(request: {
+  providerName: string;
+  modelName: string;
+  embeddingModelName: string;
+  apiBaseUrl: string;
+  apiKey: string;
+  ocrProvider: string;
+  active: boolean;
+}) {
+  return apiClient.post<AiProviderValidationResult>("/api/admin/ai-settings/validate", request);
 }

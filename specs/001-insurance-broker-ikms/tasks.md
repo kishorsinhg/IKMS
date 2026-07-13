@@ -334,3 +334,10 @@ Use `specs/001-insurance-broker-ikms/quickstart.md` as the acceptance validation
 - [x] T133 Add dedicated embedding-model configuration across admin settings, provider settings, and embedding generation so vector indexing does not depend on the chat/classification model
 - [x] T134 Replace character-based chunking with context-preserving semantic chunks that persist chunk metadata such as chunk index, token count, source title/section, language, page number, and retrieval summary for hybrid search
 - [x] T135 Add page-aware PDF evidence provenance, local chunk-neighbor context expansion, and page/location-aware AI citations so cross-document client conversations can cite document name and page/location metadata
+
+## Phase 11: Convergence
+
+- [x] T136 Add administrator-facing AI/OCR provider validation, timeout/error handling, and audit coverage so configured endpoints, credentials, and required models can be verified before use, per US5/AC4, FR-037, and FR-040a (missing)
+- [x] T137 Add OCR-provider-backed extraction for scanned or image-only PDFs, retain page-aware provenance for OCR segments, and route low-confidence OCR results to review, per US2/AC5, FR-019a, FR-020, and FR-040 (partial)
+- [x] T138 Replace rule-based client answer assembly with provider-generated, evidence-constrained answer synthesis while preserving refusal, no-evidence, conflict, and citation behavior, per US3/AC1, US3/AC2, US3/AC3, FR-025b, FR-026, FR-027, and SC-008 (partial)
+- [x] T139 Harden hybrid retrieval fallback and observability by surfacing provider degradation, retrieval path selection, and citation-quality validation for client-scoped cross-document conversations, per FR-023, FR-025a, FR-027a, SC-003a, and SC-005 (partial)

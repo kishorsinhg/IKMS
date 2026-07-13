@@ -40,6 +40,7 @@ An Indexer can process incoming PDF, DOCX, and email knowledge from manual uploa
 2. **Given** an Indexer opens an unlinked item, **When** the Indexer selects a client, assigns or confirms document type, and approves metadata, **Then** the item is linked to that client and appears in the client profile.
 3. **Given** an intake item has the exact same file hash as an existing stored file, **When** the item is processed, **Then** it is blocked or skipped as a duplicate and the event is audited.
 4. **Given** an email has supported attachments, **When** the mailbox intake processes the email, **Then** the email is stored as an email item and supported attachments are stored as linked document items under the same parent email.
+5. **Given** a scanned or image-only PDF cannot yield reliable text from built-in parsing, **When** intake processing runs, **Then** the system uses the configured OCR provider and routes low-confidence OCR output to review.
 
 ---
 
@@ -92,6 +93,7 @@ An Administrator can configure users, roles, intake sources, document types, met
 1. **Given** an Administrator configures a document type, **When** a new document is processed, **Then** the document can be classified into that configured type.
 2. **Given** an Administrator marks a metadata field as PII, **When** a Processor views the document metadata, **Then** the field is masked or hidden according to PII rules.
 3. **Given** an Administrator configures a review mode, **When** new intake items are processed, **Then** the system routes items to review according to the configured mode and confidence rules.
+4. **Given** an Administrator configures AI or OCR provider settings, **When** the Administrator validates or saves the configuration, **Then** the system confirms whether the configured endpoint, credentials, and required models are usable and records the outcome.
 
 ---
 
@@ -147,6 +149,7 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **FR-017**: System MUST capture fixed insurance-oriented metadata plus predefined additional metadata fields.
 - **FR-018**: System MUST allow Administrators to label additional metadata fields and mark metadata fields as PII.
 - **FR-019**: System MUST classify supported documents and extract metadata for review or approval.
+- **FR-019a**: System MUST support OCR-backed extraction for scanned or image-only supported documents when built-in text parsing does not produce reliable text.
 - **FR-020**: System MUST route items with low-confidence client match, classification, extraction, or PII handling to review.
 - **FR-021**: System MUST provide an unlinked review queue where Indexers can link items to clients, correct metadata, and release approved items.
 - **FR-022**: System MUST allow configurable human review modes: full review, confidence-based review, sampling review, and straight-through processing for high-confidence items with exceptions.
@@ -154,6 +157,7 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **FR-024**: System MUST provide client-level AI Q&A only; global cross-client AI Q&A is out of scope for V1.
 - **FR-025**: System MUST ensure AI answers cite supporting source documents, emails, notes, or chunks.
 - **FR-025a**: System MUST persist and return citation provenance metadata sufficient to show document name plus page number or nearest available source-location details for document-backed evidence.
+- **FR-025b**: System MUST generate client-level answers from retrieved authorized evidence using the configured AI provider when available, while preserving refusal, no-evidence, and failure-safe fallback behavior.
 - **FR-026**: System MUST respond with no supporting evidence found when authorized evidence is unavailable.
 - **FR-027**: System MUST identify and present conflicting evidence when relevant sources disagree.
 - **FR-027a**: System MUST support client-scoped evidence assembly across multiple linked documents, emails, and notes while preventing cross-client retrieval during search and AI Q&A.
@@ -170,6 +174,7 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **FR-038**: System MUST support audit log search and CSV export by authorized users.
 - **FR-039**: System MUST support configurable retention policies and controlled deletion or anonymization workflow when legally required.
 - **FR-040**: System MUST support English UI and English/German content processing for OCR, search, embeddings, and AI Q&A.
+- **FR-040a**: System MUST allow administrators to validate configured AI/OCR provider connectivity and required model availability before relying on those settings in intake, search, or AI Q&A flows.
 
 ### Key Entities *(include if feature involves data)*
 

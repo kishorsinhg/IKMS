@@ -20,8 +20,16 @@ public class RagContextService {
   }
 
   public List<SearchContracts.SearchResultResponse> buildContext(UUID clientId, String question, Set<Permission> permissions) {
-    return clientSearchService.search(clientId, question, permissions).stream()
+    return buildContextDetailed(clientId, question, permissions).results();
+  }
+
+  public ClientSearchService.SearchOutcome buildContextDetailed(UUID clientId, String question, Set<Permission> permissions) {
+    ClientSearchService.SearchOutcome outcome = clientSearchService.searchDetailed(clientId, question, permissions);
+    return new ClientSearchService.SearchOutcome(
+        outcome.results().stream()
         .limit(5)
-        .toList();
+        .toList(),
+        outcome.retrievalMode(),
+        outcome.warnings());
   }
 }

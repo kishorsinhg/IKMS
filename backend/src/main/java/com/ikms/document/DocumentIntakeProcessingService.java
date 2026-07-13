@@ -81,7 +81,10 @@ public class DocumentIntakeProcessingService {
     document.setDocumentTypeId(resolveDocumentTypeId(classification.metadata().get("documentType")));
     document.setClientMatchConfidence(classification.clientMatchConfidence());
     document.setClassificationConfidence(classification.classificationConfidence());
-    document.setExtractionConfidence(classification.extractionConfidence());
+    document.setExtractionConfidence(
+        extraction.extractionConfidence() != null
+            ? extraction.extractionConfidence()
+            : classification.extractionConfidence());
     documentRepository.save(document);
 
     if (promptInjectionDetectionService.inspect(extraction.extractedText()).detected()) {
@@ -97,7 +100,7 @@ public class DocumentIntakeProcessingService {
         document.getId(),
         classification.clientMatchConfidence(),
         classification.classificationConfidence(),
-        classification.extractionConfidence());
+        document.getExtractionConfidence());
     if (reviewDecision.requiresReview()) {
       document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
       documentRepository.save(document);

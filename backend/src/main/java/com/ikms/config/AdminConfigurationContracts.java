@@ -60,4 +60,24 @@ public final class AdminConfigurationContracts {
       boolean active,
       Instant updatedAt) {
   }
+
+  public record AiProviderValidationRequest(
+      @NotBlank(message = "Provider name is required.") String providerName,
+      @NotBlank(message = "Model name is required.") String modelName,
+      @NotBlank(message = "Embedding model name is required.") String embeddingModelName,
+      String apiBaseUrl,
+      String apiKey,
+      @NotBlank(message = "OCR provider is required.") String ocrProvider,
+      boolean active) {
+  }
+
+  public record AiProviderValidationResponse(
+      boolean valid,
+      boolean chatModelReachable,
+      boolean embeddingModelReachable,
+      boolean ocrProviderSupported,
+      String status,
+      String message,
+      Instant checkedAt) {
+  }
 }

@@ -27,6 +27,8 @@ public final class AiContracts {
       String status,
       String answer,
       List<SourceCitation> citations,
+      String retrievalMode,
+      List<String> warnings,
       Instant createdAt) {
   }
 

@@ -8,6 +8,8 @@ export interface SearchResult {
   citation: string;
   pageNumber: number | null;
   sourceSection: string | null;
+  retrievalPath: string;
+  citationQuality: "HIGH" | "MEDIUM" | "LOW";
   occurredAt: string;
 }
 
@@ -25,6 +27,8 @@ export interface AskClientResponse {
   status: "Answered" | "NoEvidence" | "Refused" | "Failed";
   answer: string;
   citations: SourceCitation[];
+  retrievalMode: string;
+  warnings: string[];
   createdAt: string;
 }
 

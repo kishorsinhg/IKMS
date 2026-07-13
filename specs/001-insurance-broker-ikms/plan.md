@@ -26,7 +26,7 @@ The V1 architecture is a monolithic Spring Boot backend with an embedded worker 
 
 **Performance Goals**: Open known client profiles in under 10 seconds for 95% of normal searches; route 95% of supported intake items to linked or review state within configured processing SLA; return client-scoped search results interactively for expected 20-25 user broker deployments
 
-**Constraints**: Security trimming must occur before retrieval and LLM context assembly; AI answers must cite evidence or say no supporting evidence exists; document-backed evidence must retain page/location provenance for UI citations; Processor users must never receive unredacted PII; original files must be preserved unchanged; no global cross-client AI Q&A in V1
+**Constraints**: Security trimming must occur before retrieval and LLM context assembly; AI answers must cite evidence or say no supporting evidence exists; document-backed evidence must retain page/location provenance for UI citations; provider-backed chat and OCR integrations must fail safely into review/no-evidence states without leaking unauthorized data; Processor users must never receive unredacted PII; original files must be preserved unchanged; no global cross-client AI Q&A in V1
 
 **Scale/Scope**: One broker tenant, 20-25 users, client-centric knowledge store, PDF/DOCX/email intake, English UI, English/German content processing, configurable document types and fixed-plus-extension metadata fields
 

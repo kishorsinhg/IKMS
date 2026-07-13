@@ -128,6 +128,13 @@ public class AdminConfigurationController {
     return intakeAiConfigurationService.upsertAiProviderSetting(request, principal(authentication).id());
   }
 
+  @PostMapping("/ai-settings/validate")
+  public AdminConfigurationContracts.AiProviderValidationResponse validateAiSettings(
+      @Valid @RequestBody AdminConfigurationContracts.AiProviderValidationRequest request,
+      Authentication authentication) {
+    return intakeAiConfigurationService.validateAiProviderSetting(request, principal(authentication).id());
+  }
+
   private AppUserPrincipal principal(Authentication authentication) {
     return (AppUserPrincipal) authentication.getPrincipal();
   }

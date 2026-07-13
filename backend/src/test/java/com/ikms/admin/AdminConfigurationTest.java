@@ -84,6 +84,26 @@ class AdminConfigurationTest {
         .andExpect(jsonPath("$.apiKeyConfigured").value(true));
   }
 
+  @Test
+  void aiSettingValidateShouldReturnProviderReadiness() throws Exception {
+    mockMvc.perform(post("/api/admin/ai-settings/validate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsBytes(new AdminConfigurationContracts.AiProviderValidationRequest(
+                "openai",
+                "gpt-5-mini",
+                "text-embedding-3-large",
+                "https://api.openai.com/v1",
+                "secret-key",
+                "tesseract",
+                true))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.valid").value(true))
+        .andExpect(jsonPath("$.chatModelReachable").value(true))
+        .andExpect(jsonPath("$.embeddingModelReachable").value(true))
+        .andExpect(jsonPath("$.ocrProviderSupported").value(true))
+        .andExpect(jsonPath("$.status").value("READY"));
+  }
+
   @RestController
   @RequestMapping("/api/admin")
   static class TestAdminConfigurationController {
@@ -124,6 +144,19 @@ class AdminConfigurationTest {
           request.apiKey() != null && !request.apiKey().isBlank(),
           request.ocrProvider(),
           request.active(),
+          Instant.parse("2026-07-10T09:00:00Z"));
+    }
+
+    @PostMapping("/ai-settings/validate")
+    AdminConfigurationContracts.AiProviderValidationResponse validateAiSetting(
+        @Valid @RequestBody AdminConfigurationContracts.AiProviderValidationRequest request) {
+      return new AdminConfigurationContracts.AiProviderValidationResponse(
+          true,
+          true,
+          true,
+          true,
+          "READY",
+          "Provider configuration validated.",
           Instant.parse("2026-07-10T09:00:00Z"));
     }
   }

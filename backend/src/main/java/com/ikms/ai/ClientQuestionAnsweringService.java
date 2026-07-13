@@ -8,6 +8,7 @@ import com.ikms.security.domain.Permission;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -24,16 +25,22 @@ public class ClientQuestionAnsweringService {
   private final AiInteractionRepository aiInteractionRepository;
   private final AuditService auditService;
   private final PromptInjectionDetectionService promptInjectionDetectionService;
+  private final AiProviderSettingsService aiProviderSettingsService;
+  private final AiProviderClient aiProviderClient;
 
   public ClientQuestionAnsweringService(
       RagContextService ragContextService,
       AiInteractionRepository aiInteractionRepository,
       AuditService auditService,
-      PromptInjectionDetectionService promptInjectionDetectionService) {
+      PromptInjectionDetectionService promptInjectionDetectionService,
+      AiProviderSettingsService aiProviderSettingsService,
+      AiProviderClient aiProviderClient) {
     this.ragContextService = ragContextService;
     this.aiInteractionRepository = aiInteractionRepository;
     this.auditService = auditService;
     this.promptInjectionDetectionService = promptInjectionDetectionService;
+    this.aiProviderSettingsService = aiProviderSettingsService;
+    this.aiProviderClient = aiProviderClient;
   }
 
   public AiContracts.AskClientResponse ask(UUID clientId, String question, Set<Permission> permissions, UUID actorUserId) {
@@ -43,13 +50,14 @@ public class ClientQuestionAnsweringService {
     }
 
     if (isRefused(normalizedQuestion)) {
-      return saveInteraction(clientId, normalizedQuestion, "Refused", "I cannot make claim, policy, underwriting, or fraud decisions.", List.of(), actorUserId);
+      return saveInteraction(clientId, normalizedQuestion, "Refused", "I cannot make claim, policy, underwriting, or fraud decisions.", List.of(), "GUARDRAIL", List.of(), actorUserId);
     }
 
-    List<SearchContracts.SearchResultResponse> context = ragContextService.buildContext(clientId, normalizedQuestion, permissions);
-    List<SearchContracts.SearchResultResponse> safeContext = context.stream()
+    var contextOutcome = ragContextService.buildContextDetailed(clientId, normalizedQuestion, permissions);
+    List<SearchContracts.SearchResultResponse> safeContext = contextOutcome.results().stream()
         .filter(result -> allowContext(clientId, result, actorUserId))
         .toList();
+    List<String> warnings = new java.util.ArrayList<>(contextOutcome.warnings());
     if (safeContext.isEmpty()) {
       return saveInteraction(
           clientId,
@@ -57,10 +65,12 @@ public class ClientQuestionAnsweringService {
           "NoEvidence",
           "No authorized evidence was found for this client question after safety and permission filtering.",
           List.of(),
+          contextOutcome.retrievalMode(),
+          warnings,
           actorUserId);
     }
 
-    String answer = buildAnswer(safeContext);
+    boolean conflictingEvidence = detectConflict(safeContext);
     List<AiContracts.SourceCitation> citations = safeContext.stream()
         .map(result -> new AiContracts.SourceCitation(
             result.sourceType(),
@@ -70,7 +80,12 @@ public class ClientQuestionAnsweringService {
             result.pageNumber(),
             result.sourceSection()))
         .toList();
-    return saveInteraction(clientId, normalizedQuestion, "Answered", answer, citations, actorUserId);
+    String answer = buildProviderAnswer(normalizedQuestion, safeContext, conflictingEvidence)
+        .orElseGet(() -> buildFallbackAnswer(safeContext, conflictingEvidence));
+    if (safeContext.stream().anyMatch(result -> "LOW".equals(result.citationQuality()))) {
+      warnings.add("Some cited document evidence is missing ideal page or section provenance.");
+    }
+    return saveInteraction(clientId, normalizedQuestion, "Answered", answer, citations, contextOutcome.retrievalMode(), warnings, actorUserId);
   }
 
   private AiContracts.AskClientResponse saveInteraction(
@@ -79,6 +94,8 @@ public class ClientQuestionAnsweringService {
       String status,
       String answer,
       List<AiContracts.SourceCitation> citations,
+      String retrievalMode,
+      List<String> warnings,
       UUID actorUserId) {
     AiInteraction interaction = new AiInteraction();
     interaction.setClientId(clientId);
@@ -98,9 +115,12 @@ public class ClientQuestionAnsweringService {
         "AiInteraction",
         saved.getId().toString(),
         false,
-        java.util.Map.of("status", status)));
+        java.util.Map.of(
+            "status", status,
+            "retrievalMode", retrievalMode == null ? "" : retrievalMode,
+            "warnings", warnings == null || warnings.isEmpty() ? "" : String.join(" | ", warnings))));
 
-    return new AiContracts.AskClientResponse(saved.getId(), status, answer, citations, saved.getCreatedAt());
+    return new AiContracts.AskClientResponse(saved.getId(), status, answer, citations, retrievalMode, warnings == null ? List.of() : List.copyOf(warnings), saved.getCreatedAt());
   }
 
   private static boolean isRefused(String question) {
@@ -132,12 +152,33 @@ public class ClientQuestionAnsweringService {
     return false;
   }
 
-  private static String buildAnswer(List<SearchContracts.SearchResultResponse> context) {
+  private Optional<String> buildProviderAnswer(
+      String question,
+      List<SearchContracts.SearchResultResponse> context,
+      boolean conflictingEvidence) {
+    var providerSettings = aiProviderSettingsService.current();
+    return aiProviderClient.answerWithEvidence(
+        providerSettings,
+        question,
+        context.stream()
+            .map(result -> new AiProviderClient.EvidenceSnippet(
+                result.sourceType(),
+                result.title(),
+                formatLocation(result),
+                result.excerpt()))
+            .toList(),
+        conflictingEvidence)
+        .map(answer -> conflictingEvidence && !mentionsConflict(answer)
+            ? answer + " Conflicting evidence requires manual review."
+            : answer);
+  }
+
+  private static String buildFallbackAnswer(List<SearchContracts.SearchResultResponse> context, boolean conflictingEvidence) {
     String base = context.stream()
         .map(result -> result.title() + ": " + result.excerpt())
         .reduce((left, right) -> left + " | " + right)
         .orElse("No evidence found.");
-    return detectConflict(context)
+    return conflictingEvidence
         ? base + " Source excerpts conflict on key facts and require manual review."
         : base;
   }
@@ -154,5 +195,22 @@ public class ClientQuestionAnsweringService {
     boolean leftFound = excerpts.stream().anyMatch(text -> leftSignals.stream().anyMatch(text::contains));
     boolean rightFound = excerpts.stream().anyMatch(text -> rightSignals.stream().anyMatch(text::contains));
     return leftFound && rightFound;
+  }
+
+  private static String formatLocation(SearchContracts.SearchResultResponse result) {
+    if (result.pageNumber() != null) {
+      return "Page " + result.pageNumber();
+    }
+    if (result.sourceSection() != null && !result.sourceSection().isBlank()) {
+      return result.sourceSection();
+    }
+    return result.sourceType();
+  }
+
+  private static boolean mentionsConflict(String answer) {
+    String normalized = answer.toLowerCase(Locale.ROOT);
+    return normalized.contains("conflict")
+        || normalized.contains("manual review")
+        || normalized.contains("conflicting");
   }
 }

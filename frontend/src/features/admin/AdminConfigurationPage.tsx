@@ -15,6 +15,7 @@ import {
   listSharedFolders,
   updateAiSetting,
   updateReviewSetting,
+  validateAiSetting,
 } from "../../api/admin";
 
 export function AdminConfigurationPage() {
@@ -35,6 +36,7 @@ export function AdminConfigurationPage() {
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [ocrProvider, setOcrProvider] = useState("tesseract");
+  const [validationSummary, setValidationSummary] = useState<string | null>(null);
 
   const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: listAdminUsers });
   const documentTypesQuery = useQuery({ queryKey: ["admin", "document-types"], queryFn: listDocumentTypes });
@@ -87,6 +89,17 @@ export function AdminConfigurationPage() {
     onSuccess: async () => {
       setApiKey("");
       await queryClient.invalidateQueries({ queryKey: ["admin", "ai-setting"] });
+    },
+  });
+  const aiValidationMutation = useMutation({
+    mutationFn: () => validateAiSetting({ providerName, modelName, embeddingModelName, apiBaseUrl, apiKey, ocrProvider, active: true }),
+    onSuccess: (result) => {
+      setValidationSummary(
+        `${result.status}: ${result.message} Chat ${result.chatModelReachable ? "ready" : "failed"}, embeddings ${result.embeddingModelReachable ? "ready" : "failed"}, OCR ${result.ocrProviderSupported ? "supported" : "unsupported"}.`,
+      );
+    },
+    onError: () => {
+      setValidationSummary("FAILED: Provider validation request could not be completed.");
     },
   });
 
@@ -245,7 +258,12 @@ export function AdminConfigurationPage() {
               type="password"
             />
             <input value={ocrProvider} onChange={(event) => setOcrProvider(event.target.value)} placeholder="OCR provider" />
-            <button type="submit" style={buttonStyle}>Save AI settings</button>
+            <div style={actionRowStyle}>
+              <button type="submit" style={buttonStyle}>Save AI settings</button>
+              <button type="button" style={secondaryButtonStyle} onClick={() => aiValidationMutation.mutate()}>
+                Validate AI settings
+              </button>
+            </div>
           </form>
           {aiSettingQuery.data ? (
             <div style={itemStyle}>
@@ -255,6 +273,7 @@ export function AdminConfigurationPage() {
               <span>{aiSettingQuery.data.apiKeyConfigured ? "API key configured" : "API key not configured"}</span>
             </div>
           ) : null}
+          {validationSummary ? <div style={itemStyle}>{validationSummary}</div> : null}
         </section>
       </div>
     </section>
@@ -293,6 +312,18 @@ const itemStyle: React.CSSProperties = {
 
 const buttonStyle: React.CSSProperties = {
   ...ui.primaryButton,
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  ...ui.primaryButton,
+  background: "#efe7d6",
+  color: "#3c2b17",
+};
+
+const actionRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "0.75rem",
+  flexWrap: "wrap",
 };
 
 const tableWrapStyle: React.CSSProperties = {

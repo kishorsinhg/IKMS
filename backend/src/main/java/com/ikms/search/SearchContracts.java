@@ -16,6 +16,8 @@ public final class SearchContracts {
       String citation,
       Integer pageNumber,
       String sourceSection,
+      String retrievalPath,
+      String citationQuality,
       Instant occurredAt) {
   }
 }
