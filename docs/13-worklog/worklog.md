@@ -67,3 +67,17 @@ Release closeout has strong automated coverage, but full quickstart signoff is s
 ### Additional Validation Executed
 
 - `mvn test -Dtest=TextExtractionServiceTest,AdminConfigurationTest,ClientQuestionAnsweringTest,RetentionWorkflowTest,ReviewQueueWorkflowTest,NoteControllerContractTest`
+
+### Session Update: 2026-07-13 Evidence And Retrieval Refinement
+
+- Added a dedicated embedding model configuration path so administrators can configure embedding generation independently from the chat/classification model.
+- Replaced fixed-width chunking with context-preserving semantic chunking that stores chunk index, token count, source title/section, language, page number, and retrieval-summary metadata.
+- Extended PDF extraction and indexing to retain page-aware provenance, then surfaced page/location-aware citations in client search and AI answers.
+- Improved retrieval quality with hybrid ranking plus local chunk-neighbor expansion so answers can assemble evidence from multiple documents, emails, and notes within the selected client.
+
+### Additional Validation Executed
+
+- Backend targeted validation passed:
+  - `mvn test -Dtest=ClientQuestionAnsweringTest,ClientSearchTest,EmbeddingIndexServiceTest,TextExtractionServiceTest`
+- Frontend targeted validation passed:
+  - `npm test -- --run src/features/search/ClientSearchAsk.test.tsx src/features/admin/AdminConfiguration.test.tsx`

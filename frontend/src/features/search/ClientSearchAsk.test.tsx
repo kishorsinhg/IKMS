@@ -58,6 +58,8 @@ describe("ClientSearchAsk", () => {
             title: "Policy Schedule",
             excerpt: "renewal due next month",
             citation: "Document: Policy Schedule",
+            pageNumber: 7,
+            sourceSection: "document-version",
             occurredAt: "2026-07-10T10:00:00Z",
           },
         ]), { status: 200, headers: { "content-type": "application/json" } });
@@ -73,6 +75,8 @@ describe("ClientSearchAsk", () => {
               sourceId: "doc-1",
               title: "Policy Schedule",
               excerpt: "renewal due next month",
+              pageNumber: 7,
+              sourceSection: "document-version",
             },
           ],
           createdAt: "2026-07-10T10:00:00Z",
@@ -104,6 +108,7 @@ describe("ClientSearchAsk", () => {
 
     await waitFor(() => expect(screen.getByText("Answered")).toBeInTheDocument());
     expect(screen.getByText("Policy Schedule: renewal due next month")).toBeInTheDocument();
+    expect(screen.getAllByText("Page 7").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Helpful" })).toBeInTheDocument();
   });
 });

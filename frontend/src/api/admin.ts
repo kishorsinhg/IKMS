@@ -54,6 +54,7 @@ export interface AiProviderSettingConfig {
   id: string;
   providerName: string;
   modelName: string;
+  embeddingModelName: string;
   apiBaseUrl: string | null;
   apiKeyConfigured: boolean;
   ocrProvider: string;
@@ -112,6 +113,7 @@ export function getAiSetting() {
 export function updateAiSetting(request: {
   providerName: string;
   modelName: string;
+  embeddingModelName: string;
   apiBaseUrl: string;
   apiKey: string;
   ocrProvider: string;

@@ -27,6 +27,27 @@ public class EmbeddingChunk {
   @Column(name = "chunk_text", nullable = false, columnDefinition = "TEXT")
   private String chunkText;
 
+  @Column(name = "chunk_index", nullable = false)
+  private int chunkIndex;
+
+  @Column(name = "token_count")
+  private Integer tokenCount;
+
+  @Column(name = "source_title", length = 255)
+  private String sourceTitle;
+
+  @Column(name = "source_section", length = 255)
+  private String sourceSection;
+
+  @Column(name = "page_number")
+  private Integer pageNumber;
+
+  @Column(name = "metadata_summary", columnDefinition = "TEXT")
+  private String metadataSummary;
+
+  @Column(length = 32)
+  private String language;
+
   @Column(name = "embedding_reference", length = 255)
   private String embeddingReference;
 
@@ -54,6 +75,20 @@ public class EmbeddingChunk {
   public void setSourceId(UUID sourceId) { this.sourceId = sourceId; }
   public String getChunkText() { return chunkText; }
   public void setChunkText(String chunkText) { this.chunkText = chunkText; }
+  public int getChunkIndex() { return chunkIndex; }
+  public void setChunkIndex(int chunkIndex) { this.chunkIndex = chunkIndex; }
+  public Integer getTokenCount() { return tokenCount; }
+  public void setTokenCount(Integer tokenCount) { this.tokenCount = tokenCount; }
+  public String getSourceTitle() { return sourceTitle; }
+  public void setSourceTitle(String sourceTitle) { this.sourceTitle = sourceTitle; }
+  public String getSourceSection() { return sourceSection; }
+  public void setSourceSection(String sourceSection) { this.sourceSection = sourceSection; }
+  public Integer getPageNumber() { return pageNumber; }
+  public void setPageNumber(Integer pageNumber) { this.pageNumber = pageNumber; }
+  public String getMetadataSummary() { return metadataSummary; }
+  public void setMetadataSummary(String metadataSummary) { this.metadataSummary = metadataSummary; }
+  public String getLanguage() { return language; }
+  public void setLanguage(String language) { this.language = language; }
   public String getEmbeddingReference() { return embeddingReference; }
   public void setEmbeddingReference(String embeddingReference) { this.embeddingReference = embeddingReference; }
   public String getEmbeddingVector() { return embeddingVector; }

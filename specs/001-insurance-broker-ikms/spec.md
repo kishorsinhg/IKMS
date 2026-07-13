@@ -57,6 +57,8 @@ A Processor or Supervisor can search within one selected client profile and ask 
 2. **Given** no supporting evidence exists for a question, **When** the user asks the question, **Then** the system responds that available authorized information does not contain supporting evidence.
 3. **Given** conflicting evidence exists, **When** the user asks a related question, **Then** the system identifies the conflict and cites the conflicting sources.
 4. **Given** a user asks the AI to approve, reject, underwrite, cancel, or decide a claim or policy, **When** the AI processes the request, **Then** it refuses the decision-making request and reminds the user to follow organizational procedures.
+5. **Given** an AI answer cites a document-backed source, **When** the answer or source list is displayed, **Then** each citation includes the source name and the page number or nearest available source-location metadata.
+6. **Given** relevant evidence is split across multiple documents, emails, or notes linked to the same client, **When** the user asks a question, **Then** the system may assemble one answer from those multiple client-authorized sources and cite each contributing source.
 
 ---
 
@@ -151,8 +153,10 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **FR-023**: System MUST provide keyword, metadata, and semantic search within a selected client profile.
 - **FR-024**: System MUST provide client-level AI Q&A only; global cross-client AI Q&A is out of scope for V1.
 - **FR-025**: System MUST ensure AI answers cite supporting source documents, emails, notes, or chunks.
+- **FR-025a**: System MUST persist and return citation provenance metadata sufficient to show document name plus page number or nearest available source-location details for document-backed evidence.
 - **FR-026**: System MUST respond with no supporting evidence found when authorized evidence is unavailable.
 - **FR-027**: System MUST identify and present conflicting evidence when relevant sources disagree.
+- **FR-027a**: System MUST support client-scoped evidence assembly across multiple linked documents, emails, and notes while preventing cross-client retrieval during search and AI Q&A.
 - **FR-028**: System MUST refuse requests for business decision-making, including claim approval, underwriting, fraud determination, policy cancellation, or other binding decisions.
 - **FR-029**: System MUST support user feedback on AI answers, search results, and extraction quality.
 - **FR-030**: System MUST support local username/password authentication with account status, role assignment, session timeout, failed-login tracking, and login audit.
@@ -181,7 +185,7 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **Role**: Permission grouping for Indexer, Processor, Supervisor, and Administrator.
 - **Audit Log**: Immutable event record for security, compliance, AI traceability, and operational review.
 - **AI Interaction**: Record of client-level AI question, retrieved evidence, source citations, user, timestamp, and PII-context status.
-- **Embedding Chunk**: Searchable content segment derived from authorized document text, email body, or note content, linked to client, source, version, sensitivity status, and retrieval metadata.
+- **Embedding Chunk**: Searchable semantic content segment derived from authorized document text, email body, or note content, linked to client, source, version, sensitivity status, page/location provenance, and retrieval metadata used for hybrid search and AI citations.
 
 ## Success Criteria *(mandatory)*
 
@@ -190,6 +194,7 @@ An Administrator or authorized Supervisor can search and export audit logs cover
 - **SC-001**: Authorized users can locate a known client and open the client profile in under 10 seconds for at least 95% of normal searches.
 - **SC-002**: Authorized users can upload or intake supported files and see them either linked to a client or placed in review within the configured processing SLA for at least 95% of items.
 - **SC-003**: At least 95% of AI answers include one or more source citations or explicitly state that no supporting evidence was found.
+- **SC-003a**: At least 95% of document-backed AI citations include the document name and page number or nearest available location metadata.
 - **SC-004**: Unauthorized users receive zero unredacted PII in client profile fields, document previews/downloads, search snippets, or AI answers during role-based access testing.
 - **SC-005**: 100% of AI Q&A interactions are traceable to user, client, question, timestamp, and source evidence used.
 - **SC-006**: Exact duplicate file uploads are detected by hash and blocked or skipped in 100% of duplicate test cases.

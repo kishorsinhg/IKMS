@@ -26,6 +26,7 @@ class TextExtractionServiceTest {
     when(settingsService.current()).thenReturn(new AiProviderSettingsService.ProviderSettings(
         "openai",
         "gpt-5-mini",
+        "text-embedding-3-large",
         "https://api.openai.com/v1",
         "secret",
         "tesseract",

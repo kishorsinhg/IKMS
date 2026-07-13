@@ -90,7 +90,7 @@ public class AiProviderClient {
           .contentType(MediaType.APPLICATION_JSON)
           .headers(headers -> headers.setBearerAuth(settings.apiKey()))
           .body(Map.of(
-              "model", settings.modelName(),
+              "model", settings.embeddingModelName(),
               "input", inputs))
           .retrieve()
           .body(EmbeddingsResponse.class);

@@ -43,6 +43,7 @@ public final class AdminConfigurationContracts {
   public record AiProviderSettingRequest(
       @NotBlank(message = "Provider name is required.") String providerName,
       @NotBlank(message = "Model name is required.") String modelName,
+      @NotBlank(message = "Embedding model name is required.") String embeddingModelName,
       String apiBaseUrl,
       String apiKey,
       @NotBlank(message = "OCR provider is required.") String ocrProvider,
@@ -52,6 +53,7 @@ public final class AdminConfigurationContracts {
       UUID id,
       String providerName,
       String modelName,
+      String embeddingModelName,
       String apiBaseUrl,
       boolean apiKeyConfigured,
       String ocrProvider,

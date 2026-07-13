@@ -31,6 +31,7 @@ export function AdminConfigurationPage() {
   const [reviewThreshold, setReviewThreshold] = useState("0.75");
   const [providerName, setProviderName] = useState("mistral");
   const [modelName, setModelName] = useState("mistral-small");
+  const [embeddingModelName, setEmbeddingModelName] = useState("mistral-embed");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [ocrProvider, setOcrProvider] = useState("tesseract");
@@ -82,7 +83,7 @@ export function AdminConfigurationPage() {
     },
   });
   const aiMutation = useMutation({
-    mutationFn: () => updateAiSetting({ providerName, modelName, apiBaseUrl, apiKey, ocrProvider, active: true }),
+    mutationFn: () => updateAiSetting({ providerName, modelName, embeddingModelName, apiBaseUrl, apiKey, ocrProvider, active: true }),
     onSuccess: async () => {
       setApiKey("");
       await queryClient.invalidateQueries({ queryKey: ["admin", "ai-setting"] });
@@ -100,6 +101,7 @@ export function AdminConfigurationPage() {
     if (aiSettingQuery.data) {
       setProviderName(aiSettingQuery.data.providerName);
       setModelName(aiSettingQuery.data.modelName);
+      setEmbeddingModelName(aiSettingQuery.data.embeddingModelName);
       setApiBaseUrl(aiSettingQuery.data.apiBaseUrl ?? "");
       setOcrProvider(aiSettingQuery.data.ocrProvider);
     }
@@ -233,7 +235,8 @@ export function AdminConfigurationPage() {
           <h3 style={sectionTitleStyle}>AI/OCR provider settings</h3>
           <form onSubmit={(event) => submit(event, () => aiMutation.mutate())} style={formStyle}>
             <input value={providerName} onChange={(event) => setProviderName(event.target.value)} placeholder="AI provider" />
-            <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="Model" />
+            <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="Chat/classification model" />
+            <input value={embeddingModelName} onChange={(event) => setEmbeddingModelName(event.target.value)} placeholder="Embedding model" />
             <input value={apiBaseUrl} onChange={(event) => setApiBaseUrl(event.target.value)} placeholder="https://api.provider.com/v1" />
             <input
               value={apiKey}
@@ -247,6 +250,7 @@ export function AdminConfigurationPage() {
           {aiSettingQuery.data ? (
             <div style={itemStyle}>
               {aiSettingQuery.data.providerName} · {aiSettingQuery.data.modelName}
+              <span>Embedding: {aiSettingQuery.data.embeddingModelName}</span>
               <span>{aiSettingQuery.data.apiBaseUrl || "No API base URL configured"}</span>
               <span>{aiSettingQuery.data.apiKeyConfigured ? "API key configured" : "API key not configured"}</span>
             </div>

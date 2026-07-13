@@ -22,6 +22,7 @@ public class AiProviderSettingsService {
     return new ProviderSettings(
         setting.getProviderName(),
         setting.getModelName(),
+        setting.getEmbeddingModelName(),
         setting.getApiBaseUrl(),
         setting.getApiKey(),
         setting.getOcrProvider(),
@@ -32,6 +33,7 @@ public class AiProviderSettingsService {
     AiProviderSetting setting = new AiProviderSetting();
     setting.setProviderName("mistral");
     setting.setModelName("mistral-small");
+    setting.setEmbeddingModelName("mistral-embed");
     setting.setApiBaseUrl("");
     setting.setOcrProvider("tesseract");
     setting.setActive(true);
@@ -41,6 +43,7 @@ public class AiProviderSettingsService {
   public record ProviderSettings(
       String providerName,
       String modelName,
+      String embeddingModelName,
       String apiBaseUrl,
       String apiKey,
       String ocrProvider,

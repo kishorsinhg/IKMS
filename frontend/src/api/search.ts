@@ -6,6 +6,8 @@ export interface SearchResult {
   title: string;
   excerpt: string;
   citation: string;
+  pageNumber: number | null;
+  sourceSection: string | null;
   occurredAt: string;
 }
 
@@ -14,6 +16,8 @@ export interface SourceCitation {
   sourceId: string;
   title: string;
   excerpt: string;
+  pageNumber: number | null;
+  sourceSection: string | null;
 }
 
 export interface AskClientResponse {

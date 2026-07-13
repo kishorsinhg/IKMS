@@ -115,6 +115,7 @@ public class IntakeAiConfigurationService {
     AiProviderSetting setting = aiProviderSettingRepository.findAll().stream().findFirst().orElseGet(AiProviderSetting::new);
     setting.setProviderName(request.providerName().trim());
     setting.setModelName(request.modelName().trim());
+    setting.setEmbeddingModelName(request.embeddingModelName().trim());
     setting.setApiBaseUrl(trimToNull(request.apiBaseUrl()));
     if (request.apiKey() != null && !request.apiKey().isBlank()) {
       setting.setApiKey(request.apiKey().trim());
@@ -130,6 +131,7 @@ public class IntakeAiConfigurationService {
         Map.of(
             "provider", saved.getProviderName(),
             "model", saved.getModelName(),
+            "embeddingModel", saved.getEmbeddingModelName(),
             "apiBaseUrl", saved.getApiBaseUrl() == null ? "" : saved.getApiBaseUrl(),
             "apiKeyConfigured", Boolean.toString(saved.getApiKey() != null && !saved.getApiKey().isBlank())));
     return toAiResponse(saved);
@@ -158,6 +160,7 @@ public class IntakeAiConfigurationService {
     AiProviderSetting setting = new AiProviderSetting();
     setting.setProviderName("mistral");
     setting.setModelName("mistral-small");
+    setting.setEmbeddingModelName("mistral-embed");
     setting.setApiBaseUrl("");
     setting.setOcrProvider("tesseract");
     setting.setActive(true);
@@ -170,6 +173,7 @@ public class IntakeAiConfigurationService {
         setting.getId(),
         setting.getProviderName(),
         setting.getModelName(),
+        setting.getEmbeddingModelName(),
         setting.getApiBaseUrl(),
         setting.getApiKey() != null && !setting.getApiKey().isBlank(),
         setting.getOcrProvider(),

@@ -21,6 +21,9 @@ public class AiProviderSetting {
   @Column(name = "model_name", nullable = false, length = 120)
   private String modelName;
 
+  @Column(name = "embedding_model_name", nullable = false, length = 120)
+  private String embeddingModelName;
+
   @Column(name = "api_base_url", length = 512)
   private String apiBaseUrl;
 
@@ -50,6 +53,8 @@ public class AiProviderSetting {
   public void setProviderName(String providerName) { this.providerName = providerName; }
   public String getModelName() { return modelName; }
   public void setModelName(String modelName) { this.modelName = modelName; }
+  public String getEmbeddingModelName() { return embeddingModelName; }
+  public void setEmbeddingModelName(String embeddingModelName) { this.embeddingModelName = embeddingModelName; }
   public String getApiBaseUrl() { return apiBaseUrl; }
   public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
   public String getApiKey() { return apiKey; }

@@ -331,3 +331,6 @@ Use `specs/001-insurance-broker-ikms/quickstart.md` as the acceptance validation
 - [x] T130 Persist operational retention and legal-hold workflow state beyond audit-only approval checks, including controlled delete/anonymize execution paths, per FR-039 (partial)
 - [x] T131 Add real OCR/PDF/DOCX extraction adapters and mailbox/shared-folder content parsing driven by configured providers, replacing UTF-8/fallback extraction stubs end-to-end
 - [x] T132 Generate and persist real embeddings, then replace token-overlap chunk ranking with pgvector similarity retrieval in client search and RAG context assembly
+- [x] T133 Add dedicated embedding-model configuration across admin settings, provider settings, and embedding generation so vector indexing does not depend on the chat/classification model
+- [x] T134 Replace character-based chunking with context-preserving semantic chunks that persist chunk metadata such as chunk index, token count, source title/section, language, page number, and retrieval summary for hybrid search
+- [x] T135 Add page-aware PDF evidence provenance, local chunk-neighbor context expansion, and page/location-aware AI citations so cross-document client conversations can cite document name and page/location metadata

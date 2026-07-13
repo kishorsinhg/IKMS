@@ -17,7 +17,9 @@ public final class AiContracts {
       String sourceType,
       UUID sourceId,
       String title,
-      String excerpt) {
+      String excerpt,
+      Integer pageNumber,
+      String sourceSection) {
   }
 
   public record AskClientResponse(

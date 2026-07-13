@@ -72,12 +72,14 @@ class AdminConfigurationTest {
             .content(objectMapper.writeValueAsBytes(new AdminConfigurationContracts.AiProviderSettingRequest(
                 "openai",
                 "gpt-5-mini",
+                "text-embedding-3-large",
                 "https://api.openai.com/v1",
                 "secret-key",
                 "tesseract",
                 true))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.providerName").value("openai"))
+        .andExpect(jsonPath("$.embeddingModelName").value("text-embedding-3-large"))
         .andExpect(jsonPath("$.apiBaseUrl").value("https://api.openai.com/v1"))
         .andExpect(jsonPath("$.apiKeyConfigured").value(true));
   }
@@ -117,6 +119,7 @@ class AdminConfigurationTest {
           UUID.fromString("33333333-3333-3333-3333-333333333333"),
           request.providerName(),
           request.modelName(),
+          request.embeddingModelName(),
           request.apiBaseUrl(),
           request.apiKey() != null && !request.apiKey().isBlank(),
           request.ocrProvider(),

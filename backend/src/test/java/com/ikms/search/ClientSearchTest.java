@@ -70,6 +70,8 @@ class ClientSearchTest {
           "Policy Schedule",
           "renewal due next month",
           "Document: Policy Schedule",
+          4,
+          "document-version",
           Instant.parse("2026-07-10T09:00:00Z")));
     }
 
@@ -83,7 +85,9 @@ class ClientSearchTest {
               "DOCUMENT",
               UUID.fromString("22222222-2222-2222-2222-222222222222"),
               "Policy Schedule",
-              "renewal due next month")),
+              "renewal due next month",
+              4,
+              "document-version")),
           Instant.parse("2026-07-10T09:00:00Z"));
     }
   }

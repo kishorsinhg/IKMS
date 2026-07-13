@@ -4,6 +4,7 @@ import com.ikms.ai.AiProviderSettingsService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -23,41 +24,58 @@ public class TextExtractionService {
 
   public ExtractionResult extract(ExtractionRequest request) {
     var providerSettings = aiProviderSettingsService.current();
-    String extractedText = extractText(request).trim();
+    List<PageSegment> segments = extractSegments(request);
+    String extractedText = segments.stream()
+        .map(PageSegment::text)
+        .filter(text -> text != null && !text.isBlank())
+        .reduce((left, right) -> left + "\n\n" + right)
+        .orElse("")
+        .trim();
 
     if (extractedText.isBlank()) {
       extractedText = fallbackText(request.filename(), request.mimeType());
+      segments = List.of(new PageSegment(null, extractedText));
     }
 
     String language = extractedText.toLowerCase().contains(" der ") || extractedText.toLowerCase().contains(" und ")
         ? "de"
         : "en";
 
-    return new ExtractionResult(extractedText, language, providerSettings.ocrProvider());
+    return new ExtractionResult(extractedText, language, providerSettings.ocrProvider(), segments);
   }
 
-  private String extractText(ExtractionRequest request) {
+  private List<PageSegment> extractSegments(ExtractionRequest request) {
     if (request.content().length == 0) {
-      return "";
+      return List.of();
     }
 
     try {
       if ("application/pdf".equalsIgnoreCase(request.mimeType())) {
         try (var pdf = Loader.loadPDF(request.content())) {
-          return sanitize(new PDFTextStripper().getText(pdf));
+          List<PageSegment> segments = new java.util.ArrayList<>();
+          PDFTextStripper stripper = new PDFTextStripper();
+          for (int page = 1; page <= pdf.getNumberOfPages(); page++) {
+            stripper.setStartPage(page);
+            stripper.setEndPage(page);
+            String text = sanitize(stripper.getText(pdf)).trim();
+            if (!text.isBlank()) {
+              segments.add(new PageSegment(page, text));
+            }
+          }
+          return segments;
         }
       }
       if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equalsIgnoreCase(request.mimeType())) {
         try (var document = new XWPFDocument(new ByteArrayInputStream(request.content()));
             var extractor = new XWPFWordExtractor(document)) {
-          return sanitize(extractor.getText());
+          return List.of(new PageSegment(null, sanitize(extractor.getText())));
         }
       }
     } catch (IOException ignored) {
-      return "";
+      return List.of();
     }
 
-    return sanitize(new String(request.content(), StandardCharsets.UTF_8));
+    return List.of(new PageSegment(null, sanitize(new String(request.content(), StandardCharsets.UTF_8))));
   }
 
   private static String sanitize(String value) {
@@ -84,6 +102,12 @@ public class TextExtractionService {
   public record ExtractionResult(
       String extractedText,
       String language,
-      String provider) {
+      String provider,
+      List<PageSegment> segments) {
+  }
+
+  public record PageSegment(
+      Integer pageNumber,
+      String text) {
   }
 }

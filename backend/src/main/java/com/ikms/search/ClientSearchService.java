@@ -82,18 +82,30 @@ public class ClientSearchService {
     Map<String, CandidateMatch> matches = new HashMap<>();
 
     if (!normalizedQuery.isBlank()) {
+      Set<String> queryTokens = tokenize(normalizedQuery);
       List<SimilarChunk> similarChunks = findSimilarChunks(clientId, normalizedQuery);
-      if (!similarChunks.isEmpty()) {
-        for (SimilarChunk chunk : similarChunks) {
-          mergeMatch(matches, chunk.sourceType(), chunk.sourceId(), 4d - chunk.distance(), chunk.chunkText());
-        }
-      } else {
-        Set<String> queryTokens = tokenize(normalizedQuery);
-        for (EmbeddingChunk chunk : embeddingChunkRepository.findByClientIdOrderByCreatedAtDesc(clientId)) {
-          double score = score(normalizedQuery, queryTokens, chunk.getChunkText());
-          if (score > 0) {
-            mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), score + 1.5d, chunk.getChunkText());
-          }
+      for (SimilarChunk chunk : similarChunks) {
+        mergeMatch(
+            matches,
+            chunk.sourceType(),
+            chunk.sourceId(),
+            Math.max(0d, 3d - chunk.distance()),
+            expandChunkContext(chunk),
+            chunk.pageNumber(),
+            chunk.sourceSection());
+      }
+
+      for (EmbeddingChunk chunk : embeddingChunkRepository.findByClientIdOrderByCreatedAtDesc(clientId)) {
+        double keywordScore = score(normalizedQuery, queryTokens, chunk.getChunkText());
+        double metadataScore = score(normalizedQuery, queryTokens, chunk.getMetadataSummary()) * 0.8d
+            + score(normalizedQuery, queryTokens, chunk.getSourceTitle()) * 1.2d
+            + score(normalizedQuery, queryTokens, chunk.getSourceSection()) * 0.5d;
+        double hybridScore = keywordScore + metadataScore;
+        if (hybridScore > 0) {
+          String matchedText = keywordScore >= metadataScore
+              ? chunk.getChunkText()
+              : nullSafe(chunk.getMetadataSummary()) + " " + chunk.getChunkText();
+          mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), hybridScore + 1.2d, matchedText, chunk.getPageNumber(), chunk.getSourceSection());
         }
       }
 
@@ -103,7 +115,9 @@ public class ClientSearchService {
             "DOCUMENT",
             metadataValue.getOwnerId(),
             2.5d,
-            metadataValue.getField().getLabel() + ": " + metadataValue.getTextValue());
+            metadataValue.getField().getLabel() + ": " + metadataValue.getTextValue(),
+            null,
+            metadataValue.getField().getLabel());
       }
     }
 
@@ -128,6 +142,8 @@ public class ClientSearchService {
                 document.getTitle(),
                 securityTrimService.trimSearchResult(permissions, excerpt, containsPii),
                 "Document: " + document.getTitle(),
+                match == null ? null : match.pageNumber(),
+                match == null ? null : match.sourceSection(),
                 document.getCreatedAt()),
             score));
       }
@@ -150,6 +166,8 @@ public class ClientSearchService {
                 email.getSubject(),
                 securityTrimService.trimSearchResult(permissions, excerpt, containsPii),
                 "Email: " + email.getSubject(),
+                match == null ? null : match.pageNumber(),
+                match == null ? null : match.sourceSection(),
                 email.getReceivedAt()),
             score));
       }
@@ -174,6 +192,8 @@ public class ClientSearchService {
                     excerpt(match == null ? null : match.matchedText(), note.getNoteText(), "Broker note", normalizedQuery),
                     containsPii),
                 "Note created " + note.getCreatedAt(),
+                match == null ? null : match.pageNumber(),
+                match == null ? null : match.sourceSection(),
                 note.getCreatedAt()),
             score));
       }
@@ -193,11 +213,15 @@ public class ClientSearchService {
       String sourceType,
       UUID sourceId,
       double score,
-      String matchedText) {
+      String matchedText,
+      Integer pageNumber,
+      String sourceSection) {
     matches.merge(
         key(sourceType, sourceId),
-        new CandidateMatch(score, matchedText),
-        (left, right) -> left.score() >= right.score() ? new CandidateMatch(left.score() + right.score(), left.matchedText()) : new CandidateMatch(left.score() + right.score(), right.matchedText()));
+        new CandidateMatch(score, matchedText, pageNumber, sourceSection),
+        (left, right) -> left.score() >= right.score()
+            ? new CandidateMatch(left.score() + right.score(), left.matchedText(), left.pageNumber(), left.sourceSection())
+            : new CandidateMatch(left.score() + right.score(), right.matchedText(), right.pageNumber(), right.sourceSection()));
   }
 
   private static String key(String sourceType, UUID sourceId) {
@@ -250,7 +274,7 @@ public class ClientSearchService {
     return value == null ? "" : value;
   }
 
-  private record CandidateMatch(double score, String matchedText) {
+  private record CandidateMatch(double score, String matchedText, Integer pageNumber, String sourceSection) {
   }
 
   private record SearchResultCandidate(SearchContracts.SearchResultResponse result, double score) {
@@ -270,7 +294,8 @@ public class ClientSearchService {
     try {
       return jdbcTemplate.query(
           """
-              select source_type, source_id, chunk_text,
+              select source_type, source_id, chunk_text, chunk_index, page_number,
+                     source_title, source_section, metadata_summary,
                      cast(embedding_vector as vector) <=> cast(? as vector) as distance
               from embedding_chunk
               where client_id = ?
@@ -282,6 +307,11 @@ public class ClientSearchService {
               resultSet.getString("source_type"),
               UUID.fromString(resultSet.getString("source_id")),
               resultSet.getString("chunk_text"),
+              resultSet.getInt("chunk_index"),
+              resultSet.getObject("page_number", Integer.class),
+              resultSet.getString("source_title"),
+              resultSet.getString("source_section"),
+              resultSet.getString("metadata_summary"),
               resultSet.getDouble("distance")),
           vectorLiteral,
           clientId,
@@ -303,6 +333,32 @@ public class ClientSearchService {
     return builder.toString();
   }
 
-  private record SimilarChunk(String sourceType, UUID sourceId, String chunkText, double distance) {
+  private String expandChunkContext(SimilarChunk chunk) {
+    List<EmbeddingChunk> chunks = embeddingChunkRepository.findBySourceTypeAndSourceIdOrderByChunkIndexAsc(chunk.sourceType(), chunk.sourceId());
+    if (chunks.isEmpty()) {
+      return chunk.chunkText();
+    }
+    int start = Math.max(0, chunk.chunkIndex() - 1);
+    int end = Math.min(chunks.size() - 1, chunk.chunkIndex() + 1);
+    StringBuilder builder = new StringBuilder();
+    for (int index = start; index <= end; index++) {
+      if (builder.length() > 0) {
+        builder.append(' ');
+      }
+      builder.append(chunks.get(index).getChunkText());
+    }
+    return builder.toString().trim();
+  }
+
+  private record SimilarChunk(
+      String sourceType,
+      UUID sourceId,
+      String chunkText,
+      int chunkIndex,
+      Integer pageNumber,
+      String sourceTitle,
+      String sourceSection,
+      String metadataSummary,
+      double distance) {
   }
 }

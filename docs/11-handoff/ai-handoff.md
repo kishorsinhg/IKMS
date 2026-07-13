@@ -161,6 +161,18 @@ Updated state after the latest `T131-T132` slice:
 - Manual upload, shared-folder intake, email attachment ingestion, and note updates now trigger indexing more consistently than before.
 - Review-linking for documents/emails now also triggers indexing so previously unlinked content can enter search/RAG after manual resolution.
 
+Updated state after the latest evidence-and-retrieval refinement slice:
+
+- Admin AI configuration now supports a dedicated `embeddingModelName`, and embedding requests use that setting instead of the chat/classification model name.
+- Chunk creation is now context-preserving and semantic rather than character-window-based, with stored metadata for chunk index, token count, source title/section, language, page number, and retrieval summary.
+- PDF extraction and document indexing now retain page-aware provenance so citations can show document name plus page number or nearest location metadata.
+- Client search uses hybrid retrieval with persisted chunk metadata and local chunk-neighbor expansion so cross-document conversations can cite evidence from multiple sources linked to the same client.
+- Client AI citations and search result cards now expose `pageNumber` and `sourceSection` for evidence display.
+
+Process note for future sessions:
+
+- Before any new code changes, update `spec.md`, `plan.md`, and `tasks.md` first so each implementation slice has explicit artifact coverage before work begins.
+
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the Phase 9 closeout slice, then choose between live quickstart validation hardening or post-V1 enhancements.
 
 Recommended next implementation slice:

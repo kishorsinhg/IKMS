@@ -33,6 +33,7 @@ export function ClientSearchPanel({ clientId }: { clientId: string }) {
             <article key={`${result.sourceType}-${result.sourceId}`} style={resultCardStyle}>
               <strong>{result.title}</strong>
               <span>{result.excerpt}</span>
+              {result.pageNumber ? <small>Page {result.pageNumber}</small> : null}
               <small>{result.citation}</small>
             </article>
           ))}
@@ -60,6 +61,7 @@ export function ClientSearchPanel({ clientId }: { clientId: string }) {
               {askMutation.data.citations.map((citation) => (
                 <div key={`${citation.sourceType}-${citation.sourceId}`} style={citationStyle}>
                   <strong>{citation.title}</strong>
+                  <small>{citation.pageNumber ? `Page ${citation.pageNumber}` : citation.sourceSection ?? citation.sourceType}</small>
                   <span>{citation.excerpt}</span>
                 </div>
               ))}

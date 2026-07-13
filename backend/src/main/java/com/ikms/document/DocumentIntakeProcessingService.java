@@ -105,7 +105,7 @@ public class DocumentIntakeProcessingService {
     }
 
     if (document.getClient() != null) {
-      embeddingIndexService.indexDocumentVersion(document.getClient().getId(), version);
+      embeddingIndexService.indexDocumentVersion(document.getClient().getId(), version, extraction.segments());
       document.setProcessingStatus(DocumentProcessingStatus.INDEXED);
       documentRepository.save(document);
     }

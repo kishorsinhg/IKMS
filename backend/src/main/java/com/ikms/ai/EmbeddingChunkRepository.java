@@ -9,4 +9,6 @@ public interface EmbeddingChunkRepository extends JpaRepository<EmbeddingChunk, 
   List<EmbeddingChunk> findByClientIdOrderByCreatedAtDesc(UUID clientId);
 
   void deleteBySourceTypeAndSourceId(String sourceType, UUID sourceId);
+
+  List<EmbeddingChunk> findBySourceTypeAndSourceIdOrderByChunkIndexAsc(String sourceType, UUID sourceId);
 }

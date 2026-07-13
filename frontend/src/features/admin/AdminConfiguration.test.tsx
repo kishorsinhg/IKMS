@@ -34,6 +34,7 @@ describe("AdminConfigurationPage", () => {
           id: "a1",
           providerName: "mistral",
           modelName: "mistral-small",
+          embeddingModelName: "mistral-embed",
           apiBaseUrl: "https://llm.internal/v1",
           apiKeyConfigured: true,
           ocrProvider: "tesseract",
@@ -49,6 +50,7 @@ describe("AdminConfigurationPage", () => {
           id: "a1",
           providerName: "openai",
           modelName: "gpt-5-mini",
+          embeddingModelName: "text-embedding-3-large",
           apiBaseUrl: "https://api.openai.com/v1",
           apiKeyConfigured: true,
           ocrProvider: "tesseract",
@@ -88,8 +90,10 @@ describe("AdminConfigurationPage", () => {
 
     await user.clear(screen.getByPlaceholderText("AI provider"));
     await user.type(screen.getByPlaceholderText("AI provider"), "openai");
-    await user.clear(screen.getByPlaceholderText("Model"));
-    await user.type(screen.getByPlaceholderText("Model"), "gpt-5-mini");
+    await user.clear(screen.getByPlaceholderText("Chat/classification model"));
+    await user.type(screen.getByPlaceholderText("Chat/classification model"), "gpt-5-mini");
+    await user.clear(screen.getByPlaceholderText("Embedding model"));
+    await user.type(screen.getByPlaceholderText("Embedding model"), "text-embedding-3-large");
     await user.clear(screen.getByPlaceholderText("https://api.provider.com/v1"));
     await user.type(screen.getByPlaceholderText("https://api.provider.com/v1"), "https://api.openai.com/v1");
     await user.type(screen.getByPlaceholderText("Configured - enter new key to rotate"), "new-secret");
@@ -102,6 +106,7 @@ describe("AdminConfigurationPage", () => {
         body: JSON.stringify({
           providerName: "openai",
           modelName: "gpt-5-mini",
+          embeddingModelName: "text-embedding-3-large",
           apiBaseUrl: "https://api.openai.com/v1",
           apiKey: "new-secret",
           ocrProvider: "tesseract",

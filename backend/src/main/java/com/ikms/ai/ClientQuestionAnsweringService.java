@@ -62,7 +62,13 @@ public class ClientQuestionAnsweringService {
 
     String answer = buildAnswer(safeContext);
     List<AiContracts.SourceCitation> citations = safeContext.stream()
-        .map(result -> new AiContracts.SourceCitation(result.sourceType(), result.sourceId(), result.title(), result.excerpt()))
+        .map(result -> new AiContracts.SourceCitation(
+            result.sourceType(),
+            result.sourceId(),
+            result.title(),
+            result.excerpt(),
+            result.pageNumber(),
+            result.sourceSection()))
         .toList();
     return saveInteraction(clientId, normalizedQuestion, "Answered", answer, citations, actorUserId);
   }
