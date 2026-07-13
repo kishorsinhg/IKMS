@@ -1,11 +1,12 @@
 package com.ikms.email;
 
 import com.ikms.ai.ClassificationService;
+import com.ikms.ai.EmbeddingIndexService;
 import com.ikms.ai.PromptInjectionDetectionService;
 import com.ikms.client.ClientService;
 import com.ikms.document.Document;
+import com.ikms.document.DocumentIntakeProcessingService;
 import com.ikms.document.DocumentRepository;
-import com.ikms.document.DocumentReviewStatus;
 import com.ikms.document.DocumentUploadService;
 import com.ikms.document.DocumentVersion;
 import com.ikms.document.DocumentVersionRepository;
@@ -27,8 +28,8 @@ public class EmailAttachmentService {
   private final DocumentRepository documentRepository;
   private final DocumentVersionRepository documentVersionRepository;
   private final DocumentUploadService documentUploadService;
-  private final TextExtractionService textExtractionService;
-  private final ClassificationService classificationService;
+  private final DocumentIntakeProcessingService documentIntakeProcessingService;
+  private final EmbeddingIndexService embeddingIndexService;
   private final ReviewRoutingService reviewRoutingService;
   private final ReviewQueueService reviewQueueService;
   private final ClientService clientService;
@@ -39,8 +40,8 @@ public class EmailAttachmentService {
       DocumentRepository documentRepository,
       DocumentVersionRepository documentVersionRepository,
       DocumentUploadService documentUploadService,
-      TextExtractionService textExtractionService,
-      ClassificationService classificationService,
+      DocumentIntakeProcessingService documentIntakeProcessingService,
+      EmbeddingIndexService embeddingIndexService,
       ReviewRoutingService reviewRoutingService,
       ReviewQueueService reviewQueueService,
       ClientService clientService,
@@ -49,8 +50,8 @@ public class EmailAttachmentService {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.documentUploadService = documentUploadService;
-    this.textExtractionService = textExtractionService;
-    this.classificationService = classificationService;
+    this.documentIntakeProcessingService = documentIntakeProcessingService;
+    this.embeddingIndexService = embeddingIndexService;
     this.reviewRoutingService = reviewRoutingService;
     this.reviewQueueService = reviewQueueService;
     this.clientService = clientService;
@@ -72,6 +73,9 @@ public class EmailAttachmentService {
     email.setProcessingStatus(command.clientId() == null ? EmailProcessingStatus.PENDING_REVIEW : EmailProcessingStatus.LINKED);
     email.setReviewStatus(command.clientId() == null ? EmailReviewStatus.PENDING_REVIEW : EmailReviewStatus.NOT_REQUIRED);
     Email savedEmail = emailRepository.save(email);
+    if (savedEmail.getClient() != null) {
+      embeddingIndexService.indexEmail(savedEmail.getClient().getId(), savedEmail);
+    }
     boolean emailPromptRisk = promptInjectionDetectionService.inspect(command.bodyText()).detected();
     if (emailPromptRisk) {
       savedEmail.setProcessingStatus(EmailProcessingStatus.PENDING_REVIEW);
@@ -99,43 +103,10 @@ public class EmailAttachmentService {
 
         DocumentVersion version = documentVersionRepository.findById(uploadResult.versionId())
             .orElseThrow(() -> new IllegalStateException("Uploaded version not found: " + uploadResult.versionId()));
-        var extraction = textExtractionService.extract(new TextExtractionService.ExtractionRequest(
-            attachment.filename(),
-            attachment.mimeType(),
-            attachment.fileBytes(),
-            "mistral-placeholder"));
-        version.setExtractedText(extraction.extractedText());
-        version.setLanguage(extraction.language());
-        version.setOcrProvider(extraction.provider());
-        documentVersionRepository.save(version);
-
-        var classification = classificationService.classify(new ClassificationService.ClassificationRequest(
-            command.clientId(),
-            attachment.filename(),
-            attachment.mimeType(),
-            extraction.extractedText(),
-            extraction.language()));
-        document.setTitle(classification.suggestedTitle());
-        document.setClientMatchConfidence(classification.clientMatchConfidence());
-        document.setClassificationConfidence(classification.classificationConfidence());
-        document.setExtractionConfidence(classification.extractionConfidence());
-        if (promptInjectionDetectionService.inspect(extraction.extractedText()).detected()) {
-          document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
+        documentIntakeProcessingService.process(document, version, command.clientId(), attachment.fileBytes());
+        if (document.getReviewStatus() == com.ikms.document.DocumentReviewStatus.PENDING_REVIEW) {
           attachmentNeedsReview = true;
-          reviewQueueService.createForDocument(document.getId(), com.ikms.review.ReviewQueueReason.PROMPT_INJECTION_RISK);
         }
-        var reviewDecision = reviewRoutingService.documentDecision(
-            command.clientId(),
-            document.getId(),
-            classification.clientMatchConfidence(),
-            classification.classificationConfidence(),
-            classification.extractionConfidence());
-        if (reviewDecision.requiresReview()) {
-          document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
-          attachmentNeedsReview = true;
-          reviewQueueService.createForDocument(document.getId(), reviewDecision.reason());
-        }
-        documentRepository.save(document);
       }
     }
 

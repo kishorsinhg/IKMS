@@ -1,5 +1,6 @@
 package com.ikms.note;
 
+import com.ikms.ai.EmbeddingIndexService;
 import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
@@ -18,11 +19,17 @@ public class NoteService {
   private final NoteRepository noteRepository;
   private final ClientService clientService;
   private final AuditService auditService;
+  private final EmbeddingIndexService embeddingIndexService;
 
-  public NoteService(NoteRepository noteRepository, ClientService clientService, AuditService auditService) {
+  public NoteService(
+      NoteRepository noteRepository,
+      ClientService clientService,
+      AuditService auditService,
+      EmbeddingIndexService embeddingIndexService) {
     this.noteRepository = noteRepository;
     this.clientService = clientService;
     this.auditService = auditService;
+    this.embeddingIndexService = embeddingIndexService;
   }
 
   @Transactional(readOnly = true)
@@ -41,6 +48,7 @@ public class NoteService {
     note.setUpdatedBy(actorUserId);
 
     Note saved = noteRepository.save(note);
+    embeddingIndexService.indexNote(clientId, saved);
     auditService.write(new AuditEvent(
         Instant.now(),
         "NOTE",
@@ -61,6 +69,7 @@ public class NoteService {
     note.setUpdatedBy(actorUserId);
 
     Note saved = noteRepository.save(note);
+    embeddingIndexService.indexNote(saved.getClient().getId(), saved);
     auditService.write(new AuditEvent(
         Instant.now(),
         "NOTE",
@@ -80,6 +89,7 @@ public class NoteService {
     note.setStatus(NoteStatus.DELETED);
     note.setUpdatedBy(actorUserId);
     Note saved = noteRepository.save(note);
+    embeddingIndexService.deleteSource("NOTE", saved.getId());
 
     auditService.write(new AuditEvent(
         Instant.now(),

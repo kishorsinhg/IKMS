@@ -3,6 +3,7 @@ package com.ikms.review;
 import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
+import com.ikms.ai.EmbeddingIndexService;
 import com.ikms.client.ClientService;
 import com.ikms.config.domain.DocumentTypeRepository;
 import com.ikms.config.domain.MetadataField;
@@ -11,6 +12,7 @@ import com.ikms.config.domain.MetadataValue;
 import com.ikms.config.domain.MetadataValueRepository;
 import com.ikms.document.Document;
 import com.ikms.document.DocumentRepository;
+import com.ikms.document.DocumentVersionRepository;
 import com.ikms.document.DocumentReviewStatus;
 import com.ikms.email.Email;
 import com.ikms.email.EmailRepository;
@@ -31,9 +33,11 @@ public class ReviewQueueService {
   private final ClientService clientService;
   private final DocumentRepository documentRepository;
   private final EmailRepository emailRepository;
+  private final DocumentVersionRepository documentVersionRepository;
   private final DocumentTypeRepository documentTypeRepository;
   private final MetadataFieldRepository metadataFieldRepository;
   private final MetadataValueRepository metadataValueRepository;
+  private final EmbeddingIndexService embeddingIndexService;
   private final AuditService auditService;
 
   public ReviewQueueService(
@@ -41,17 +45,21 @@ public class ReviewQueueService {
       ClientService clientService,
       DocumentRepository documentRepository,
       EmailRepository emailRepository,
+      DocumentVersionRepository documentVersionRepository,
       DocumentTypeRepository documentTypeRepository,
       MetadataFieldRepository metadataFieldRepository,
       MetadataValueRepository metadataValueRepository,
+      EmbeddingIndexService embeddingIndexService,
       AuditService auditService) {
     this.reviewQueueRepository = reviewQueueRepository;
     this.clientService = clientService;
     this.documentRepository = documentRepository;
     this.emailRepository = emailRepository;
+    this.documentVersionRepository = documentVersionRepository;
     this.documentTypeRepository = documentTypeRepository;
     this.metadataFieldRepository = metadataFieldRepository;
     this.metadataValueRepository = metadataValueRepository;
+    this.embeddingIndexService = embeddingIndexService;
     this.auditService = auditService;
   }
 
@@ -84,11 +92,20 @@ public class ReviewQueueService {
         Document document = requireDocument(item.getItemId());
         document.setClient(client);
         documentRepository.save(document);
+        documentVersionRepository.findByDocument_IdAndCurrentTrue(document.getId())
+            .ifPresent(version -> embeddingIndexService.indexDocumentVersion(client.getId(), version));
       }
       case EMAIL -> {
         Email email = requireEmail(item.getItemId());
         email.setClient(client);
         emailRepository.save(email);
+        embeddingIndexService.indexEmail(client.getId(), email);
+        for (Document document : documentRepository.findByClient_IdOrderByCreatedAtDesc(client.getId())) {
+          if (document.getParentEmail() != null && email.getId().equals(document.getParentEmail().getId())) {
+            documentVersionRepository.findByDocument_IdAndCurrentTrue(document.getId())
+                .ifPresent(version -> embeddingIndexService.indexDocumentVersion(client.getId(), version));
+          }
+        }
       }
       case DOCUMENT_VERSION -> throw new IllegalArgumentException("Client linking is not implemented for document versions yet.");
     }

@@ -26,16 +26,19 @@ public class DocumentController {
   private final DocumentRepository documentRepository;
   private final DocumentVersionRepository documentVersionRepository;
   private final DocumentUploadService documentUploadService;
+  private final DocumentIntakeProcessingService documentIntakeProcessingService;
   private final com.ikms.security.ContentSensitivityService contentSensitivityService;
 
   public DocumentController(
       DocumentRepository documentRepository,
       DocumentVersionRepository documentVersionRepository,
       DocumentUploadService documentUploadService,
+      DocumentIntakeProcessingService documentIntakeProcessingService,
       com.ikms.security.ContentSensitivityService contentSensitivityService) {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.documentUploadService = documentUploadService;
+    this.documentIntakeProcessingService = documentIntakeProcessingService;
     this.contentSensitivityService = contentSensitivityService;
   }
 
@@ -62,6 +65,14 @@ public class DocumentController {
         mimeType,
         sha256(fileBytes),
         fileBytes));
+
+    if (result.documentId() != null && result.versionId() != null) {
+      Document document = documentRepository.findById(result.documentId())
+          .orElseThrow(() -> new IllegalStateException("Uploaded document not found: " + result.documentId()));
+      DocumentVersion version = documentVersionRepository.findById(result.versionId())
+          .orElseThrow(() -> new IllegalStateException("Uploaded version not found: " + result.versionId()));
+      documentIntakeProcessingService.process(document, version, clientId, fileBytes);
+    }
 
     return new DocumentContracts.UploadDocumentResponse(
         result.documentId(),

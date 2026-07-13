@@ -15,12 +15,15 @@ public class EmbeddingIndexService {
 
   private final EmbeddingChunkRepository embeddingChunkRepository;
   private final AiProviderSettingsService aiProviderSettingsService;
+  private final AiProviderClient aiProviderClient;
 
   public EmbeddingIndexService(
       EmbeddingChunkRepository embeddingChunkRepository,
-      AiProviderSettingsService aiProviderSettingsService) {
+      AiProviderSettingsService aiProviderSettingsService,
+      AiProviderClient aiProviderClient) {
     this.embeddingChunkRepository = embeddingChunkRepository;
     this.aiProviderSettingsService = aiProviderSettingsService;
+    this.aiProviderClient = aiProviderClient;
   }
 
   public List<EmbeddingChunk> indexDocumentVersion(UUID clientId, DocumentVersion version) {
@@ -36,8 +39,13 @@ public class EmbeddingIndexService {
     return saveChunks(clientId, note.getId(), "NOTE", chunk(note.getNoteText(), "Broker note"));
   }
 
+  public void deleteSource(String sourceType, UUID sourceId) {
+    embeddingChunkRepository.deleteBySourceTypeAndSourceId(sourceType, sourceId);
+  }
+
   private List<EmbeddingChunk> saveChunks(UUID clientId, UUID sourceId, String sourceType, List<String> chunks) {
     var providerSettings = aiProviderSettingsService.current();
+    var embeddings = aiProviderClient.embed(providerSettings, chunks).orElse(List.of());
     embeddingChunkRepository.deleteBySourceTypeAndSourceId(sourceType, sourceId);
     List<EmbeddingChunk> persisted = new ArrayList<>();
     int index = 1;
@@ -48,6 +56,9 @@ public class EmbeddingIndexService {
       chunk.setSourceType(sourceType);
       chunk.setChunkText(chunkText);
       chunk.setEmbeddingReference(providerSettings.providerName() + ":" + providerSettings.modelName() + ":" + index++);
+      if (embeddings.size() >= index && embeddings.get(index - 1) != null && !embeddings.get(index - 1).isEmpty()) {
+        chunk.setEmbeddingVector(toVectorLiteral(embeddings.get(index - 1)));
+      }
       persisted.add(embeddingChunkRepository.save(chunk));
     }
     return persisted;
@@ -65,5 +76,17 @@ public class EmbeddingIndexService {
       chunks.add(fallback);
     }
     return chunks;
+  }
+
+  private static String toVectorLiteral(List<Double> values) {
+    StringBuilder builder = new StringBuilder("[");
+    for (int index = 0; index < values.size(); index++) {
+      if (index > 0) {
+        builder.append(',');
+      }
+      builder.append(values.get(index));
+    }
+    builder.append(']');
+    return builder.toString();
   }
 }

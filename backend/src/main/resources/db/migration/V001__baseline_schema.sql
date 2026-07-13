@@ -153,6 +153,7 @@ CREATE TABLE embedding_chunk (
   source_id UUID NOT NULL,
   chunk_text TEXT NOT NULL,
   embedding_reference VARCHAR(255),
+  embedding_vector TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

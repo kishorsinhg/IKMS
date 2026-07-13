@@ -56,3 +56,14 @@ Release closeout has strong automated coverage, but full quickstart signoff is s
 
 - `T131`: add real OCR/PDF/DOCX extraction adapters and production mailbox/shared-folder parsing behind configured provider settings.
 - `T132`: replace token-overlap retrieval with real embedding generation and pgvector similarity search using the stored AI provider settings.
+
+### Session Update: 2026-07-13 Continued
+
+- Implemented provider-backed AI client abstractions for chat classification and embeddings using admin-configured `apiBaseUrl` and `apiKey`.
+- Replaced UTF-8-only extraction stubs with PDFBox PDF parsing and Apache POI DOCX parsing in the main extraction service.
+- Added embedding vector persistence and pgvector similarity search path in client search, with fallback ranking when provider embeddings are unavailable.
+- Unified manual upload, shared-folder intake, and email attachment processing through the same document extraction/classification/indexing pipeline.
+
+### Additional Validation Executed
+
+- `mvn test -Dtest=TextExtractionServiceTest,AdminConfigurationTest,ClientQuestionAnsweringTest,RetentionWorkflowTest,ReviewQueueWorkflowTest,NoteControllerContractTest`

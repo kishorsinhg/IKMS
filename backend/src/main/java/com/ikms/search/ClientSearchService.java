@@ -2,6 +2,8 @@ package com.ikms.search;
 
 import com.ikms.ai.EmbeddingChunk;
 import com.ikms.ai.EmbeddingChunkRepository;
+import com.ikms.ai.AiProviderClient;
+import com.ikms.ai.AiProviderSettingsService;
 import com.ikms.config.domain.MetadataValue;
 import com.ikms.config.domain.MetadataValueRepository;
 import com.ikms.document.Document;
@@ -27,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +43,9 @@ public class ClientSearchService {
   private final NoteRepository noteRepository;
   private final EmbeddingChunkRepository embeddingChunkRepository;
   private final MetadataValueRepository metadataValueRepository;
+  private final AiProviderSettingsService aiProviderSettingsService;
+  private final AiProviderClient aiProviderClient;
+  private final JdbcTemplate jdbcTemplate;
   private final ContentSensitivityService contentSensitivityService;
   private final SecurityTrimService securityTrimService;
 
@@ -50,6 +56,9 @@ public class ClientSearchService {
       NoteRepository noteRepository,
       EmbeddingChunkRepository embeddingChunkRepository,
       MetadataValueRepository metadataValueRepository,
+      AiProviderSettingsService aiProviderSettingsService,
+      AiProviderClient aiProviderClient,
+      JdbcTemplate jdbcTemplate,
       ContentSensitivityService contentSensitivityService,
       SecurityTrimService securityTrimService) {
     this.documentRepository = documentRepository;
@@ -58,6 +67,9 @@ public class ClientSearchService {
     this.noteRepository = noteRepository;
     this.embeddingChunkRepository = embeddingChunkRepository;
     this.metadataValueRepository = metadataValueRepository;
+    this.aiProviderSettingsService = aiProviderSettingsService;
+    this.aiProviderClient = aiProviderClient;
+    this.jdbcTemplate = jdbcTemplate;
     this.contentSensitivityService = contentSensitivityService;
     this.securityTrimService = securityTrimService;
   }
@@ -70,11 +82,18 @@ public class ClientSearchService {
     Map<String, CandidateMatch> matches = new HashMap<>();
 
     if (!normalizedQuery.isBlank()) {
-      Set<String> queryTokens = tokenize(normalizedQuery);
-      for (EmbeddingChunk chunk : embeddingChunkRepository.findByClientIdOrderByCreatedAtDesc(clientId)) {
-        double score = score(normalizedQuery, queryTokens, chunk.getChunkText());
-        if (score > 0) {
-          mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), score + 1.5d, chunk.getChunkText());
+      List<SimilarChunk> similarChunks = findSimilarChunks(clientId, normalizedQuery);
+      if (!similarChunks.isEmpty()) {
+        for (SimilarChunk chunk : similarChunks) {
+          mergeMatch(matches, chunk.sourceType(), chunk.sourceId(), 4d - chunk.distance(), chunk.chunkText());
+        }
+      } else {
+        Set<String> queryTokens = tokenize(normalizedQuery);
+        for (EmbeddingChunk chunk : embeddingChunkRepository.findByClientIdOrderByCreatedAtDesc(clientId)) {
+          double score = score(normalizedQuery, queryTokens, chunk.getChunkText());
+          if (score > 0) {
+            mergeMatch(matches, chunk.getSourceType(), chunk.getSourceId(), score + 1.5d, chunk.getChunkText());
+          }
         }
       }
 
@@ -235,5 +254,55 @@ public class ClientSearchService {
   }
 
   private record SearchResultCandidate(SearchContracts.SearchResultResponse result, double score) {
+  }
+
+  private List<SimilarChunk> findSimilarChunks(UUID clientId, String normalizedQuery) {
+    var providerSettings = aiProviderSettingsService.current();
+    var queryEmbedding = aiProviderClient.embed(providerSettings, List.of(normalizedQuery))
+        .filter(result -> !result.isEmpty() && result.getFirst() != null && !result.getFirst().isEmpty())
+        .map(result -> result.getFirst())
+        .orElse(List.of());
+    if (queryEmbedding.isEmpty()) {
+      return List.of();
+    }
+
+    String vectorLiteral = toVectorLiteral(queryEmbedding);
+    try {
+      return jdbcTemplate.query(
+          """
+              select source_type, source_id, chunk_text,
+                     cast(embedding_vector as vector) <=> cast(? as vector) as distance
+              from embedding_chunk
+              where client_id = ?
+                and embedding_vector is not null
+              order by cast(embedding_vector as vector) <=> cast(? as vector) asc
+              limit 12
+              """,
+          (resultSet, rowNum) -> new SimilarChunk(
+              resultSet.getString("source_type"),
+              UUID.fromString(resultSet.getString("source_id")),
+              resultSet.getString("chunk_text"),
+              resultSet.getDouble("distance")),
+          vectorLiteral,
+          clientId,
+          vectorLiteral);
+    } catch (Exception ignored) {
+      return List.of();
+    }
+  }
+
+  private static String toVectorLiteral(List<Double> values) {
+    StringBuilder builder = new StringBuilder("[");
+    for (int index = 0; index < values.size(); index++) {
+      if (index > 0) {
+        builder.append(',');
+      }
+      builder.append(values.get(index));
+    }
+    builder.append(']');
+    return builder.toString();
+  }
+
+  private record SimilarChunk(String sourceType, UUID sourceId, String chunkText, double distance) {
   }
 }

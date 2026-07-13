@@ -148,13 +148,21 @@ Current post-convergence implementation checkpoint:
 
 Current highest-value remaining gaps:
 
-- Extraction still uses UTF-8/fallback heuristics rather than real PDF/DOCX/OCR adapters.
+- Extraction now supports real PDF/DOCX parsing, but OCR-specific external adapter coverage for image-only/scanned files is still missing.
 - AI answer assembly is still rule-based rather than provider-generated.
-- Embedding retrieval still uses persisted chunks plus token overlap, not real vector embeddings or pgvector nearest-neighbor search.
-- AI provider secret handling now exists for admin configuration, but the downstream OCR/LLM integration code still needs to consume those settings in `T131-T132`.
+- Embedding retrieval now attempts provider-generated embeddings plus pgvector nearest-neighbor search, but still falls back to heuristic ranking when provider calls are unavailable.
+- AI provider secret handling now exists for admin configuration and is consumed by classification/embedding clients, but live provider validation is still pending.
+
+Updated state after the latest `T131-T132` slice:
+
+- `TextExtractionService` now uses PDFBox for PDF parsing and Apache POI for DOCX parsing before falling back to plain text decoding.
+- `AiProviderClient` now exists in `backend/src/main/java/com/ikms/ai/AiProviderClient.java` and calls provider-compatible `/chat/completions` and `/embeddings` endpoints using stored admin AI settings.
+- `EmbeddingChunk` now persists `embeddingVector`, and `ClientSearchService` now attempts pgvector similarity ranking via SQL before falling back to token overlap.
+- Manual upload, shared-folder intake, email attachment ingestion, and note updates now trigger indexing more consistently than before.
+- Review-linking for documents/emails now also triggers indexing so previously unlinked content can enter search/RAG after manual resolution.
 
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the Phase 9 closeout slice, then choose between live quickstart validation hardening or post-V1 enhancements.
 
-Recommended first implementation slice:
+Recommended next implementation slice:
 
-- Next core implementation slice: `T131` followed by `T132`.
+- Validate the new provider-backed extraction/embedding path against a live configured LLM endpoint and, if needed, add OCR-specific provider adapters for scanned-document cases.

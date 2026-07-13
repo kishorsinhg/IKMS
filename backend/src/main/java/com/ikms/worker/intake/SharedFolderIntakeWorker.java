@@ -1,7 +1,10 @@
 package com.ikms.worker.intake;
 
 import com.ikms.ai.ClassificationService;
+import com.ikms.ai.EmbeddingIndexService;
 import com.ikms.ai.PromptInjectionDetectionService;
+import com.ikms.client.ClientService;
+import com.ikms.document.DocumentIntakeProcessingService;
 import com.ikms.document.Document;
 import com.ikms.document.DocumentRepository;
 import com.ikms.document.DocumentUploadService;
@@ -23,29 +26,17 @@ public class SharedFolderIntakeWorker {
   private final DocumentUploadService documentUploadService;
   private final DocumentRepository documentRepository;
   private final DocumentVersionRepository documentVersionRepository;
-  private final TextExtractionService textExtractionService;
-  private final ClassificationService classificationService;
-  private final ReviewRoutingService reviewRoutingService;
-  private final ReviewQueueService reviewQueueService;
-  private final PromptInjectionDetectionService promptInjectionDetectionService;
+  private final DocumentIntakeProcessingService documentIntakeProcessingService;
 
   public SharedFolderIntakeWorker(
       DocumentUploadService documentUploadService,
       DocumentRepository documentRepository,
       DocumentVersionRepository documentVersionRepository,
-      TextExtractionService textExtractionService,
-      ClassificationService classificationService,
-      ReviewRoutingService reviewRoutingService,
-      ReviewQueueService reviewQueueService,
-      PromptInjectionDetectionService promptInjectionDetectionService) {
+      DocumentIntakeProcessingService documentIntakeProcessingService) {
     this.documentUploadService = documentUploadService;
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
-    this.textExtractionService = textExtractionService;
-    this.classificationService = classificationService;
-    this.reviewRoutingService = reviewRoutingService;
-    this.reviewQueueService = reviewQueueService;
-    this.promptInjectionDetectionService = promptInjectionDetectionService;
+    this.documentIntakeProcessingService = documentIntakeProcessingService;
   }
 
   public DocumentUploadService.UploadResult processFile(IntakeFile file) {
@@ -66,46 +57,7 @@ public class SharedFolderIntakeWorker {
     DocumentVersion version = documentVersionRepository.findById(uploadResult.versionId())
         .orElseThrow(() -> new IllegalStateException("Uploaded version not found: " + uploadResult.versionId()));
 
-    var extraction = textExtractionService.extract(new TextExtractionService.ExtractionRequest(
-        file.filename(),
-        file.mimeType(),
-        file.fileBytes(),
-        "shared-folder-placeholder"));
-    version.setExtractedText(extraction.extractedText());
-    version.setLanguage(extraction.language());
-    version.setOcrProvider(extraction.provider());
-    documentVersionRepository.save(version);
-
-    var classification = classificationService.classify(new ClassificationService.ClassificationRequest(
-        file.clientId(),
-        file.filename(),
-        file.mimeType(),
-        extraction.extractedText(),
-        extraction.language()));
-    document.setTitle(classification.suggestedTitle());
-    document.setClientMatchConfidence(classification.clientMatchConfidence());
-    document.setClassificationConfidence(classification.classificationConfidence());
-    document.setExtractionConfidence(classification.extractionConfidence());
-    documentRepository.save(document);
-
-    if (promptInjectionDetectionService.inspect(extraction.extractedText()).detected()) {
-      document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
-      documentRepository.save(document);
-      reviewQueueService.createForDocument(document.getId(), ReviewQueueReason.PROMPT_INJECTION_RISK);
-      return uploadResult;
-    }
-
-    var reviewDecision = reviewRoutingService.documentDecision(
-        file.clientId(),
-        document.getId(),
-        classification.clientMatchConfidence(),
-        classification.classificationConfidence(),
-        classification.extractionConfidence());
-    if (reviewDecision.requiresReview()) {
-      document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
-      documentRepository.save(document);
-      reviewQueueService.createForDocument(document.getId(), reviewDecision.reason());
-    }
+    documentIntakeProcessingService.process(document, version, file.clientId(), file.fileBytes());
 
     return uploadResult;
   }

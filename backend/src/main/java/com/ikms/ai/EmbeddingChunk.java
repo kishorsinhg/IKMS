@@ -30,6 +30,9 @@ public class EmbeddingChunk {
   @Column(name = "embedding_reference", length = 255)
   private String embeddingReference;
 
+  @Column(name = "embedding_vector", columnDefinition = "TEXT")
+  private String embeddingVector;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -53,6 +56,8 @@ public class EmbeddingChunk {
   public void setChunkText(String chunkText) { this.chunkText = chunkText; }
   public String getEmbeddingReference() { return embeddingReference; }
   public void setEmbeddingReference(String embeddingReference) { this.embeddingReference = embeddingReference; }
+  public String getEmbeddingVector() { return embeddingVector; }
+  public void setEmbeddingVector(String embeddingVector) { this.embeddingVector = embeddingVector; }
   public Instant getCreatedAt() { return createdAt; }
   public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }
