@@ -12,6 +12,7 @@ import com.ikms.audit.AuditService;
 import com.ikms.client.Client;
 import com.ikms.common.api.GlobalExceptionHandler;
 import com.ikms.security.AppUserPrincipal;
+import com.ikms.security.ContentSensitivityService;
 import com.ikms.security.PiiMaskingService;
 import com.ikms.security.SecurityTrimService;
 import com.ikms.security.domain.Permission;
@@ -36,6 +37,7 @@ class RedactedDocumentAccessTest {
   private DocumentRedactionService documentRedactionService;
   private FileStorageService fileStorageService;
   private AuditService auditService;
+  private ContentSensitivityService contentSensitivityService;
   private MockMvc mockMvc;
   private Document document;
   private DocumentVersion version;
@@ -47,12 +49,14 @@ class RedactedDocumentAccessTest {
     documentRedactionService = mock(DocumentRedactionService.class);
     fileStorageService = mock(FileStorageService.class);
     auditService = mock(AuditService.class);
+    contentSensitivityService = mock(ContentSensitivityService.class);
 
     var controller = new DocumentAccessController(
         documentRepository,
         documentVersionRepository,
         documentRedactionService,
         fileStorageService,
+        contentSensitivityService,
         new SecurityTrimService(new PiiMaskingService()),
         auditService);
     mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -78,6 +82,7 @@ class RedactedDocumentAccessTest {
 
     when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
     when(documentVersionRepository.findByDocument_IdAndCurrentTrue(document.getId())).thenReturn(Optional.of(version));
+    when(contentSensitivityService.documentContainsPii(document.getId())).thenReturn(true);
   }
 
   @Test
@@ -117,6 +122,18 @@ class RedactedDocumentAccessTest {
 
     verify(auditService).write(org.mockito.ArgumentMatchers.argThat(event ->
         "DOCUMENT_DOWNLOAD_DENIED".equals(event.action())));
+  }
+
+  @Test
+  void processorShouldReceiveOriginalWhenDocumentHasNoPiiMetadata() throws Exception {
+    when(contentSensitivityService.documentContainsPii(document.getId())).thenReturn(false);
+    when(fileStorageService.load("original/policy.pdf"))
+        .thenReturn(new ByteArrayResource("ORIGINAL".getBytes()));
+
+    mockMvc.perform(get("/api/documents/{documentId}/download", document.getId())
+            .principal(processorAuthentication()))
+        .andExpect(status().isOk())
+        .andExpect(content().string("ORIGINAL"));
   }
 
   private Authentication processorAuthentication() {

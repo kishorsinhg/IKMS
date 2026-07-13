@@ -14,12 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmbeddingIndexService {
 
   private final EmbeddingChunkRepository embeddingChunkRepository;
+  private final AiProviderSettingsService aiProviderSettingsService;
 
-  public EmbeddingIndexService(EmbeddingChunkRepository embeddingChunkRepository) {
+  public EmbeddingIndexService(
+      EmbeddingChunkRepository embeddingChunkRepository,
+      AiProviderSettingsService aiProviderSettingsService) {
     this.embeddingChunkRepository = embeddingChunkRepository;
+    this.aiProviderSettingsService = aiProviderSettingsService;
   }
 
   public List<EmbeddingChunk> indexDocumentVersion(UUID clientId, DocumentVersion version) {
+    version.setEmbeddingModel(aiProviderSettingsService.current().modelName());
     return saveChunks(clientId, version.getId(), "DOCUMENT", chunk(version.getExtractedText(), version.getFileName()));
   }
 
@@ -32,6 +37,8 @@ public class EmbeddingIndexService {
   }
 
   private List<EmbeddingChunk> saveChunks(UUID clientId, UUID sourceId, String sourceType, List<String> chunks) {
+    var providerSettings = aiProviderSettingsService.current();
+    embeddingChunkRepository.deleteBySourceTypeAndSourceId(sourceType, sourceId);
     List<EmbeddingChunk> persisted = new ArrayList<>();
     int index = 1;
     for (String chunkText : chunks) {
@@ -40,7 +47,7 @@ public class EmbeddingIndexService {
       chunk.setSourceId(sourceId);
       chunk.setSourceType(sourceType);
       chunk.setChunkText(chunkText);
-      chunk.setEmbeddingReference("placeholder-" + index++);
+      chunk.setEmbeddingReference(providerSettings.providerName() + ":" + providerSettings.modelName() + ":" + index++);
       persisted.add(embeddingChunkRepository.save(chunk));
     }
     return persisted;

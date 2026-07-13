@@ -1,13 +1,15 @@
 package com.ikms.email;
 
 import com.ikms.ai.ClassificationService;
+import com.ikms.ai.PromptInjectionDetectionService;
 import com.ikms.client.ClientService;
 import com.ikms.document.Document;
 import com.ikms.document.DocumentRepository;
+import com.ikms.document.DocumentReviewStatus;
 import com.ikms.document.DocumentUploadService;
 import com.ikms.document.DocumentVersion;
 import com.ikms.document.DocumentVersionRepository;
-import com.ikms.review.ReviewQueueReason;
+import com.ikms.review.ReviewRoutingService;
 import com.ikms.review.ReviewQueueService;
 import com.ikms.worker.extract.TextExtractionService;
 import java.time.Instant;
@@ -27,8 +29,10 @@ public class EmailAttachmentService {
   private final DocumentUploadService documentUploadService;
   private final TextExtractionService textExtractionService;
   private final ClassificationService classificationService;
+  private final ReviewRoutingService reviewRoutingService;
   private final ReviewQueueService reviewQueueService;
   private final ClientService clientService;
+  private final PromptInjectionDetectionService promptInjectionDetectionService;
 
   public EmailAttachmentService(
       EmailRepository emailRepository,
@@ -37,16 +41,20 @@ public class EmailAttachmentService {
       DocumentUploadService documentUploadService,
       TextExtractionService textExtractionService,
       ClassificationService classificationService,
+      ReviewRoutingService reviewRoutingService,
       ReviewQueueService reviewQueueService,
-      ClientService clientService) {
+      ClientService clientService,
+      PromptInjectionDetectionService promptInjectionDetectionService) {
     this.emailRepository = emailRepository;
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.documentUploadService = documentUploadService;
     this.textExtractionService = textExtractionService;
     this.classificationService = classificationService;
+    this.reviewRoutingService = reviewRoutingService;
     this.reviewQueueService = reviewQueueService;
     this.clientService = clientService;
+    this.promptInjectionDetectionService = promptInjectionDetectionService;
   }
 
   public EmailIntakeResult ingestEmail(EmailIntakeCommand command) {
@@ -64,8 +72,16 @@ public class EmailAttachmentService {
     email.setProcessingStatus(command.clientId() == null ? EmailProcessingStatus.PENDING_REVIEW : EmailProcessingStatus.LINKED);
     email.setReviewStatus(command.clientId() == null ? EmailReviewStatus.PENDING_REVIEW : EmailReviewStatus.NOT_REQUIRED);
     Email savedEmail = emailRepository.save(email);
+    boolean emailPromptRisk = promptInjectionDetectionService.inspect(command.bodyText()).detected();
+    if (emailPromptRisk) {
+      savedEmail.setProcessingStatus(EmailProcessingStatus.PENDING_REVIEW);
+      savedEmail.setReviewStatus(EmailReviewStatus.PENDING_REVIEW);
+      emailRepository.save(savedEmail);
+      reviewQueueService.createForEmail(savedEmail.getId(), com.ikms.review.ReviewQueueReason.PROMPT_INJECTION_RISK);
+    }
 
     List<DocumentUploadService.UploadResult> attachments = new ArrayList<>();
+    boolean attachmentNeedsReview = false;
     for (AttachmentCommand attachment : command.attachments()) {
       DocumentUploadService.UploadResult uploadResult = documentUploadService.upload(new DocumentUploadService.UploadCommand(
           command.clientId(),
@@ -103,16 +119,32 @@ public class EmailAttachmentService {
         document.setClientMatchConfidence(classification.clientMatchConfidence());
         document.setClassificationConfidence(classification.classificationConfidence());
         document.setExtractionConfidence(classification.extractionConfidence());
-        documentRepository.save(document);
-
-        if (command.clientId() == null) {
-          reviewQueueService.createForDocument(document.getId(), ReviewQueueReason.UNLINKED);
+        if (promptInjectionDetectionService.inspect(extraction.extractedText()).detected()) {
+          document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
+          attachmentNeedsReview = true;
+          reviewQueueService.createForDocument(document.getId(), com.ikms.review.ReviewQueueReason.PROMPT_INJECTION_RISK);
         }
+        var reviewDecision = reviewRoutingService.documentDecision(
+            command.clientId(),
+            document.getId(),
+            classification.clientMatchConfidence(),
+            classification.classificationConfidence(),
+            classification.extractionConfidence());
+        if (reviewDecision.requiresReview()) {
+          document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
+          attachmentNeedsReview = true;
+          reviewQueueService.createForDocument(document.getId(), reviewDecision.reason());
+        }
+        documentRepository.save(document);
       }
     }
 
-    if (command.clientId() == null) {
-      reviewQueueService.createForEmail(savedEmail.getId(), ReviewQueueReason.UNLINKED);
+    var emailDecision = reviewRoutingService.emailDecision(command.clientId(), savedEmail.getId(), attachmentNeedsReview);
+    if (emailDecision.requiresReview()) {
+      savedEmail.setProcessingStatus(EmailProcessingStatus.PENDING_REVIEW);
+      savedEmail.setReviewStatus(EmailReviewStatus.PENDING_REVIEW);
+      emailRepository.save(savedEmail);
+      reviewQueueService.createForEmail(savedEmail.getId(), emailDecision.reason());
     }
 
     return new EmailIntakeResult(savedEmail.getId(), attachments);

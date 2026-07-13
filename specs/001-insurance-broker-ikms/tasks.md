@@ -317,3 +317,17 @@ Task: "Add review queue UI tests in frontend/src/features/intake/ReviewQueue.tes
 ### Validation
 
 Use `specs/001-insurance-broker-ikms/quickstart.md` as the acceptance validation guide after each completed slice.
+
+## Phase 10: Convergence
+
+- [x] T122 Implement note update and delete or soft-delete flows, including REST endpoints, UI actions, and audit history, per FR-007 (missing)
+- [x] T123 Expand review queue resolution to capture and persist document type selection and metadata correction during manual review, per FR-017, FR-019, FR-021, and US2/AC2 (partial)
+- [x] T124 Persist configured metadata values and PII field flags on client knowledge items, and drive masking/redaction decisions from those flags instead of treating all linked content as PII, per FR-018, FR-033, FR-034, and FR-035 (contradicts)
+- [x] T125 Apply configured review modes and low-confidence thresholds in shared-folder and IMAP intake routing so review behavior follows administrator settings, per FR-020, FR-022, and US5/AC3 (missing)
+- [ ] T126 Replace placeholder shared-folder, IMAP, extraction, and classification logic with configured provider-backed intake processing that supports production PDF/DOCX/email handling and English/German content workflows, per FR-009, FR-010, FR-019, and FR-040 (partial: provider settings, routing, and language/client heuristics are in place; true OCR/parser adapters are still missing)
+- [ ] T127 Implement metadata and semantic/vector retrieval using persisted embedding data, and use that retrieval in client-scoped RAG context assembly instead of keyword-only search, per FR-023 and plan: PostgreSQL/pgvector retrieval (partial: persisted chunk and metadata ranking is in place; true pgvector similarity retrieval is still missing)
+- [x] T128 Implement evidence conflict detection and source-traceable AI answer assembly based on contradictory facts rather than citation count alone, per FR-027 and SC-005 (partial)
+- [x] T129 Detect, flag, and audit prompt injection risk during ingestion or retrieval and prevent flagged content from influencing AI answers, per Edge Cases and Constitution Security And AI Governance (missing)
+- [x] T130 Persist operational retention and legal-hold workflow state beyond audit-only approval checks, including controlled delete/anonymize execution paths, per FR-039 (partial)
+- [ ] T131 Add real OCR/PDF/DOCX extraction adapters and mailbox/shared-folder content parsing driven by configured providers, replacing UTF-8/fallback extraction stubs end-to-end
+- [ ] T132 Generate and persist real embeddings, then replace token-overlap chunk ranking with pgvector similarity retrieval in client search and RAG context assembly

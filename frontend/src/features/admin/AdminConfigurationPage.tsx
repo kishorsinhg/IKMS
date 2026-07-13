@@ -1,5 +1,6 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ui } from "../../app/ui";
 import {
   createDocumentType,
   createMailbox,
@@ -21,6 +22,7 @@ export function AdminConfigurationPage() {
   const [documentTypeName, setDocumentTypeName] = useState("");
   const [metadataFieldKey, setMetadataFieldKey] = useState("");
   const [metadataLabel, setMetadataLabel] = useState("");
+  const [metadataFieldPii, setMetadataFieldPii] = useState(false);
   const [sharedFolderPath, setSharedFolderPath] = useState("");
   const [mailboxName, setMailboxName] = useState("");
   const [mailboxHost, setMailboxHost] = useState("");
@@ -29,6 +31,8 @@ export function AdminConfigurationPage() {
   const [reviewThreshold, setReviewThreshold] = useState("0.75");
   const [providerName, setProviderName] = useState("mistral");
   const [modelName, setModelName] = useState("mistral-small");
+  const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [ocrProvider, setOcrProvider] = useState("tesseract");
 
   const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: listAdminUsers });
@@ -47,10 +51,11 @@ export function AdminConfigurationPage() {
     },
   });
   const metadataMutation = useMutation({
-    mutationFn: () => createMetadataField({ fieldKey: metadataFieldKey, label: metadataLabel, pii: true, active: true }),
+    mutationFn: () => createMetadataField({ fieldKey: metadataFieldKey, label: metadataLabel, pii: metadataFieldPii, active: true }),
     onSuccess: async () => {
       setMetadataFieldKey("");
       setMetadataLabel("");
+      setMetadataFieldPii(false);
       await queryClient.invalidateQueries({ queryKey: ["admin", "metadata-fields"] });
     },
   });
@@ -77,11 +82,28 @@ export function AdminConfigurationPage() {
     },
   });
   const aiMutation = useMutation({
-    mutationFn: () => updateAiSetting({ providerName, modelName, ocrProvider, active: true }),
+    mutationFn: () => updateAiSetting({ providerName, modelName, apiBaseUrl, apiKey, ocrProvider, active: true }),
     onSuccess: async () => {
+      setApiKey("");
       await queryClient.invalidateQueries({ queryKey: ["admin", "ai-setting"] });
     },
   });
+
+  useEffect(() => {
+    if (reviewSettingQuery.data) {
+      setReviewMode(reviewSettingQuery.data.mode);
+      setReviewThreshold(String(reviewSettingQuery.data.lowConfidenceThreshold));
+    }
+  }, [reviewSettingQuery.data]);
+
+  useEffect(() => {
+    if (aiSettingQuery.data) {
+      setProviderName(aiSettingQuery.data.providerName);
+      setModelName(aiSettingQuery.data.modelName);
+      setApiBaseUrl(aiSettingQuery.data.apiBaseUrl ?? "");
+      setOcrProvider(aiSettingQuery.data.ocrProvider);
+    }
+  }, [aiSettingQuery.data]);
 
   function submit(event: FormEvent, action: () => void) {
     event.preventDefault();
@@ -89,29 +111,65 @@ export function AdminConfigurationPage() {
   }
 
   return (
-    <section style={{ display: "grid", gap: "1.5rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Administration</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
+    <section style={ui.page}>
+      <header style={ui.pageHeader}>
+        <p style={ui.eyebrow}>Administration / Configuration</p>
+        <h2 style={ui.pageTitle}>Administration</h2>
+        <p style={ui.pageDescription}>
           Configure broker knowledge rules, intake paths, review behavior, and AI providers.
         </p>
       </header>
 
+      <section style={ui.heroCard}>
+        <div style={ui.metricRow}>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{usersQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Provisioned users</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{documentTypesQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Configured types</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{metadataFieldsQuery.data?.filter((item) => item.pii).length ?? 0}</strong>
+            <span style={metricLabelStyle}>PII fields</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{mailboxesQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Mailboxes</span>
+          </div>
+        </div>
+      </section>
+
       <div style={gridStyle}>
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Users and roles</h3>
-          <div style={listStyle}>
-            {usersQuery.data?.map((user) => (
-              <div key={user.id} style={itemStyle}>
-                <strong>{user.displayName}</strong>
-                <span>{user.username} · {user.roles.join(", ")}</span>
-              </div>
-            ))}
+          <h3 style={sectionTitleStyle}>Users and roles</h3>
+          <div style={tableWrapStyle}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Status</th>
+                  <th>Roles</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersQuery.data?.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.displayName}</td>
+                    <td>{user.username}</td>
+                    <td><span style={ui.statusBadge}>{user.status}</span></td>
+                    <td>{user.roles.join(", ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Document types</h3>
+          <h3 style={sectionTitleStyle}>Document types</h3>
           <form onSubmit={(event) => submit(event, () => docTypeMutation.mutate())} style={formStyle}>
             <input value={documentTypeName} onChange={(event) => setDocumentTypeName(event.target.value)} placeholder="New document type" />
             <button type="submit" style={buttonStyle}>Add document type</button>
@@ -122,10 +180,14 @@ export function AdminConfigurationPage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Metadata fields</h3>
+          <h3 style={sectionTitleStyle}>Metadata fields</h3>
           <form onSubmit={(event) => submit(event, () => metadataMutation.mutate())} style={formStyle}>
             <input value={metadataFieldKey} onChange={(event) => setMetadataFieldKey(event.target.value)} placeholder="Field key" />
             <input value={metadataLabel} onChange={(event) => setMetadataLabel(event.target.value)} placeholder="Field label" />
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input type="checkbox" checked={metadataFieldPii} onChange={(event) => setMetadataFieldPii(event.target.checked)} />
+              <span>Mark as PII</span>
+            </label>
             <button type="submit" style={buttonStyle}>Add metadata field</button>
           </form>
           <div style={listStyle}>
@@ -134,7 +196,7 @@ export function AdminConfigurationPage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Shared folder paths</h3>
+          <h3 style={sectionTitleStyle}>Shared folder paths</h3>
           <form onSubmit={(event) => submit(event, () => folderMutation.mutate())} style={formStyle}>
             <input value={sharedFolderPath} onChange={(event) => setSharedFolderPath(event.target.value)} placeholder="/network/share/incoming" />
             <button type="submit" style={buttonStyle}>Add shared folder</button>
@@ -145,7 +207,7 @@ export function AdminConfigurationPage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>IMAP mailboxes</h3>
+          <h3 style={sectionTitleStyle}>IMAP mailboxes</h3>
           <form onSubmit={(event) => submit(event, () => mailboxMutation.mutate())} style={formStyle}>
             <input value={mailboxName} onChange={(event) => setMailboxName(event.target.value)} placeholder="Mailbox name" />
             <input value={mailboxHost} onChange={(event) => setMailboxHost(event.target.value)} placeholder="imap.example.com" />
@@ -158,7 +220,7 @@ export function AdminConfigurationPage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Review mode</h3>
+          <h3 style={sectionTitleStyle}>Review mode</h3>
           <form onSubmit={(event) => submit(event, () => reviewMutation.mutate())} style={formStyle}>
             <input value={reviewMode} onChange={(event) => setReviewMode(event.target.value)} placeholder="confidence" />
             <input value={reviewThreshold} onChange={(event) => setReviewThreshold(event.target.value)} placeholder="0.75" />
@@ -168,14 +230,27 @@ export function AdminConfigurationPage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>AI/OCR provider settings</h3>
+          <h3 style={sectionTitleStyle}>AI/OCR provider settings</h3>
           <form onSubmit={(event) => submit(event, () => aiMutation.mutate())} style={formStyle}>
             <input value={providerName} onChange={(event) => setProviderName(event.target.value)} placeholder="AI provider" />
             <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="Model" />
+            <input value={apiBaseUrl} onChange={(event) => setApiBaseUrl(event.target.value)} placeholder="https://api.provider.com/v1" />
+            <input
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={aiSettingQuery.data?.apiKeyConfigured ? "Configured - enter new key to rotate" : "API key"}
+              type="password"
+            />
             <input value={ocrProvider} onChange={(event) => setOcrProvider(event.target.value)} placeholder="OCR provider" />
             <button type="submit" style={buttonStyle}>Save AI settings</button>
           </form>
-          {aiSettingQuery.data ? <div style={itemStyle}>{aiSettingQuery.data.providerName} · {aiSettingQuery.data.modelName}</div> : null}
+          {aiSettingQuery.data ? (
+            <div style={itemStyle}>
+              {aiSettingQuery.data.providerName} · {aiSettingQuery.data.modelName}
+              <span>{aiSettingQuery.data.apiBaseUrl || "No API base URL configured"}</span>
+              <span>{aiSettingQuery.data.apiKeyConfigured ? "API key configured" : "API key not configured"}</span>
+            </div>
+          ) : null}
         </section>
       </div>
     </section>
@@ -189,10 +264,7 @@ const gridStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const formStyle: React.CSSProperties = {
@@ -209,18 +281,31 @@ const listStyle: React.CSSProperties = {
 const itemStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.2rem",
-  padding: "0.75rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
+  padding: "0.85rem 0.95rem",
+  borderRadius: "0.95rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.7rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
+};
+
+const tableWrapStyle: React.CSSProperties = {
+  overflowX: "auto",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  marginTop: 0,
+  marginBottom: "1rem",
+};
+
+const metricValueStyle: React.CSSProperties = {
+  fontSize: "1.35rem",
+  letterSpacing: "-0.03em",
+};
+
+const metricLabelStyle: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: "0.84rem",
 };

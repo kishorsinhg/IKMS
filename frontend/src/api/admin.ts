@@ -54,6 +54,8 @@ export interface AiProviderSettingConfig {
   id: string;
   providerName: string;
   modelName: string;
+  apiBaseUrl: string | null;
+  apiKeyConfigured: boolean;
   ocrProvider: string;
   active: boolean;
   updatedAt: string;
@@ -107,6 +109,13 @@ export function getAiSetting() {
   return apiClient.get<AiProviderSettingConfig>("/api/admin/ai-settings");
 }
 
-export function updateAiSetting(request: { providerName: string; modelName: string; ocrProvider: string; active: boolean }) {
+export function updateAiSetting(request: {
+  providerName: string;
+  modelName: string;
+  apiBaseUrl: string;
+  apiKey: string;
+  ocrProvider: string;
+  active: boolean;
+}) {
   return apiClient.patch<AiProviderSettingConfig>("/api/admin/ai-settings", request);
 }

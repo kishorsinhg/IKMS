@@ -4,6 +4,11 @@ import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
 import com.ikms.client.ClientService;
+import com.ikms.config.domain.DocumentTypeRepository;
+import com.ikms.config.domain.MetadataField;
+import com.ikms.config.domain.MetadataFieldRepository;
+import com.ikms.config.domain.MetadataValue;
+import com.ikms.config.domain.MetadataValueRepository;
 import com.ikms.document.Document;
 import com.ikms.document.DocumentRepository;
 import com.ikms.document.DocumentReviewStatus;
@@ -11,6 +16,7 @@ import com.ikms.email.Email;
 import com.ikms.email.EmailRepository;
 import com.ikms.email.EmailReviewStatus;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +31,9 @@ public class ReviewQueueService {
   private final ClientService clientService;
   private final DocumentRepository documentRepository;
   private final EmailRepository emailRepository;
+  private final DocumentTypeRepository documentTypeRepository;
+  private final MetadataFieldRepository metadataFieldRepository;
+  private final MetadataValueRepository metadataValueRepository;
   private final AuditService auditService;
 
   public ReviewQueueService(
@@ -32,11 +41,17 @@ public class ReviewQueueService {
       ClientService clientService,
       DocumentRepository documentRepository,
       EmailRepository emailRepository,
+      DocumentTypeRepository documentTypeRepository,
+      MetadataFieldRepository metadataFieldRepository,
+      MetadataValueRepository metadataValueRepository,
       AuditService auditService) {
     this.reviewQueueRepository = reviewQueueRepository;
     this.clientService = clientService;
     this.documentRepository = documentRepository;
     this.emailRepository = emailRepository;
+    this.documentTypeRepository = documentTypeRepository;
+    this.metadataFieldRepository = metadataFieldRepository;
+    this.metadataValueRepository = metadataValueRepository;
     this.auditService = auditService;
   }
 
@@ -83,7 +98,11 @@ public class ReviewQueueService {
     return toResponse(reviewQueueRepository.save(item));
   }
 
-  public ReviewContracts.ReviewQueueItemResponse correctMetadata(UUID itemId, String title) {
+  public ReviewContracts.ReviewQueueItemResponse correctMetadata(
+      UUID itemId,
+      String title,
+      UUID documentTypeId,
+      Map<String, String> metadataValues) {
     ReviewQueueItem item = requireItem(itemId);
     if (title == null || title.trim().isEmpty()) {
       throw new IllegalArgumentException("Title is required.");
@@ -92,11 +111,20 @@ public class ReviewQueueService {
     if (item.getItemType() == ReviewQueueItemType.DOCUMENT) {
       Document document = requireDocument(item.getItemId());
       document.setTitle(title.trim());
+      if (documentTypeId != null) {
+        documentTypeRepository.findById(documentTypeId)
+            .orElseThrow(() -> new IllegalArgumentException("Document type not found: " + documentTypeId));
+        document.setDocumentTypeId(documentTypeId);
+      }
       documentRepository.save(document);
+      syncMetadataValues(document.getId(), metadataValues);
     }
 
     item.setStatus(ReviewQueueStatus.IN_PROGRESS);
-    audit("REVIEW_CORRECT_METADATA", item, AuditOutcome.SUCCESS, Map.of("title", title.trim()));
+    audit("REVIEW_CORRECT_METADATA", item, AuditOutcome.SUCCESS, Map.of(
+        "title", title.trim(),
+        "documentTypeId", documentTypeId == null ? "" : documentTypeId.toString(),
+        "metadataFieldCount", Integer.toString(metadataValues == null ? 0 : metadataValues.size())));
     return toResponse(reviewQueueRepository.save(item));
   }
 
@@ -149,6 +177,13 @@ public class ReviewQueueService {
             itemType,
             itemId,
             List.of(ReviewQueueStatus.OPEN, ReviewQueueStatus.IN_PROGRESS))
+        .map(existing -> {
+          if (reason == ReviewQueueReason.PROMPT_INJECTION_RISK && existing.getReason() != ReviewQueueReason.PROMPT_INJECTION_RISK) {
+            existing.setReason(reason);
+            return reviewQueueRepository.save(existing);
+          }
+          return existing;
+        })
         .orElseGet(() -> {
           ReviewQueueItem item = new ReviewQueueItem();
           item.setItemType(itemType);
@@ -189,12 +224,67 @@ public class ReviewQueueService {
   }
 
   private ReviewContracts.ReviewQueueItemResponse toResponse(ReviewQueueItem item) {
+    String title = null;
+    UUID clientId = null;
+    UUID documentTypeId = null;
+    Map<String, String> metadataValues = Map.of();
+
+    if (item.getItemType() == ReviewQueueItemType.DOCUMENT) {
+      Document document = requireDocument(item.getItemId());
+      title = document.getTitle();
+      clientId = document.getClient() == null ? null : document.getClient().getId();
+      documentTypeId = document.getDocumentTypeId();
+      metadataValues = metadataMap("DOCUMENT", document.getId());
+    } else if (item.getItemType() == ReviewQueueItemType.EMAIL) {
+      Email email = requireEmail(item.getItemId());
+      title = email.getSubject();
+      clientId = email.getClient() == null ? null : email.getClient().getId();
+    }
+
     return new ReviewContracts.ReviewQueueItemResponse(
         item.getId(),
         item.getItemType(),
         item.getItemId(),
         item.getReason(),
         item.getStatus(),
-        item.getAssignedTo());
+        item.getAssignedTo(),
+        title,
+        clientId,
+        documentTypeId,
+        metadataValues);
+  }
+
+  private void syncMetadataValues(UUID documentId, Map<String, String> metadataValues) {
+    if (metadataValues == null || metadataValues.isEmpty()) {
+      return;
+    }
+
+    for (Map.Entry<String, String> entry : metadataValues.entrySet()) {
+      String fieldKey = entry.getKey() == null ? "" : entry.getKey().trim();
+      String value = entry.getValue() == null ? "" : entry.getValue().trim();
+      if (fieldKey.isEmpty() || value.isEmpty()) {
+        continue;
+      }
+
+      MetadataField field = metadataFieldRepository.findByFieldKeyIgnoreCase(fieldKey)
+          .orElseThrow(() -> new IllegalArgumentException("Metadata field not found: " + fieldKey));
+
+      MetadataValue metadataValue = metadataValueRepository
+          .findByOwnerTypeAndOwnerIdAndField_Id("DOCUMENT", documentId, field.getId())
+          .orElseGet(MetadataValue::new);
+      metadataValue.setOwnerType("DOCUMENT");
+      metadataValue.setOwnerId(documentId);
+      metadataValue.setField(field);
+      metadataValue.setTextValue(value);
+      metadataValueRepository.save(metadataValue);
+    }
+  }
+
+  private Map<String, String> metadataMap(String ownerType, UUID ownerId) {
+    Map<String, String> values = new LinkedHashMap<>();
+    for (MetadataValue metadataValue : metadataValueRepository.findByOwnerTypeAndOwnerId(ownerType, ownerId)) {
+      values.put(metadataValue.getField().getFieldKey(), metadataValue.getTextValue());
+    }
+    return values;
   }
 }

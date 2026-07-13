@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ui } from "../../app/ui";
 import { listClients } from "../../api/clients";
 import { uploadDocument } from "../../api/intake";
 
@@ -18,17 +19,17 @@ export function IntakePage() {
   const canUpload = useMemo(() => selectedFile !== null && !uploadMutation.isPending, [selectedFile, uploadMutation.isPending]);
 
   return (
-    <section style={{ display: "grid", gap: "1.5rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Intake operations</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
+    <section style={ui.page}>
+      <header style={ui.pageHeader}>
+        <h2 style={ui.pageTitle}>Intake operations</h2>
+        <p style={ui.pageDescription}>
           Manual upload, duplicate outcomes, and automated intake status will be managed here.
         </p>
       </header>
 
       <div style={gridStyle}>
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Manual upload</h3>
+          <h3 style={sectionTitleStyle}>Manual upload</h3>
           <div style={{ display: "grid", gap: "0.75rem" }}>
             <input
               type="file"
@@ -52,7 +53,7 @@ export function IntakePage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Duplicate result</h3>
+          <h3 style={sectionTitleStyle}>Duplicate result</h3>
           {uploadResult ? (
             <div style={{ display: "grid", gap: "0.35rem" }}>
               <strong>{uploadResult.outcome === "DUPLICATE" ? "Duplicate blocked" : "Upload accepted"}</strong>
@@ -67,7 +68,7 @@ export function IntakePage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Automated intake status</h3>
+          <h3 style={sectionTitleStyle}>Automated intake status</h3>
           <div style={{ display: "grid", gap: "0.75rem" }}>
             <div style={statusCardStyle}>
               <strong>Shared folder</strong>
@@ -91,32 +92,28 @@ const gridStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.7rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
 };
 
 const statusCardStyle: React.CSSProperties = {
   display: "grid",
-  gap: "0.2rem",
-  padding: "0.85rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
+  gap: "0.25rem",
+  padding: "0.9rem 1rem",
+  borderRadius: "0.95rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const errorStyle: React.CSSProperties = {
   marginBottom: 0,
-  color: "#9c2f1f",
+  color: "var(--danger)",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  marginTop: 0,
+  marginBottom: "1rem",
 };

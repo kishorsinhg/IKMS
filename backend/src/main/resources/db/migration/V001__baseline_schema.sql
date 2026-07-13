@@ -185,6 +185,17 @@ CREATE TABLE metadata_field (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE metadata_value (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_type VARCHAR(32) NOT NULL,
+  owner_id UUID NOT NULL,
+  field_id UUID NOT NULL REFERENCES metadata_field (id) ON DELETE CASCADE,
+  text_value VARCHAR(4000) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (owner_type, owner_id, field_id)
+);
+
 CREATE TABLE shared_folder_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   path VARCHAR(255) NOT NULL UNIQUE,
@@ -208,10 +219,28 @@ CREATE TABLE review_setting (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE retention_record (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_type VARCHAR(32) NOT NULL,
+  target_id VARCHAR(128) NOT NULL,
+  client_id UUID REFERENCES client (id) ON DELETE SET NULL,
+  legal_hold BOOLEAN NOT NULL DEFAULT FALSE,
+  minimum_retention_until TIMESTAMPTZ,
+  last_action VARCHAR(32),
+  last_outcome VARCHAR(32),
+  last_reason VARCHAR(4000),
+  executed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (target_type, target_id)
+);
+
 CREATE TABLE ai_provider_setting (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_name VARCHAR(80) NOT NULL,
   model_name VARCHAR(120) NOT NULL,
+  api_base_url VARCHAR(512),
+  api_key VARCHAR(512),
   ocr_provider VARCHAR(80) NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -229,6 +258,8 @@ CREATE INDEX idx_embedding_chunk_client_id ON embedding_chunk (client_id, create
 CREATE INDEX idx_ai_interaction_client_id ON ai_interaction (client_id, created_at DESC);
 CREATE INDEX idx_document_type_active ON document_type (active);
 CREATE INDEX idx_metadata_field_active ON metadata_field (active);
+CREATE INDEX idx_metadata_value_owner ON metadata_value (owner_type, owner_id);
+CREATE INDEX idx_retention_record_target ON retention_record (target_type, target_id);
 
 COMMENT ON TABLE audit_log IS 'Baseline audit event store for later foundation and governance slices.';
 COMMENT ON COLUMN audit_log.retained_until IS 'Default audit retention horizon for governance export and review.';
@@ -245,6 +276,8 @@ COMMENT ON TABLE embedding_chunk IS 'Client-scoped text chunks reserved for keyw
 COMMENT ON TABLE ai_interaction IS 'Client-level AI question and feedback history.';
 COMMENT ON TABLE document_type IS 'Configurable document types for broker knowledge classification.';
 COMMENT ON TABLE metadata_field IS 'Configurable metadata labels with optional PII flag.';
+COMMENT ON TABLE metadata_value IS 'Persisted metadata values linked to documents, emails, or clients.';
+COMMENT ON TABLE retention_record IS 'Persisted legal-hold and retention workflow state for controlled delete/anonymize actions.';
 COMMENT ON TABLE shared_folder_config IS 'Configured shared folder intake locations.';
 COMMENT ON TABLE mailbox_config IS 'Configured IMAP mailbox intake sources.';
 COMMENT ON TABLE review_setting IS 'Review workflow thresholds and operating mode.';

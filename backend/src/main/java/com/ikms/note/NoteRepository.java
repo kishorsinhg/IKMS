@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface NoteRepository extends JpaRepository<Note, UUID> {
 
   List<Note> findByClient_IdOrderByCreatedAtDesc(UUID clientId);
+
+  List<Note> findByClient_IdAndStatusOrderByCreatedAtDesc(UUID clientId, NoteStatus status);
 }

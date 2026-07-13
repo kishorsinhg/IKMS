@@ -40,8 +40,22 @@ public final class AdminConfigurationContracts {
   public record ReviewSettingResponse(UUID id, String mode, double lowConfidenceThreshold, Instant updatedAt) {
   }
 
-  public record AiProviderSettingRequest(@NotBlank(message = "Provider name is required.") String providerName, @NotBlank(message = "Model name is required.") String modelName, @NotBlank(message = "OCR provider is required.") String ocrProvider, boolean active) {
+  public record AiProviderSettingRequest(
+      @NotBlank(message = "Provider name is required.") String providerName,
+      @NotBlank(message = "Model name is required.") String modelName,
+      String apiBaseUrl,
+      String apiKey,
+      @NotBlank(message = "OCR provider is required.") String ocrProvider,
+      boolean active) {
   }
-  public record AiProviderSettingResponse(UUID id, String providerName, String modelName, String ocrProvider, boolean active, Instant updatedAt) {
+  public record AiProviderSettingResponse(
+      UUID id,
+      String providerName,
+      String modelName,
+      String apiBaseUrl,
+      boolean apiKeyConfigured,
+      String ocrProvider,
+      boolean active,
+      Instant updatedAt) {
   }
 }

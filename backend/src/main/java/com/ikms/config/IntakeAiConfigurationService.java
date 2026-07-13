@@ -108,19 +108,31 @@ public class IntakeAiConfigurationService {
   @Transactional(readOnly = true)
   public AdminConfigurationContracts.AiProviderSettingResponse getAiProviderSetting() {
     AiProviderSetting setting = aiProviderSettingRepository.findAll().stream().findFirst().orElseGet(this::defaultAiSetting);
-    return new AdminConfigurationContracts.AiProviderSettingResponse(setting.getId(), setting.getProviderName(), setting.getModelName(), setting.getOcrProvider(), setting.isActive(), setting.getUpdatedAt());
+    return toAiResponse(setting);
   }
 
   public AdminConfigurationContracts.AiProviderSettingResponse upsertAiProviderSetting(AdminConfigurationContracts.AiProviderSettingRequest request, UUID actorUserId) {
     AiProviderSetting setting = aiProviderSettingRepository.findAll().stream().findFirst().orElseGet(AiProviderSetting::new);
     setting.setProviderName(request.providerName().trim());
     setting.setModelName(request.modelName().trim());
+    setting.setApiBaseUrl(trimToNull(request.apiBaseUrl()));
+    if (request.apiKey() != null && !request.apiKey().isBlank()) {
+      setting.setApiKey(request.apiKey().trim());
+    }
     setting.setOcrProvider(request.ocrProvider().trim());
     setting.setActive(request.active());
     setting.setUpdatedAt(Instant.now());
     AiProviderSetting saved = aiProviderSettingRepository.save(setting);
-    audit("AI_PROVIDER_SETTING_UPDATED", actorUserId, saved.getId().toString(), Map.of("provider", saved.getProviderName(), "model", saved.getModelName()));
-    return new AdminConfigurationContracts.AiProviderSettingResponse(saved.getId(), saved.getProviderName(), saved.getModelName(), saved.getOcrProvider(), saved.isActive(), saved.getUpdatedAt());
+    audit(
+        "AI_PROVIDER_SETTING_UPDATED",
+        actorUserId,
+        saved.getId().toString(),
+        Map.of(
+            "provider", saved.getProviderName(),
+            "model", saved.getModelName(),
+            "apiBaseUrl", saved.getApiBaseUrl() == null ? "" : saved.getApiBaseUrl(),
+            "apiKeyConfigured", Boolean.toString(saved.getApiKey() != null && !saved.getApiKey().isBlank())));
+    return toAiResponse(saved);
   }
 
   private void apply(MailboxConfig item, AdminConfigurationContracts.MailboxConfigRequest request) {
@@ -146,10 +158,31 @@ public class IntakeAiConfigurationService {
     AiProviderSetting setting = new AiProviderSetting();
     setting.setProviderName("mistral");
     setting.setModelName("mistral-small");
+    setting.setApiBaseUrl("");
     setting.setOcrProvider("tesseract");
     setting.setActive(true);
     setting.setUpdatedAt(Instant.now());
     return setting;
+  }
+
+  private AdminConfigurationContracts.AiProviderSettingResponse toAiResponse(AiProviderSetting setting) {
+    return new AdminConfigurationContracts.AiProviderSettingResponse(
+        setting.getId(),
+        setting.getProviderName(),
+        setting.getModelName(),
+        setting.getApiBaseUrl(),
+        setting.getApiKey() != null && !setting.getApiKey().isBlank(),
+        setting.getOcrProvider(),
+        setting.isActive(),
+        setting.getUpdatedAt());
+  }
+
+  private static String trimToNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    String trimmed = value.trim();
+    return trimmed.isEmpty() ? null : trimmed;
   }
 
   private void audit(String action, UUID actorUserId, String targetId, Map<String, String> details) {

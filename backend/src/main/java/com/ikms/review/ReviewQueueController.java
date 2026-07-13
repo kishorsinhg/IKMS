@@ -45,7 +45,7 @@ public class ReviewQueueController {
   public ReviewContracts.ReviewQueueItemResponse correctMetadata(
       @PathVariable UUID itemId,
       @Valid @RequestBody ReviewContracts.CorrectMetadataRequest request) {
-    return reviewQueueService.correctMetadata(itemId, request.title());
+    return reviewQueueService.correctMetadata(itemId, request.title(), request.documentTypeId(), request.metadataValues());
   }
 
   @PostMapping("/{itemId}/approve")

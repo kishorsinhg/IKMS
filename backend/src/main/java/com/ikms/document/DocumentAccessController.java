@@ -30,6 +30,7 @@ public class DocumentAccessController {
   private final DocumentVersionRepository documentVersionRepository;
   private final DocumentRedactionService documentRedactionService;
   private final com.ikms.storage.FileStorageService fileStorageService;
+  private final com.ikms.security.ContentSensitivityService contentSensitivityService;
   private final SecurityTrimService securityTrimService;
   private final AuditService auditService;
 
@@ -38,12 +39,14 @@ public class DocumentAccessController {
       DocumentVersionRepository documentVersionRepository,
       DocumentRedactionService documentRedactionService,
       com.ikms.storage.FileStorageService fileStorageService,
+      com.ikms.security.ContentSensitivityService contentSensitivityService,
       SecurityTrimService securityTrimService,
       AuditService auditService) {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.documentRedactionService = documentRedactionService;
     this.fileStorageService = fileStorageService;
+    this.contentSensitivityService = contentSensitivityService;
     this.securityTrimService = securityTrimService;
     this.auditService = auditService;
   }
@@ -64,7 +67,7 @@ public class DocumentAccessController {
     DocumentVersion version = documentVersionRepository.findByDocument_IdAndCurrentTrue(documentId)
         .orElseThrow(() -> new IllegalArgumentException("Current document version not found: " + documentId));
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
-    boolean containsPii = document.getClient() != null;
+    boolean containsPii = contentSensitivityService.documentContainsPii(documentId);
 
     if (containsPii && version.getRedactionStatus() != RedactionStatus.AVAILABLE) {
       try {

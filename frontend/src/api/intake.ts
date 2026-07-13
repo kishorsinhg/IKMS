@@ -1,7 +1,15 @@
 import { apiClient } from "./client";
 
 export type ReviewQueueItemType = "DOCUMENT" | "EMAIL" | "DOCUMENT_VERSION";
-export type ReviewQueueReason = "UNLINKED" | "LOW_CONFIDENCE" | "MISSING_METADATA" | "UNSUPPORTED";
+export type ReviewQueueReason =
+  | "UNLINKED"
+  | "LOW_CLIENT_CONFIDENCE"
+  | "LOW_CLASSIFICATION_CONFIDENCE"
+  | "LOW_EXTRACTION_CONFIDENCE"
+  | "DUPLICATE_UNCERTAINTY"
+  | "REDACTION_FAILED"
+  | "PROMPT_INJECTION_RISK"
+  | "PROCESSING_FAILED";
 export type ReviewQueueStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "REJECTED";
 
 export interface UploadDocumentResult {
@@ -44,6 +52,10 @@ export interface ReviewQueueItem {
   reason: ReviewQueueReason;
   status: ReviewQueueStatus;
   assignedTo: string | null;
+  title: string | null;
+  clientId: string | null;
+  documentTypeId: string | null;
+  metadataValues: Record<string, string>;
 }
 
 export function uploadDocument(file: File, clientId?: string) {
@@ -83,8 +95,11 @@ export function linkReviewItemClient(itemId: string, clientId: string) {
   return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/link-client`, { clientId });
 }
 
-export function correctReviewItemMetadata(itemId: string, title: string) {
-  return apiClient.patch<ReviewQueueItem>(`/api/review-queue/${itemId}/metadata`, { title });
+export function correctReviewItemMetadata(
+  itemId: string,
+  request: { title: string; documentTypeId?: string; metadataValues?: Record<string, string> },
+) {
+  return apiClient.patch<ReviewQueueItem>(`/api/review-queue/${itemId}/metadata`, request);
 }
 
 export function approveReviewItem(itemId: string) {

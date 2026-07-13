@@ -21,7 +21,7 @@ public class RagContextService {
 
   public List<SearchContracts.SearchResultResponse> buildContext(UUID clientId, String question, Set<Permission> permissions) {
     return clientSearchService.search(clientId, question, permissions).stream()
-        .limit(3)
+        .limit(5)
         .toList();
   }
 }

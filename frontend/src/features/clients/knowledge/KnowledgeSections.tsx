@@ -1,4 +1,5 @@
 import { Permission } from "../../../api/auth";
+import { ui } from "../../../app/ui";
 import { ClientDocumentSummary, ClientEmailSummary } from "../../../api/intake";
 
 export function DocumentsSection({
@@ -73,10 +74,7 @@ function formatDateTime(value: string) {
 }
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const listStyle: React.CSSProperties = {
@@ -86,10 +84,11 @@ const listStyle: React.CSSProperties = {
 
 const itemStyle: React.CSSProperties = {
   display: "grid",
-  gap: "0.2rem",
-  padding: "0.85rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
+  gap: "0.28rem",
+  padding: "0.95rem 1rem",
+  borderRadius: "0.95rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const actionRowStyle: React.CSSProperties = {
@@ -100,7 +99,7 @@ const actionRowStyle: React.CSSProperties = {
 };
 
 const actionLinkStyle: React.CSSProperties = {
-  color: "#1f1c18",
+  color: "var(--accent)",
   fontWeight: 700,
   textDecoration: "none",
 };

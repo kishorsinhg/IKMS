@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ui } from "../../app/ui";
 import { askClientQuestion, searchClientKnowledge, sendAiFeedback } from "../../api/search";
 
 export function ClientSearchPanel({ clientId }: { clientId: string }) {
@@ -81,10 +82,7 @@ export function ClientSearchPanel({ clientId }: { clientId: string }) {
 }
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const stackStyle: React.CSSProperties = {
@@ -104,26 +102,29 @@ const resultListStyle: React.CSSProperties = {
 
 const resultCardStyle: React.CSSProperties = {
   display: "grid",
-  gap: "0.2rem",
-  padding: "0.75rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
+  gap: "0.28rem",
+  padding: "0.85rem 0.95rem",
+  borderRadius: "0.95rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const answerCardStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.65rem",
-  padding: "0.9rem",
-  borderRadius: "0.9rem",
-  background: "#f2e8d6",
+  padding: "1rem 1.05rem",
+  borderRadius: "1rem",
+  background: "linear-gradient(180deg, #eff6ff 0%, #f6f9fc 100%)",
+  border: "1px solid rgba(176, 204, 239, 0.8)",
 };
 
 const citationStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.2rem",
-  padding: "0.65rem",
-  borderRadius: "0.75rem",
-  background: "#fffaf0",
+  padding: "0.75rem 0.8rem",
+  borderRadius: "0.85rem",
+  background: "#ffffff",
+  border: "1px solid var(--line)",
 };
 
 const feedbackRowStyle: React.CSSProperties = {
@@ -132,17 +133,9 @@ const feedbackRowStyle: React.CSSProperties = {
 };
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.7rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  background: "#6d6253",
+  ...ui.secondaryButton,
 };

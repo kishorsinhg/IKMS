@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ClientProfilePage } from "./ClientProfilePage";
 
 describe("ClientProfilePage", () => {
-  it("renders the required client profile sections", async () => {
+  it("renders the required client profile sections and supports note editing", async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -36,7 +36,16 @@ describe("ClientProfilePage", () => {
         createdAt: "2026-07-10T10:00:00Z",
         updatedAt: "2026-07-10T10:00:00Z",
       }), { status: 200, headers: { "content-type": "application/json" } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        {
+          id: "note-1",
+          clientId: "client-1",
+          noteText: "Initial broker note",
+          status: "ACTIVE",
+          createdAt: "2026-07-10T10:00:00Z",
+          updatedAt: "2026-07-10T10:00:00Z",
+        },
+      ]), { status: 200, headers: { "content-type": "application/json" } }))
       .mockResolvedValueOnce(new Response(JSON.stringify([
         {
           id: "doc-1",
@@ -63,6 +72,24 @@ describe("ClientProfilePage", () => {
           reviewStatus: "APPROVED",
           receivedAt: "2026-07-10T10:00:00Z",
         },
+      ]), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "note-1",
+        clientId: "client-1",
+        noteText: "Updated broker note",
+        status: "ACTIVE",
+        createdAt: "2026-07-10T10:00:00Z",
+        updatedAt: "2026-07-10T11:00:00Z",
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        {
+          id: "note-1",
+          clientId: "client-1",
+          noteText: "Updated broker note",
+          status: "ACTIVE",
+          createdAt: "2026-07-10T10:00:00Z",
+          updatedAt: "2026-07-10T11:00:00Z",
+        },
       ]), { status: 200, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -79,5 +106,9 @@ describe("ClientProfilePage", () => {
     await waitFor(() => expect(screen.getByText("Policy Schedule")).toBeInTheDocument());
     expect(screen.getByText("Renewal reminder")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
+    fireEvent.change(screen.getByDisplayValue("Initial broker note"), { target: { value: "Updated broker note" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+    await waitFor(() => expect(screen.getByText("Updated broker note")).toBeInTheDocument());
   });
 });

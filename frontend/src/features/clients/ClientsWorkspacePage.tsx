@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ui } from "../../app/ui";
 import { ClientType, createClient, listClients } from "../../api/clients";
 
 const clientsQueryKey = ["clients"];
@@ -36,17 +37,34 @@ export function ClientsWorkspacePage() {
   }
 
   return (
-    <section style={{ display: "grid", gap: "1.5rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Clients workspace</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
+    <section style={ui.page}>
+      <header style={ui.pageHeader}>
+        <h2 style={ui.pageTitle}>Clients workspace</h2>
+        <p style={ui.pageDescription}>
           Create clients, generate temporary IDs when needed, and open the client profile workspace.
         </p>
       </header>
 
+      <section style={ui.heroCard}>
+        <div style={ui.metricRow}>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{clientsQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Visible clients</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{clientsQuery.data?.filter((client) => client.clientIdTemporary).length ?? 0}</strong>
+            <span style={metricLabelStyle}>Temporary IDs</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{clientsQuery.data?.filter((client) => client.status === "ACTIVE").length ?? 0}</strong>
+            <span style={metricLabelStyle}>Active records</span>
+          </div>
+        </div>
+      </section>
+
       <div style={gridStyle}>
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Create client</h3>
+          <h3 style={sectionTitleStyle}>Create client</h3>
           <form onSubmit={handleCreate} style={{ display: "grid", gap: "0.75rem" }}>
             <input
               placeholder="Display name"
@@ -72,7 +90,7 @@ export function ClientsWorkspacePage() {
         </section>
 
         <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Find client</h3>
+          <h3 style={sectionTitleStyle}>Find client</h3>
           <input
             placeholder="Search by name or ClientID"
             value={query}
@@ -95,42 +113,49 @@ export function ClientsWorkspacePage() {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "minmax(320px, 380px) minmax(0, 1fr)",
   gap: "1rem",
 };
 
 const cardStyle: React.CSSProperties = {
+  ...ui.card,
   padding: "1.25rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
 };
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.75rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
 };
 
 const linkStyle: React.CSSProperties = {
   display: "inline-block",
   marginTop: "1rem",
-  color: "#1f1c18",
+  color: "var(--accent)",
   fontWeight: 700,
   textDecoration: "none",
 };
 
 const clientLinkStyle: React.CSSProperties = {
   display: "grid",
-  gap: "0.2rem",
+  gap: "0.28rem",
   textDecoration: "none",
-  color: "#1f1c18",
-  padding: "0.9rem 1rem",
-  borderRadius: "0.8rem",
-  background: "#f7efe0",
+  color: "var(--text)",
+  padding: "1rem 1.05rem",
+  borderRadius: "1rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  marginTop: 0,
+  marginBottom: "1rem",
+};
+
+const metricValueStyle: React.CSSProperties = {
+  fontSize: "1.5rem",
+  letterSpacing: "-0.03em",
+};
+
+const metricLabelStyle: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: "0.84rem",
 };

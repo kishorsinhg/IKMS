@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ui } from "../../app/ui";
 import { getCurrentUser } from "../../api/auth";
 import { AuditFilters, exportAuditLogs, searchAuditLogs } from "../../api/audit";
 
@@ -33,10 +34,11 @@ export function AuditPage() {
   const canExport = currentUserQuery.data?.permissions.includes("EXPORT_AUDIT") ?? false;
 
   return (
-    <section style={{ display: "grid", gap: "1.25rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Audit and governance</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
+    <section style={ui.page}>
+      <header style={ui.pageHeader}>
+        <p style={ui.eyebrow}>Governance / Audit explorer</p>
+        <h2 style={ui.pageTitle}>Audit and governance</h2>
+        <p style={ui.pageDescription}>
           Search operational activity across authentication, intake, review, document access, PII access, configuration, and AI usage.
         </p>
       </header>
@@ -61,7 +63,7 @@ export function AuditPage() {
           </div>
         </form>
         {!canExport ? (
-          <p style={{ marginBottom: 0, color: "#8a4b24" }}>
+          <p style={{ marginBottom: 0, color: "var(--warning)", fontWeight: 600 }}>
             CSV export requires the `EXPORT_AUDIT` permission.
           </p>
         ) : null}
@@ -70,16 +72,35 @@ export function AuditPage() {
       <section style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Audit events</h3>
         {auditQuery.isLoading ? <p>Loading audit events...</p> : null}
-        <div style={listStyle}>
-          {auditQuery.data?.map((entry) => (
-            <article key={entry.id} style={itemStyle}>
-              <strong>{entry.action}</strong>
-              <span>{entry.actorUsername ?? "system"} · {entry.category} · {entry.outcome}</span>
-              <span>{entry.occurredAt}</span>
-              <span>Client: {entry.clientId ?? "n/a"} · PII: {entry.piiAccess ? "Yes" : "No"}</span>
-              <span>Details: {Object.entries(entry.details).map(([key, value]) => `${key}=${value}`).join(", ") || "none"}</span>
-            </article>
-          ))}
+        <div style={tableWrapStyle}>
+          <table>
+            <thead>
+              <tr>
+                <th>Occurred</th>
+                <th>Actor</th>
+                <th>Category</th>
+                <th>Action</th>
+                <th>Outcome</th>
+                <th>Client</th>
+                <th>PII</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditQuery.data?.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{entry.occurredAt}</td>
+                  <td>{entry.actorUsername ?? "system"}</td>
+                  <td>{entry.category}</td>
+                  <td><strong>{entry.action}</strong></td>
+                  <td><span style={ui.statusBadge}>{entry.outcome}</span></td>
+                  <td>{entry.clientId ?? "n/a"}</td>
+                  <td>{entry.piiAccess ? "Yes" : "No"}</td>
+                  <td>{`Details: ${Object.entries(entry.details).map(([key, value]) => `${key}=${value}`).join(", ") || "none"}`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -94,10 +115,7 @@ export function AuditPage() {
 }
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const filterGridStyle: React.CSSProperties = {
@@ -106,37 +124,20 @@ const filterGridStyle: React.CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
 };
 
-const listStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const itemStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.2rem",
-  padding: "0.85rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
-};
-
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.7rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  background: "#b46a31",
+  ...ui.secondaryButton,
 };
 
 const previewStyle: React.CSSProperties = {
   margin: 0,
   whiteSpace: "pre-wrap",
+  overflowX: "auto",
+};
+
+const tableWrapStyle: React.CSSProperties = {
   overflowX: "auto",
 };

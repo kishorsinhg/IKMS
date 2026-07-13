@@ -1,12 +1,15 @@
 package com.ikms.worker.intake;
 
 import com.ikms.ai.ClassificationService;
+import com.ikms.ai.PromptInjectionDetectionService;
 import com.ikms.document.Document;
 import com.ikms.document.DocumentRepository;
 import com.ikms.document.DocumentUploadService;
 import com.ikms.document.DocumentVersion;
 import com.ikms.document.DocumentVersionRepository;
+import com.ikms.document.DocumentReviewStatus;
 import com.ikms.review.ReviewQueueReason;
+import com.ikms.review.ReviewRoutingService;
 import com.ikms.review.ReviewQueueService;
 import com.ikms.worker.extract.TextExtractionService;
 import java.util.UUID;
@@ -22,7 +25,9 @@ public class SharedFolderIntakeWorker {
   private final DocumentVersionRepository documentVersionRepository;
   private final TextExtractionService textExtractionService;
   private final ClassificationService classificationService;
+  private final ReviewRoutingService reviewRoutingService;
   private final ReviewQueueService reviewQueueService;
+  private final PromptInjectionDetectionService promptInjectionDetectionService;
 
   public SharedFolderIntakeWorker(
       DocumentUploadService documentUploadService,
@@ -30,13 +35,17 @@ public class SharedFolderIntakeWorker {
       DocumentVersionRepository documentVersionRepository,
       TextExtractionService textExtractionService,
       ClassificationService classificationService,
-      ReviewQueueService reviewQueueService) {
+      ReviewRoutingService reviewRoutingService,
+      ReviewQueueService reviewQueueService,
+      PromptInjectionDetectionService promptInjectionDetectionService) {
     this.documentUploadService = documentUploadService;
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.textExtractionService = textExtractionService;
     this.classificationService = classificationService;
+    this.reviewRoutingService = reviewRoutingService;
     this.reviewQueueService = reviewQueueService;
+    this.promptInjectionDetectionService = promptInjectionDetectionService;
   }
 
   public DocumentUploadService.UploadResult processFile(IntakeFile file) {
@@ -79,8 +88,23 @@ public class SharedFolderIntakeWorker {
     document.setExtractionConfidence(classification.extractionConfidence());
     documentRepository.save(document);
 
-    if (file.clientId() == null || classification.clientMatchConfidence().doubleValue() < 0.5d) {
-      reviewQueueService.createForDocument(document.getId(), ReviewQueueReason.UNLINKED);
+    if (promptInjectionDetectionService.inspect(extraction.extractedText()).detected()) {
+      document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
+      documentRepository.save(document);
+      reviewQueueService.createForDocument(document.getId(), ReviewQueueReason.PROMPT_INJECTION_RISK);
+      return uploadResult;
+    }
+
+    var reviewDecision = reviewRoutingService.documentDecision(
+        file.clientId(),
+        document.getId(),
+        classification.clientMatchConfidence(),
+        classification.classificationConfidence(),
+        classification.extractionConfidence());
+    if (reviewDecision.requiresReview()) {
+      document.setReviewStatus(DocumentReviewStatus.PENDING_REVIEW);
+      documentRepository.save(document);
+      reviewQueueService.createForDocument(document.getId(), reviewDecision.reason());
     }
 
     return uploadResult;

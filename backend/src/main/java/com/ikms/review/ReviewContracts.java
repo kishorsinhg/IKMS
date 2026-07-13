@@ -1,5 +1,6 @@
 package com.ikms.review;
 
+import java.util.Map;
 import java.util.UUID;
 
 public final class ReviewContracts {
@@ -13,13 +14,17 @@ public final class ReviewContracts {
       String itemId,
       ReviewQueueReason reason,
       ReviewQueueStatus status,
-      UUID assignedTo) {
+      UUID assignedTo,
+      String title,
+      UUID clientId,
+      UUID documentTypeId,
+      Map<String, String> metadataValues) {
   }
 
   public record LinkClientRequest(UUID clientId) {
   }
 
-  public record CorrectMetadataRequest(String title) {
+  public record CorrectMetadataRequest(String title, UUID documentTypeId, Map<String, String> metadataValues) {
   }
 
   public record ReviewDecisionRequest(String reason) {

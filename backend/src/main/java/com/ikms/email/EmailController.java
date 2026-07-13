@@ -1,6 +1,7 @@
 package com.ikms.email;
 
 import com.ikms.security.AppUserPrincipal;
+import com.ikms.security.ContentSensitivityService;
 import com.ikms.security.PiiMaskingService;
 import java.util.List;
 import java.util.UUID;
@@ -15,10 +16,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmailController {
 
   private final EmailRepository emailRepository;
+  private final ContentSensitivityService contentSensitivityService;
   private final PiiMaskingService piiMaskingService;
 
-  public EmailController(EmailRepository emailRepository, PiiMaskingService piiMaskingService) {
+  public EmailController(
+      EmailRepository emailRepository,
+      ContentSensitivityService contentSensitivityService,
+      PiiMaskingService piiMaskingService) {
     this.emailRepository = emailRepository;
+    this.contentSensitivityService = contentSensitivityService;
     this.piiMaskingService = piiMaskingService;
   }
 
@@ -36,7 +42,9 @@ public class EmailController {
             email.getProcessingStatus().name(),
             email.getReviewStatus().name(),
             email.getReceivedAt()))
-        .map(email -> piiMaskingService.maskEmailSummary(email, principal(authentication).permissions()))
+        .map(email -> contentSensitivityService.emailContainsPii(email.id())
+            ? piiMaskingService.maskEmailSummary(email, principal(authentication).permissions())
+            : email)
         .toList();
   }
 

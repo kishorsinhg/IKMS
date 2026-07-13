@@ -26,14 +26,17 @@ public class DocumentController {
   private final DocumentRepository documentRepository;
   private final DocumentVersionRepository documentVersionRepository;
   private final DocumentUploadService documentUploadService;
+  private final com.ikms.security.ContentSensitivityService contentSensitivityService;
 
   public DocumentController(
       DocumentRepository documentRepository,
       DocumentVersionRepository documentVersionRepository,
-      DocumentUploadService documentUploadService) {
+      DocumentUploadService documentUploadService,
+      com.ikms.security.ContentSensitivityService contentSensitivityService) {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
     this.documentUploadService = documentUploadService;
+    this.contentSensitivityService = contentSensitivityService;
   }
 
   @PostMapping(path = "/api/documents/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -74,7 +77,7 @@ public class DocumentController {
         .map(document -> {
           DocumentVersion currentVersion = documentVersionRepository.findByDocument_IdAndCurrentTrue(document.getId())
               .orElse(null);
-          boolean containsPii = document.getClient() != null;
+          boolean containsPii = contentSensitivityService.documentContainsPii(document.getId());
           return new DocumentContracts.DocumentSummaryResponse(
               document.getId(),
               document.getClient() == null ? null : document.getClient().getId(),

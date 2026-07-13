@@ -38,7 +38,7 @@ Build V1 as an Insurance Broker Knowledge Management System, not a generic confi
 - Plan: `specs/001-insurance-broker-ikms/plan.md`
 - Tasks: `specs/001-insurance-broker-ikms/tasks.md`
 - Constitution: `.specify/memory/constitution.md` v1.1.0
-- Task count: 121
+- Task count: 132
 
 ## Next Recommended Task
 
@@ -47,6 +47,7 @@ Local scaffold work for Phase 1 setup exists and should now be treated as the cu
 Current implementation checkpoint:
 
 - `T001-T121` are completed and reflected in `specs/001-insurance-broker-ikms/tasks.md`.
+- Convergence tasks `T122-T130` are partially completed; `T122-T125`, `T128-T130` are done, while `T126-T127` remain partial and have been split into follow-up tasks `T131-T132`.
 - Backend scaffold exists in `backend/` with Spring Boot app entrypoint, dependency management, test skeleton, and application config.
 - Baseline Flyway migration exists in `backend/src/main/resources/db/migration/V001__baseline_schema.sql` with pgvector/pgcrypto extensions and initial `audit_log` table.
 - Shared API error contract and global exception handling exist in `backend/src/main/java/com/ikms/common/api/`.
@@ -133,8 +134,27 @@ Current implementation checkpoint:
   - Full manual quickstart signoff still depends on a live backend/frontend/database run, especially for IMAP/shared-folder intake.
   - Several V1 implementation compromises remain intentionally documented from earlier reviews: placeholder redaction output, keyword-only retrieval, rule-based answer synthesis, read-only user admin, and in-page CSV preview.
 
+Current post-convergence implementation checkpoint:
+
+- Notes now support update and soft-delete via `backend/src/main/java/com/ikms/note/NoteController.java` and corresponding client profile UI flows.
+- Review correction now persists document type and metadata values through `backend/src/main/java/com/ikms/review/ReviewQueueService.java` and `backend/src/main/java/com/ikms/config/domain/MetadataValue.java`.
+- PII sensitivity is now driven by metadata field flags through `backend/src/main/java/com/ikms/security/ContentSensitivityService.java`, not by blanket client linkage.
+- Review routing now uses administrator-configured thresholds/modes through `backend/src/main/java/com/ikms/review/ReviewRoutingService.java`.
+- AI provider settings are now consumed by extraction/classification/index metadata helpers through `backend/src/main/java/com/ikms/ai/AiProviderSettingsService.java`.
+- Admin AI settings UI now supports `providerName`, `modelName`, `apiBaseUrl`, `apiKey`, and `ocrProvider`; the read API exposes only `apiKeyConfigured`, not the raw secret.
+- Client search now ranks persisted chunks and document metadata, but it still does not execute real pgvector similarity search.
+- Client AI answers now block prompt-injection-tainted context, audit blocked evidence, and flag contradictory evidence patterns for manual review.
+- Retention workflow state is now persisted in `backend/src/main/java/com/ikms/retention/RetentionRecord.java` and can execute controlled delete/anonymize actions for supported targets.
+
+Current highest-value remaining gaps:
+
+- Extraction still uses UTF-8/fallback heuristics rather than real PDF/DOCX/OCR adapters.
+- AI answer assembly is still rule-based rather than provider-generated.
+- Embedding retrieval still uses persisted chunks plus token overlap, not real vector embeddings or pgvector nearest-neighbor search.
+- AI provider secret handling now exists for admin configuration, but the downstream OCR/LLM integration code still needs to consume those settings in `T131-T132`.
+
 Start the next session by reviewing `git status`, confirming `main` is clean and pushed through the Phase 9 closeout slice, then choose between live quickstart validation hardening or post-V1 enhancements.
 
 Recommended first implementation slice:
 
-- Next branch target: optional follow-up hardening after live quickstart execution, not core backlog work.
+- Next core implementation slice: `T131` followed by `T132`.

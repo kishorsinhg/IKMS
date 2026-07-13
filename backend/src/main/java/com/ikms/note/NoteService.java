@@ -27,7 +27,7 @@ public class NoteService {
 
   @Transactional(readOnly = true)
   public List<NoteContracts.NoteResponse> list(UUID clientId) {
-    return noteRepository.findByClient_IdOrderByCreatedAtDesc(clientId).stream()
+    return noteRepository.findByClient_IdAndStatusOrderByCreatedAtDesc(clientId, NoteStatus.ACTIVE).stream()
         .map(this::toResponse)
         .toList();
   }
@@ -53,6 +53,54 @@ public class NoteService {
         false,
         Map.of("clientId", clientId.toString())));
     return toResponse(saved);
+  }
+
+  public NoteContracts.NoteResponse update(UUID noteId, NoteContracts.UpdateNoteRequest request, UUID actorUserId) {
+    Note note = requireActiveNote(noteId);
+    note.setNoteText(request.noteText().trim());
+    note.setUpdatedBy(actorUserId);
+
+    Note saved = noteRepository.save(note);
+    auditService.write(new AuditEvent(
+        Instant.now(),
+        "NOTE",
+        "NOTE_UPDATED",
+        AuditOutcome.SUCCESS,
+        actorUserId,
+        saved.getClient().getId(),
+        "Note",
+        saved.getId().toString(),
+        false,
+        Map.of("clientId", saved.getClient().getId().toString())));
+    return toResponse(saved);
+  }
+
+  public void softDelete(UUID noteId, UUID actorUserId) {
+    Note note = requireActiveNote(noteId);
+    note.setStatus(NoteStatus.DELETED);
+    note.setUpdatedBy(actorUserId);
+    Note saved = noteRepository.save(note);
+
+    auditService.write(new AuditEvent(
+        Instant.now(),
+        "NOTE",
+        "NOTE_DELETED",
+        AuditOutcome.SUCCESS,
+        actorUserId,
+        saved.getClient().getId(),
+        "Note",
+        saved.getId().toString(),
+        false,
+        Map.of("clientId", saved.getClient().getId().toString())));
+  }
+
+  private Note requireActiveNote(UUID noteId) {
+    Note note = noteRepository.findById(noteId)
+        .orElseThrow(() -> new IllegalArgumentException("Note not found: " + noteId));
+    if (note.getStatus() != NoteStatus.ACTIVE) {
+      throw new IllegalArgumentException("Note not found: " + noteId);
+    }
+    return note;
   }
 
   private NoteContracts.NoteResponse toResponse(Note note) {

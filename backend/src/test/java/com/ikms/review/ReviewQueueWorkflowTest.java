@@ -47,7 +47,11 @@ class ReviewQueueWorkflowTest {
           "33333333-3333-3333-3333-333333333333",
           ReviewQueueReason.UNLINKED,
           ReviewQueueStatus.OPEN,
-          null));
+          null,
+          "Inbound renewal",
+          null,
+          null,
+          java.util.Map.of("carrier", "Carrier A")));
     }
   }
 }

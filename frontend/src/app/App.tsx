@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Permission, getCurrentUser, login, logout } from "../api/auth";
 import { ApiClientError } from "../api/client";
 import { AdminConfigurationPage } from "../features/admin/AdminConfigurationPage";
@@ -78,6 +78,7 @@ function ProtectedRoute() {
 }
 
 function AppShell() {
+  const location = useLocation();
   const queryClient = useQueryClient();
   const currentUserQuery = useCurrentUser();
   const signOut = useMutation({
@@ -89,26 +90,41 @@ function AppShell() {
 
   const user = currentUserQuery.data!;
   const visibleNavItems = navItems.filter((item) => user.permissions.includes(item.permission));
+  const currentWorkspace = visibleNavItems.find((item) => location.pathname.startsWith(item.to))?.label ?? "Workspace";
 
   return (
     <div style={shellStyles.page}>
       <aside style={shellStyles.sidebar}>
-        <div>
-          <h1 style={shellStyles.productName}>IKMS</h1>
-          <p style={shellStyles.caption}>Insurance knowledge workspace</p>
+        <div style={shellStyles.sidebarTop}>
+          <div style={shellStyles.brandBlock}>
+            <span style={shellStyles.brandKicker}>Enterprise operations</span>
+            <h1 style={shellStyles.productName}>IKMS</h1>
+            <p style={shellStyles.caption}>Insurance Knowledge Management System</p>
+          </div>
+
+          <div style={shellStyles.workspaceTag}>
+            <strong style={shellStyles.workspaceLabel}>Current workspace</strong>
+            <span>{currentWorkspace}</span>
+          </div>
         </div>
 
         <nav style={shellStyles.nav}>
           {visibleNavItems.map((item) => (
-            <Link key={item.to} to={item.to} style={shellStyles.navLink}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              style={({ isActive }) => (isActive ? shellStyles.navLinkActive : shellStyles.navLink)}
+            >
               {item.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
         <div style={shellStyles.userCard}>
-          <strong>{user.displayName}</strong>
-          <span>{user.roles.join(", ")}</span>
+          <div style={shellStyles.userMeta}>
+            <strong>{user.displayName}</strong>
+            <span>{user.roles.join(", ")}</span>
+          </div>
           <button
             type="button"
             onClick={() => signOut.mutate()}
@@ -120,6 +136,16 @@ function AppShell() {
       </aside>
 
       <main style={shellStyles.content}>
+        <div style={shellStyles.topBar}>
+          <div>
+            <p style={shellStyles.topBarLabel}>Operations workspace</p>
+            <h2 style={shellStyles.topBarTitle}>{currentWorkspace}</h2>
+          </div>
+          <div style={shellStyles.topBarMeta}>
+            <span style={shellStyles.metaChip}>{user.username}</span>
+            <span style={shellStyles.metaChip}>{user.permissions.length} permissions</span>
+          </div>
+        </div>
         <Outlet />
       </main>
     </div>
@@ -203,66 +229,153 @@ const shellStyles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     display: "grid",
-    gridTemplateColumns: "280px 1fr",
-    background: "linear-gradient(145deg, #f3efe6 0%, #fffdf8 55%, #ebe4d8 100%)",
-    color: "#1f1c18",
+    gridTemplateColumns: "300px 1fr",
+    background: "transparent",
+    color: "var(--text)",
   },
   sidebar: {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: "2rem",
-    borderRight: "1px solid rgba(31, 28, 24, 0.12)",
-    background: "rgba(255, 252, 247, 0.82)",
-    backdropFilter: "blur(10px)",
+    padding: "1.75rem 1.35rem",
+    borderRight: "1px solid rgba(255, 255, 255, 0.08)",
+    background: "linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-alt) 100%)",
+    color: "#dce7f6",
+  },
+  sidebarTop: {
+    display: "grid",
+    gap: "1.5rem",
+  },
+  brandBlock: {
+    display: "grid",
+    gap: "0.35rem",
+  },
+  brandKicker: {
+    color: "#8ea6c5",
+    fontSize: "0.75rem",
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+  },
+  workspaceTag: {
+    display: "grid",
+    gap: "0.25rem",
+    padding: "0.9rem 1rem",
+    borderRadius: "1rem",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(214, 224, 236, 0.1)",
+  },
+  workspaceLabel: {
+    color: "#9fb4cf",
+    fontSize: "0.78rem",
   },
   productName: {
     margin: 0,
-    fontSize: "2rem",
-    letterSpacing: "0.08em",
+    fontSize: "2.1rem",
+    letterSpacing: "-0.04em",
+    color: "#f8fbff",
   },
   caption: {
     margin: "0.35rem 0 0",
-    color: "#6d6253",
+    color: "#9fb4cf",
   },
   nav: {
     display: "grid",
-    gap: "0.75rem",
+    gap: "0.45rem",
     margin: "2rem 0",
   },
   navLink: {
-    color: "#1f1c18",
+    color: "#b9cae0",
     textDecoration: "none",
     fontWeight: 600,
+    padding: "0.9rem 1rem",
+    borderRadius: "0.95rem",
+    border: "1px solid transparent",
+  },
+  navLinkActive: {
+    color: "#f8fbff",
+    textDecoration: "none",
+    fontWeight: 700,
+    padding: "0.9rem 1rem",
+    borderRadius: "0.95rem",
+    background: "linear-gradient(180deg, rgba(11, 99, 206, 0.34) 0%, rgba(11, 99, 206, 0.18) 100%)",
+    border: "1px solid rgba(123, 173, 240, 0.3)",
   },
   userCard: {
     display: "grid",
-    gap: "0.35rem",
-    padding: "1rem",
+    gap: "0.85rem",
+    padding: "1rem 1.05rem",
     borderRadius: "1rem",
-    background: "#f2e8d6",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(214, 224, 236, 0.1)",
+  },
+  userMeta: {
+    display: "grid",
+    gap: "0.2rem",
   },
   content: {
-    padding: "2.5rem",
+    display: "grid",
+    alignContent: "start",
+    gap: "1.35rem",
+    padding: "1.5rem 1.75rem 2rem",
+  },
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "1rem",
+    padding: "1.1rem 1.25rem",
+    borderRadius: "1.25rem",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid var(--line)",
+    boxShadow: "0 10px 30px rgba(15, 23, 40, 0.05)",
+  },
+  topBarLabel: {
+    margin: 0,
+    fontSize: "0.78rem",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "var(--muted)",
+  },
+  topBarTitle: {
+    margin: "0.2rem 0 0",
+    fontSize: "1.4rem",
+    letterSpacing: "-0.03em",
+  },
+  topBarMeta: {
+    display: "flex",
+    gap: "0.65rem",
+    flexWrap: "wrap",
+  },
+  metaChip: {
+    padding: "0.45rem 0.75rem",
+    borderRadius: "999px",
+    background: "var(--accent-soft)",
+    color: "var(--accent-strong)",
+    fontWeight: 700,
+    fontSize: "0.82rem",
   },
   loginPage: {
     minHeight: "100vh",
     display: "grid",
     placeItems: "center",
-    background: "radial-gradient(circle at top, #f2e8d6 0%, #f8f3eb 45%, #efe7da 100%)",
+    padding: "1.5rem",
+    background:
+      "radial-gradient(circle at top left, rgba(11,99,206,0.16) 0%, transparent 26%), radial-gradient(circle at bottom right, rgba(15,27,45,0.15) 0%, transparent 30%), linear-gradient(180deg, #f8fbfe 0%, #e9f0f7 100%)",
   },
   loginCard: {
     width: "min(420px, 100%)",
     display: "grid",
-    gap: "1rem",
+    gap: "1.1rem",
     padding: "2rem",
-    borderRadius: "1.25rem",
-    background: "rgba(255, 252, 247, 0.94)",
-    boxShadow: "0 24px 80px rgba(31, 28, 24, 0.08)",
+    borderRadius: "1.4rem",
+    background: "rgba(255, 255, 255, 0.92)",
+    border: "1px solid var(--line)",
+    boxShadow: "0 28px 64px rgba(15, 23, 40, 0.12)",
   },
   loginTitle: {
     margin: 0,
-    fontSize: "2rem",
+    fontSize: "2.1rem",
+    letterSpacing: "-0.04em",
   },
   field: {
     display: "grid",
@@ -270,24 +383,25 @@ const shellStyles: Record<string, React.CSSProperties> = {
   },
   primaryButton: {
     border: "none",
-    borderRadius: "999px",
-    padding: "0.85rem 1rem",
-    background: "#1f1c18",
-    color: "#fffaf3",
+    borderRadius: "0.9rem",
+    padding: "0.9rem 1rem",
+    background: "linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%)",
+    color: "#f8fbff",
     fontWeight: 700,
     cursor: "pointer",
+    boxShadow: "0 10px 18px rgba(11, 99, 206, 0.2)",
   },
   secondaryButton: {
     justifySelf: "start",
-    border: "1px solid rgba(31, 28, 24, 0.15)",
-    borderRadius: "999px",
-    padding: "0.55rem 0.9rem",
-    background: "transparent",
-    color: "#1f1c18",
+    border: "1px solid rgba(214, 224, 236, 0.16)",
+    borderRadius: "0.8rem",
+    padding: "0.65rem 0.9rem",
+    background: "rgba(255,255,255,0.06)",
+    color: "#f8fbff",
     cursor: "pointer",
   },
   errorText: {
-    color: "#9f2d2d",
+    color: "var(--danger)",
     fontWeight: 600,
   },
 };

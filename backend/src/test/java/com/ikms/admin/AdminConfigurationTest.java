@@ -65,6 +65,23 @@ class AdminConfigurationTest {
         .andExpect(jsonPath("$.lowConfidenceThreshold").value(0.82d));
   }
 
+  @Test
+  void aiSettingPatchShouldReturnBaseUrlAndMaskedKeyState() throws Exception {
+    mockMvc.perform(patch("/api/admin/ai-settings")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsBytes(new AdminConfigurationContracts.AiProviderSettingRequest(
+                "openai",
+                "gpt-5-mini",
+                "https://api.openai.com/v1",
+                "secret-key",
+                "tesseract",
+                true))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.providerName").value("openai"))
+        .andExpect(jsonPath("$.apiBaseUrl").value("https://api.openai.com/v1"))
+        .andExpect(jsonPath("$.apiKeyConfigured").value(true));
+  }
+
   @RestController
   @RequestMapping("/api/admin")
   static class TestAdminConfigurationController {
@@ -90,6 +107,20 @@ class AdminConfigurationTest {
           UUID.fromString("22222222-2222-2222-2222-222222222222"),
           request.mode(),
           request.lowConfidenceThreshold(),
+          Instant.parse("2026-07-10T09:00:00Z"));
+    }
+
+    @PatchMapping("/ai-settings")
+    AdminConfigurationContracts.AiProviderSettingResponse updateAiSetting(
+        @Valid @RequestBody AdminConfigurationContracts.AiProviderSettingRequest request) {
+      return new AdminConfigurationContracts.AiProviderSettingResponse(
+          UUID.fromString("33333333-3333-3333-3333-333333333333"),
+          request.providerName(),
+          request.modelName(),
+          request.apiBaseUrl(),
+          request.apiKey() != null && !request.apiKey().isBlank(),
+          request.ocrProvider(),
+          request.active(),
           Instant.parse("2026-07-10T09:00:00Z"));
     }
   }

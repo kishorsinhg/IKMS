@@ -16,6 +16,12 @@ public final class NoteContracts {
       String noteText) {
   }
 
+  public record UpdateNoteRequest(
+      @NotBlank(message = "Note text is required.")
+      @Size(max = 4000, message = "Note text must be 4000 characters or fewer.")
+      String noteText) {
+  }
+
   public record NoteResponse(
       UUID id,
       UUID clientId,

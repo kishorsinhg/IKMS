@@ -21,6 +21,12 @@ public class AiProviderSetting {
   @Column(name = "model_name", nullable = false, length = 120)
   private String modelName;
 
+  @Column(name = "api_base_url", length = 512)
+  private String apiBaseUrl;
+
+  @Column(name = "api_key", length = 512)
+  private String apiKey;
+
   @Column(name = "ocr_provider", nullable = false, length = 80)
   private String ocrProvider;
 
@@ -44,6 +50,10 @@ public class AiProviderSetting {
   public void setProviderName(String providerName) { this.providerName = providerName; }
   public String getModelName() { return modelName; }
   public void setModelName(String modelName) { this.modelName = modelName; }
+  public String getApiBaseUrl() { return apiBaseUrl; }
+  public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
+  public String getApiKey() { return apiKey; }
+  public void setApiKey(String apiKey) { this.apiKey = apiKey; }
   public String getOcrProvider() { return ocrProvider; }
   public void setOcrProvider(String ocrProvider) { this.ocrProvider = ocrProvider; }
   public boolean isActive() { return active; }

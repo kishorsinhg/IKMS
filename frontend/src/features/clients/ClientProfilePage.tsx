@@ -1,8 +1,9 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { ui } from "../../app/ui";
 import { getCurrentUser } from "../../api/auth";
-import { createNote, getClient, listNotes } from "../../api/clients";
+import { createNote, deleteNote, getClient, listNotes, updateNote } from "../../api/clients";
 import { listClientDocuments, listClientEmails } from "../../api/intake";
 import { ClientSearchPanel } from "../search/ClientSearchPanel";
 import { DocumentsSection, EmailsSection } from "./knowledge/KnowledgeSections";
@@ -16,6 +17,8 @@ export function ClientProfilePage() {
   const { clientId } = useParams();
   const queryClient = useQueryClient();
   const [noteText, setNoteText] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: getCurrentUser,
@@ -49,13 +52,29 @@ export function ClientProfilePage() {
       await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
     },
   });
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ noteId, text }: { noteId: string; text: string }) => updateNote(noteId, { noteText: text }),
+    onSuccess: async () => {
+      setEditingNoteId(null);
+      setEditingNoteText("");
+      await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
+    },
+  });
+  const deleteNoteMutation = useMutation({
+    mutationFn: (noteId: string) => deleteNote(noteId),
+    onSuccess: async () => {
+      setEditingNoteId(null);
+      setEditingNoteText("");
+      await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
+    },
+  });
 
   if (!clientId) {
     return (
-      <section style={{ display: "grid", gap: "1rem" }}>
-        <header>
-          <h2 style={{ marginBottom: "0.35rem" }}>Client Profile</h2>
-          <p style={{ margin: 0, color: "#6d6253" }}>
+      <section style={ui.page}>
+        <header style={ui.pageHeader}>
+          <h2 style={ui.pageTitle}>Client Profile</h2>
+          <p style={ui.pageDescription}>
             The client workspace is the central broker view for linked documents, emails, notes, AI Q&A, and activity.
           </p>
         </header>
@@ -91,14 +110,47 @@ export function ClientProfilePage() {
     noteMutation.mutate(noteText.trim());
   }
 
+  function startEditing(noteId: string, text: string) {
+    setEditingNoteId(noteId);
+    setEditingNoteText(text);
+  }
+
+  function handleUpdateNote(event: FormEvent<HTMLFormElement>, noteId: string) {
+    event.preventDefault();
+    if (!editingNoteText.trim()) {
+      return;
+    }
+    updateNoteMutation.mutate({ noteId, text: editingNoteText.trim() });
+  }
+
   return (
-    <section style={{ display: "grid", gap: "1.5rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Client Profile</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
-          {client.displayName} · {client.clientId}{client.clientIdTemporary ? " (Temporary ID)" : ""}
-        </p>
-      </header>
+    <section style={ui.page}>
+      <section style={heroStyle}>
+        <div style={ui.pageHeader}>
+          <h2 style={ui.pageTitle}>Client Profile</h2>
+          <p style={ui.pageDescription}>
+            {client.displayName} · {client.clientId}{client.clientIdTemporary ? " (Temporary ID)" : ""}
+          </p>
+        </div>
+        <div style={ui.metricRow}>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{client.clientType}</strong>
+            <span style={metricLabelStyle}>Client type</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{client.status}</strong>
+            <span style={metricLabelStyle}>Record status</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{documentsQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Documents</span>
+          </div>
+          <div style={ui.metricCard}>
+            <strong style={metricValueStyle}>{emailsQuery.data?.length ?? 0}</strong>
+            <span style={metricLabelStyle}>Emails</span>
+          </div>
+        </div>
+      </section>
 
       <Link to="/clients" style={backLinkStyle}>Return to client workspace</Link>
 
@@ -126,7 +178,47 @@ export function ClientProfilePage() {
             {notesQuery.data?.map((note) => (
               <div key={note.id} style={noteCardStyle}>
                 <strong>{new Date(note.createdAt).toLocaleString()}</strong>
-                <span>{note.noteText}</span>
+                {editingNoteId === note.id ? (
+                  <form onSubmit={(event) => handleUpdateNote(event, note.id)} style={noteEditFormStyle}>
+                    <textarea
+                      rows={3}
+                      value={editingNoteText}
+                      onChange={(event) => setEditingNoteText(event.target.value)}
+                    />
+                    <div style={noteActionRowStyle}>
+                      <button type="submit" style={buttonStyle} disabled={updateNoteMutation.isPending}>
+                        {updateNoteMutation.isPending ? "Saving..." : "Save note"}
+                      </button>
+                      <button
+                        type="button"
+                        style={secondaryButtonStyle}
+                        onClick={() => {
+                          setEditingNoteId(null);
+                          setEditingNoteText("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <span>{note.noteText}</span>
+                    <div style={noteActionRowStyle}>
+                      <button type="button" style={secondaryButtonStyle} onClick={() => startEditing(note.id, note.noteText)}>
+                        Edit note
+                      </button>
+                      <button
+                        type="button"
+                        style={dangerButtonStyle}
+                        disabled={deleteNoteMutation.isPending}
+                        onClick={() => deleteNoteMutation.mutate(note.id)}
+                      >
+                        Delete note
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
             {notesQuery.data?.length === 0 ? <span>No notes yet.</span> : null}
@@ -150,39 +242,66 @@ function ProfileSection({ title, description }: { title: string; description: st
 
 const sectionGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
   gap: "1rem",
 };
 
 const cardStyle: React.CSSProperties = {
-  padding: "1rem",
-  borderRadius: "1rem",
-  background: "#fff8ee",
-  border: "1px solid rgba(31, 28, 24, 0.1)",
+  ...ui.card,
 };
 
 const noteCardStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.35rem",
-  padding: "0.85rem",
-  borderRadius: "0.85rem",
-  background: "#f7efe0",
+  padding: "0.95rem 1rem",
+  borderRadius: "0.95rem",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.7rem 1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  ...ui.secondaryButton,
+};
+
+const dangerButtonStyle: React.CSSProperties = {
+  ...ui.dangerButton,
+};
+
+const noteActionRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+  marginTop: "0.35rem",
+};
+
+const noteEditFormStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
 };
 
 const backLinkStyle: React.CSSProperties = {
   width: "fit-content",
-  color: "#1f1c18",
+  color: "var(--accent)",
   fontWeight: 700,
   textDecoration: "none",
+};
+
+const heroStyle: React.CSSProperties = {
+  ...ui.heroCard,
+  display: "grid",
+  gap: "1.25rem",
+};
+
+const metricValueStyle: React.CSSProperties = {
+  fontSize: "1.2rem",
+  letterSpacing: "-0.02em",
+};
+
+const metricLabelStyle: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: "0.84rem",
 };

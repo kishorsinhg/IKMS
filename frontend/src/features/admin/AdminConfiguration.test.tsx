@@ -30,10 +30,31 @@ describe("AdminConfigurationPage", () => {
         return new Response(JSON.stringify({ id: "r1", mode: "confidence", lowConfidenceThreshold: 0.75, updatedAt: "2026-07-10T10:00:00Z" }), { status: 200, headers: { "content-type": "application/json" } });
       }
       if (url.endsWith("/api/admin/ai-settings") && (!init || init.method === "GET")) {
-        return new Response(JSON.stringify({ id: "a1", providerName: "mistral", modelName: "mistral-small", ocrProvider: "tesseract", active: true, updatedAt: "2026-07-10T10:00:00Z" }), { status: 200, headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify({
+          id: "a1",
+          providerName: "mistral",
+          modelName: "mistral-small",
+          apiBaseUrl: "https://llm.internal/v1",
+          apiKeyConfigured: true,
+          ocrProvider: "tesseract",
+          active: true,
+          updatedAt: "2026-07-10T10:00:00Z",
+        }), { status: 200, headers: { "content-type": "application/json" } });
       }
       if (url.endsWith("/api/admin/review-settings") && init?.method === "PATCH") {
         return new Response(JSON.stringify({ id: "r1", mode: "manual", lowConfidenceThreshold: 0.82, updatedAt: "2026-07-10T10:00:00Z" }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.endsWith("/api/admin/ai-settings") && init?.method === "PATCH") {
+        return new Response(JSON.stringify({
+          id: "a1",
+          providerName: "openai",
+          modelName: "gpt-5-mini",
+          apiBaseUrl: "https://api.openai.com/v1",
+          apiKeyConfigured: true,
+          ocrProvider: "tesseract",
+          active: true,
+          updatedAt: "2026-07-10T10:00:00Z",
+        }), { status: 200, headers: { "content-type": "application/json" } });
       }
       return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
     });
@@ -63,6 +84,30 @@ describe("AdminConfigurationPage", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/api/admin/review-settings",
       expect.objectContaining({ method: "PATCH" }),
+    ));
+
+    await user.clear(screen.getByPlaceholderText("AI provider"));
+    await user.type(screen.getByPlaceholderText("AI provider"), "openai");
+    await user.clear(screen.getByPlaceholderText("Model"));
+    await user.type(screen.getByPlaceholderText("Model"), "gpt-5-mini");
+    await user.clear(screen.getByPlaceholderText("https://api.provider.com/v1"));
+    await user.type(screen.getByPlaceholderText("https://api.provider.com/v1"), "https://api.openai.com/v1");
+    await user.type(screen.getByPlaceholderText("Configured - enter new key to rotate"), "new-secret");
+    await user.click(screen.getByRole("button", { name: "Save AI settings" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/admin/ai-settings",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          providerName: "openai",
+          modelName: "gpt-5-mini",
+          apiBaseUrl: "https://api.openai.com/v1",
+          apiKey: "new-secret",
+          ocrProvider: "tesseract",
+          active: true,
+        }),
+      }),
     ));
   });
 });

@@ -48,6 +48,10 @@ export interface CreateNoteRequest {
   noteText: string;
 }
 
+export interface UpdateNoteRequest {
+  noteText: string;
+}
+
 export interface ClientImportRowResult {
   lineNumber: number;
   clientId: string;
@@ -99,4 +103,12 @@ export function listNotes(clientId: string) {
 
 export function createNote(clientId: string, request: CreateNoteRequest) {
   return apiClient.post<Note>(`/api/clients/${clientId}/notes`, request);
+}
+
+export function updateNote(noteId: string, request: UpdateNoteRequest) {
+  return apiClient.patch<Note>(`/api/notes/${noteId}`, request);
+}
+
+export function deleteNote(noteId: string) {
+  return apiClient.delete<void>(`/api/notes/${noteId}`);
 }

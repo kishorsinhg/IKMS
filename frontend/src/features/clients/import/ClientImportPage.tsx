@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { ui } from "../../../app/ui";
 import { ClientImportResult, importClients } from "../../../api/clients";
 import { ApiClientError } from "../../../api/client";
 
@@ -29,15 +30,15 @@ export function ClientImportPage() {
   }
 
   return (
-    <section style={{ display: "grid", gap: "1.5rem" }}>
-      <header>
-        <h2 style={{ marginBottom: "0.35rem" }}>Client CSV Import</h2>
-        <p style={{ margin: 0, color: "#6d6253" }}>
+    <section style={ui.page}>
+      <header style={ui.pageHeader}>
+        <h2 style={ui.pageTitle}>Client CSV Import</h2>
+        <p style={ui.pageDescription}>
           Validate client rows and surface duplicate warnings before broader client-profile implementation.
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: "560px" }}>
+      <form onSubmit={handleSubmit} style={{ ...ui.card, display: "grid", gap: "0.75rem", maxWidth: "620px" }}>
         <input
           type="file"
           accept=".csv,text/csv"
@@ -48,7 +49,7 @@ export function ClientImportPage() {
         </button>
       </form>
 
-      {errorMessage ? <div style={{ color: "#9f2d2d" }}>{errorMessage}</div> : null}
+      {errorMessage ? <div style={{ color: "var(--danger)", fontWeight: 600 }}>{errorMessage}</div> : null}
 
       {result ? (
         <section style={{ display: "grid", gap: "1rem" }}>
@@ -60,7 +61,7 @@ export function ClientImportPage() {
           </div>
 
           {result.fileErrors.length > 0 ? (
-            <div style={{ color: "#9f2d2d" }}>{result.fileErrors.join(" ")}</div>
+            <div style={{ color: "var(--danger)", fontWeight: 600 }}>{result.fileErrors.join(" ")}</div>
           ) : null}
 
           <div style={{ overflowX: "auto" }}>
@@ -96,14 +97,7 @@ export function ClientImportPage() {
 }
 
 const buttonStyle: React.CSSProperties = {
-  width: "fit-content",
-  padding: "0.75rem 1.1rem",
-  borderRadius: "999px",
-  border: "none",
-  background: "#1f1c18",
-  color: "#fffaf0",
-  fontWeight: 700,
-  cursor: "pointer",
+  ...ui.primaryButton,
 };
 
 const summaryStyle: React.CSSProperties = {
@@ -112,7 +106,8 @@ const summaryStyle: React.CSSProperties = {
   flexWrap: "wrap",
   padding: "1rem",
   borderRadius: "1rem",
-  background: "#f2e8d6",
+  background: "var(--panel-muted)",
+  border: "1px solid rgba(191, 208, 226, 0.72)",
 };
 
 const tableStyle: React.CSSProperties = {
