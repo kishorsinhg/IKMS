@@ -573,9 +573,6 @@ export function SearchLandingPage() {
                   ))}
               </Select>
             </FormControl>
-            <Button variant="contained" onClick={applySearch} startIcon={<SearchOutlinedIcon fontSize="small" />}>
-              Search
-            </Button>
             {hasActiveFilters ? (
               <Button variant="text" color="inherit" onClick={clearSearch} startIcon={<FilterAltOffOutlinedIcon fontSize="small" />}>
                 Clear
@@ -584,6 +581,11 @@ export function SearchLandingPage() {
           </Stack>
         )}
         activeFilters={activeFilters}
+        primaryAction={(
+          <Button variant="contained" onClick={applySearch} startIcon={<SearchOutlinedIcon fontSize="small" />}>
+            Search
+          </Button>
+        )}
         onRefresh={() => {
           if (queryActive) {
             if (isDemoDataEnabled) {
@@ -806,20 +808,22 @@ export function SearchLandingPage() {
         onClose={() => setMobileDetailOpen(false)}
         PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
       >
-        <Stack spacing={2} sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={0} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2">Selected result</Typography>
             <IconButton aria-label="Close detail" onClick={() => setMobileDetailOpen(false)}>
               <CloseOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {activeRow ? (
-            <ResultDetailContent
-              row={activeRow}
-              workspace={selectedWorkspaceContextQuery.data}
-              onOpen={() => openCustomer(activeRow.clientId, navigate)}
-            />
-          ) : null}
+          <Box sx={{ overflowY: "auto", px: 2, py: 1.5 }}>
+            {activeRow ? (
+              <ResultDetailContent
+                row={activeRow}
+                workspace={selectedWorkspaceContextQuery.data}
+                onOpen={() => openCustomer(activeRow.clientId, navigate)}
+              />
+            ) : null}
+          </Box>
         </Stack>
       </Drawer>
     </Stack>

@@ -81,6 +81,8 @@ export function EntityGrid<R extends Record<string, unknown> = Record<string, un
         pageSizeOptions={pageSizeOptions}
         autosizeOnMount={autosizeOnMount}
         density="compact"
+        rowHeight={44}
+        columnHeaderHeight={40}
         initialState={{
           pagination: {
             paginationModel: {
@@ -101,7 +103,22 @@ export function EntityGrid<R extends Record<string, unknown> = Record<string, un
             />
           ),
         }}
-        sx={{ minHeight: 320 }}
+        sx={{
+          minHeight: 320,
+          "& .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-cell:focus": {
+            outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: -2,
+          },
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "action.hover",
+          },
+          "& .MuiDataGrid-sortIcon": {
+            opacity: 0.72,
+          },
+          "& .MuiDataGrid-footerContainer": {
+            minHeight: 44,
+          },
+        }}
         {...rest}
       />
       {footerContent}

@@ -40,6 +40,7 @@ export interface WorkspaceToolbarProps {
   filters?: ReactNode;
   activeFilters?: ActiveToolbarFilter[];
   bulkActions?: ReactNode;
+  primaryAction?: ReactNode;
   onRefresh?: () => void;
   onExport?: () => void;
   onColumns?: () => void;
@@ -56,6 +57,7 @@ export function WorkspaceToolbar({
   filters,
   activeFilters,
   bulkActions,
+  primaryAction,
   onRefresh,
   onExport,
   onColumns,
@@ -67,8 +69,8 @@ export function WorkspaceToolbar({
     <Box
       sx={{
         display: "grid",
-        gap: 1,
-        px: 2,
+        gap: 0.75,
+        px: 1.5,
         py: 1,
         border: (theme) => `1px solid ${theme.palette.divider}`,
         borderRadius: 1,
@@ -80,6 +82,7 @@ export function WorkspaceToolbar({
         spacing={1}
         justifyContent="space-between"
         alignItems={{ xs: "stretch", lg: "center" }}
+        sx={{ minWidth: 0 }}
       >
         <Stack
           direction={{ xs: "column", md: "row" }}
@@ -97,7 +100,7 @@ export function WorkspaceToolbar({
               onChange={(event) => onSearchChange(event.target.value)}
               onKeyDown={onSearchKeyDown}
               placeholder={searchPlaceholder ?? "Search"}
-              sx={{ minWidth: { xs: "100%", md: 320 }, flex: 1 }}
+              sx={{ minWidth: { xs: "100%", md: 320 }, flex: 1.2 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -111,7 +114,18 @@ export function WorkspaceToolbar({
           {bulkActions}
         </Stack>
 
-        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+        <Stack
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          justifyContent={{ xs: "space-between", lg: "flex-end" }}
+          sx={{ flexShrink: 0, minWidth: 0 }}
+        >
+          {primaryAction ? (
+            <Box sx={{ display: "flex", alignItems: "center", mr: { xs: "auto", lg: 0 } }}>
+              {primaryAction}
+            </Box>
+          ) : null}
           {onRefresh ? (
             <Tooltip title="Refresh">
               <IconButton aria-label="Refresh" onClick={onRefresh}>
@@ -163,7 +177,7 @@ export function WorkspaceToolbar({
       </Stack>
 
       {activeFilters && activeFilters.length > 0 ? (
-        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center" sx={{ pt: 0.25 }}>
           <TuneOutlinedIcon fontSize="small" color="action" />
           {activeFilters.map((filter) => (
             <Chip

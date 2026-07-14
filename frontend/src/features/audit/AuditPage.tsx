@@ -494,36 +494,19 @@ export function AuditPage() {
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: { xs: "100%", sm: 200 } }}
             />
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              {isMobile ? (
-                <>
-                  <Tooltip title="Apply filters">
-                    <IconButton aria-label="Apply filters" onClick={applyFilters} size="small">
-                      <SearchOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {hasActiveFilters ? (
-                    <Button size="small" color="inherit" variant="text" onClick={clearFilters}>
-                      Clear
-                    </Button>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <Button variant="contained" startIcon={<SearchOutlinedIcon fontSize="small" />} onClick={applyFilters}>
-                    Search
-                  </Button>
-                  {hasActiveFilters ? (
-                    <Button variant="text" color="inherit" onClick={clearFilters}>
-                      Clear
-                    </Button>
-                  ) : null}
-                </>
-              )}
-            </Stack>
+            {hasActiveFilters ? (
+              <Button size="small" color="inherit" variant="text" onClick={clearFilters}>
+                Clear
+              </Button>
+            ) : null}
           </Stack>
         )}
         activeFilters={activeFilters}
+        primaryAction={(
+          <Button variant="contained" startIcon={<SearchOutlinedIcon fontSize="small" />} onClick={applyFilters}>
+            Search
+          </Button>
+        )}
         onRefresh={() => void auditQuery.refetch()}
         secondaryActions={[
           ...(canExport ? [{ key: "export", label: exportMutation.isPending ? "Exporting..." : "Export CSV", onClick: () => exportMutation.mutate() }] : []),
@@ -608,22 +591,24 @@ export function AuditPage() {
         onClose={() => setMobileDetailOpen(false)}
         PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
       >
-        <Stack spacing={1.25} sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={0} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2">Selected audit event</Typography>
             <IconButton aria-label="Close detail" onClick={() => setMobileDetailOpen(false)}>
               <CloseOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {selectedRow ? (
-            <SelectedAuditDetail
-              row={selectedRow}
-              canOpenCustomer={canOpenCustomer}
-              canExport={canExport}
-              onOpenCustomer={selectedRow.raw.clientId ? () => navigate(`/clients/${selectedRow.raw.clientId}`) : undefined}
-              onExport={canExport ? () => exportMutation.mutate() : undefined}
-            />
-          ) : null}
+          <Box sx={{ overflowY: "auto", px: 2, py: 1.5 }}>
+            {selectedRow ? (
+              <SelectedAuditDetail
+                row={selectedRow}
+                canOpenCustomer={canOpenCustomer}
+                canExport={canExport}
+                onOpenCustomer={selectedRow.raw.clientId ? () => navigate(`/clients/${selectedRow.raw.clientId}`) : undefined}
+                onExport={canExport ? () => exportMutation.mutate() : undefined}
+              />
+            ) : null}
+          </Box>
         </Stack>
       </Drawer>
 

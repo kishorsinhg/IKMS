@@ -2,9 +2,7 @@ import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurned
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
-import MoreHorizOutlinedIcon from "@mui/icons-material/MoreHorizOutlined";
 import OpenInFullOutlinedIcon from "@mui/icons-material/OpenInFullOutlined";
-import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import {
@@ -23,7 +21,6 @@ import {
   List,
   ListItemButton,
   ListItemText,
-  Menu,
   MenuItem,
   Select,
   Stack,
@@ -35,7 +32,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { GridColDef, GridPaginationModel, GridSortModel } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyboardEvent as ReactKeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { listDocumentTypes, listMetadataFields } from "../../../api/admin";
 import { ClientSummary, listClients } from "../../../api/clients";
@@ -119,7 +116,6 @@ export function ReviewQueuePage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const [mobileToolbarMenuAnchor, setMobileToolbarMenuAnchor] = useState<HTMLElement | null>(null);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft>({
@@ -661,118 +657,23 @@ export function ReviewQueuePage() {
                   ))}
                 </Select>
               </FormControl>
-              {isMobile ? (
-                <Stack direction="row" spacing={0.25} alignItems="center">
-                  <Tooltip title="Run queue search">
-                    <IconButton aria-label="Run queue search" onClick={applySearch} size="small">
-                      <SearchOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Refresh">
-                    <IconButton aria-label="Refresh" onClick={() => void queueQuery.refetch()} size="small">
-                      <RefreshOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="More actions">
-                    <IconButton
-                      aria-label="More actions"
-                      size="small"
-                      onClick={(event: MouseEvent<HTMLElement>) => setMobileToolbarMenuAnchor(event.currentTarget)}
-                    >
-                      <MoreHorizOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {hasActiveFilters ? (
-                    <Button size="small" variant="text" color="inherit" onClick={clearFilters}>
-                      Clear
-                    </Button>
-                  ) : null}
-                </Stack>
-              ) : (
-                <>
-                  <Button variant="contained" startIcon={<SearchOutlinedIcon fontSize="small" />} onClick={applySearch}>
-                    Search
-                  </Button>
-                  {hasActiveFilters ? (
-                    <Button variant="text" color="inherit" onClick={clearFilters}>
-                      Clear
-                    </Button>
-                  ) : null}
-                </>
-              )}
+              {hasActiveFilters ? (
+                <Button variant="text" color="inherit" onClick={clearFilters}>
+                  Clear
+                </Button>
+              ) : null}
             </Stack>
-            {isMobile ? (
-              <Menu
-                anchorEl={mobileToolbarMenuAnchor}
-                open={Boolean(mobileToolbarMenuAnchor)}
-                onClose={() => setMobileToolbarMenuAnchor(null)}
-              >
-                {selectedItem ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMobileToolbarMenuAnchor(null);
-                      navigateToReviewItem(selectedItem.id);
-                    }}
-                  >
-                    Open review item
-                  </MenuItem>
-                ) : null}
-                {selectedItem ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMobileToolbarMenuAnchor(null);
-                      setApproveDialogOpen(true);
-                    }}
-                  >
-                    Approve
-                  </MenuItem>
-                ) : null}
-                {selectedItem ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMobileToolbarMenuAnchor(null);
-                      setLinkDialogOpen(true);
-                    }}
-                  >
-                    Link customer
-                  </MenuItem>
-                ) : null}
-                {selectedItem ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMobileToolbarMenuAnchor(null);
-                      setMetadataDialogOpen(true);
-                    }}
-                  >
-                    Edit metadata
-                  </MenuItem>
-                ) : null}
-                {selectedItem ? (
-                  <MenuItem
-                    onClick={() => {
-                      setMobileToolbarMenuAnchor(null);
-                      setRejectDialogOpen(true);
-                    }}
-                  >
-                    Reject
-                  </MenuItem>
-                ) : null}
-                <MenuItem
-                  onClick={() => {
-                    setMobileToolbarMenuAnchor(null);
-                    setShortcutsDialogOpen(true);
-                  }}
-                >
-                  Keyboard shortcuts
-                </MenuItem>
-              </Menu>
-            ) : null}
           </Stack>
         )}
         activeFilters={activeFilters}
         bulkActions={selectedActionStrip}
-        onRefresh={isMobile ? undefined : () => void queueQuery.refetch()}
-        secondaryActions={isMobile ? undefined : toolbarSecondaryActions}
+        primaryAction={(
+          <Button variant="contained" startIcon={<SearchOutlinedIcon fontSize="small" />} onClick={applySearch}>
+            Search
+          </Button>
+        )}
+        onRefresh={() => void queueQuery.refetch()}
+        secondaryActions={toolbarSecondaryActions}
       />
 
       <Dialog open={shortcutsDialogOpen} onClose={() => setShortcutsDialogOpen(false)} fullWidth maxWidth="xs">
@@ -860,25 +761,27 @@ export function ReviewQueuePage() {
         onClose={() => setMobileDetailOpen(false)}
         PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
       >
-        <Stack spacing={2} sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={0} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2">Selected review item</Typography>
             <IconButton aria-label="Close detail" onClick={() => setMobileDetailOpen(false)}>
               <CloseOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {selectedItem ? (
-            <SelectedReviewDetail
-              item={selectedItem}
-              client={selectedClient}
-              metadataFields={metadataFieldsQuery.data?.map((field) => field.fieldKey) ?? []}
-              onOpen={() => navigateToReviewItem(selectedItem.id)}
-              onLink={() => setLinkDialogOpen(true)}
-              onEditMetadata={() => setMetadataDialogOpen(true)}
-              onApprove={() => setApproveDialogOpen(true)}
-              onReject={() => setRejectDialogOpen(true)}
-            />
-          ) : null}
+          <Box sx={{ overflowY: "auto", px: 2, py: 1.5 }}>
+            {selectedItem ? (
+              <SelectedReviewDetail
+                item={selectedItem}
+                client={selectedClient}
+                metadataFields={metadataFieldsQuery.data?.map((field) => field.fieldKey) ?? []}
+                onOpen={() => navigateToReviewItem(selectedItem.id)}
+                onLink={() => setLinkDialogOpen(true)}
+                onEditMetadata={() => setMetadataDialogOpen(true)}
+                onApprove={() => setApproveDialogOpen(true)}
+                onReject={() => setRejectDialogOpen(true)}
+              />
+            ) : null}
+          </Box>
         </Stack>
       </Drawer>
 

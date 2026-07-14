@@ -41,6 +41,8 @@ import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { RestrictedContentState } from "../WorkspaceStates";
 import type { ContextSection } from "../components/RightContextPanel";
 import type { WorkspaceHeaderBreadcrumb } from "../components/WorkspaceHeader";
+import ikmsLogoDrawer from "../assets/IKMSLogoV3.png";
+import ikmsLogoCompact from "../assets/IKMSLogoV3Compact.png";
 
 interface NavItem {
   to: string;
@@ -270,11 +272,20 @@ export function IkmsAppShell() {
     <Box sx={{ display: "grid", gridTemplateRows: "auto 1fr auto", height: "100%" }}>
       <Box sx={{ p: 2 }}>
         <Stack spacing={0.5}>
-          <Typography variant="subtitle2" color="rgba(255,255,255,0.72)">
+          <Box
+            component="img"
+            src={ikmsLogoDrawer}
+            alt="IKMS logo"
+            sx={{
+              width: 172,
+              height: 88,
+              objectFit: "contain",
+              objectPosition: "left center",
+              display: "block",
+            }}
+          />
+          <Typography variant="caption" color="rgba(255,255,255,0.72)">
             Enterprise Knowledge Workspace
-          </Typography>
-          <Typography variant="h3" sx={{ color: "#FFFFFF" }}>
-            IKMS
           </Typography>
         </Stack>
       </Box>
@@ -335,26 +346,19 @@ export function IkmsAppShell() {
             </IconButton>
           ) : null}
 
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 180 }}>
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: 1,
-                bgcolor: "secondary.main",
-                color: "secondary.contrastText",
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 700,
-                fontSize: 12,
-              }}
-            >
-              IK
-            </Box>
-            <Typography variant="subtitle2" sx={{ color: "text.primary" }}>
-              Insurance Knowledge Management System
-            </Typography>
-          </Stack>
+          <Box
+            component="img"
+            src={ikmsLogoCompact}
+            alt="IKMS logo"
+            sx={{
+              width: { xs: 88, sm: 96, md: 104 },
+              height: { xs: 32, sm: 34, md: 36 },
+              minWidth: { xs: 88, sm: 96, md: 104 },
+              objectFit: "contain",
+              objectPosition: "left center",
+              display: "block",
+            }}
+          />
 
           {isSearchWorkspace ? (
             <Tooltip title="Focus Search workspace input">

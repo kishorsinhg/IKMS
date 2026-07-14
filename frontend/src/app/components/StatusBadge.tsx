@@ -6,21 +6,55 @@ import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import RemoveOutlinedIcon from "@mui/icons-material/RemoveOutlined";
 import { Chip, ChipProps } from "@mui/material";
 
-export type StatusTone = "success" | "warning" | "error" | "info" | "neutral" | "restricted";
+export type StatusTone = "success" | "warning" | "error" | "info" | "neutral" | "restricted" | "pending";
 
 const toneConfig: Record<
   StatusTone,
   {
     chipColor: ChipProps["color"];
     icon: React.ReactElement;
+    variant?: ChipProps["variant"];
+    sx?: ChipProps["sx"];
   }
 > = {
-  success: { chipColor: "success", icon: <CheckCircleOutlineOutlinedIcon fontSize="inherit" /> },
-  warning: { chipColor: "warning", icon: <WarningAmberOutlinedIcon fontSize="inherit" /> },
-  error: { chipColor: "error", icon: <ErrorOutlineOutlinedIcon fontSize="inherit" /> },
-  info: { chipColor: "info", icon: <InfoOutlinedIcon fontSize="inherit" /> },
-  neutral: { chipColor: "default", icon: <RemoveOutlinedIcon fontSize="inherit" /> },
-  restricted: { chipColor: "default", icon: <LockOutlinedIcon fontSize="inherit" /> },
+  success: {
+    chipColor: "success",
+    icon: <CheckCircleOutlineOutlinedIcon fontSize="inherit" />,
+    sx: { fontWeight: 600 },
+  },
+  warning: {
+    chipColor: "warning",
+    icon: <WarningAmberOutlinedIcon fontSize="inherit" />,
+    sx: { fontWeight: 600 },
+  },
+  error: {
+    chipColor: "error",
+    icon: <ErrorOutlineOutlinedIcon fontSize="inherit" />,
+    sx: { fontWeight: 600 },
+  },
+  info: {
+    chipColor: "info",
+    icon: <InfoOutlinedIcon fontSize="inherit" />,
+    sx: { fontWeight: 600 },
+  },
+  neutral: {
+    chipColor: "default",
+    icon: <RemoveOutlinedIcon fontSize="inherit" />,
+    variant: "outlined",
+    sx: { fontWeight: 500, color: "text.secondary" },
+  },
+  restricted: {
+    chipColor: "default",
+    icon: <LockOutlinedIcon fontSize="inherit" />,
+    variant: "outlined",
+    sx: { fontWeight: 600, color: "text.primary", borderColor: "divider", backgroundColor: "action.hover" },
+  },
+  pending: {
+    chipColor: "warning",
+    icon: <InfoOutlinedIcon fontSize="inherit" />,
+    variant: "outlined",
+    sx: { fontWeight: 600 },
+  },
 };
 
 export interface StatusBadgeProps {
@@ -37,9 +71,10 @@ export function StatusBadge({ label, tone = "neutral", size = "small", variant }
     <Chip
       size={size}
       color={config.chipColor}
-      variant={variant ?? (tone === "neutral" || tone === "restricted" ? "outlined" : "filled")}
+      variant={variant ?? config.variant ?? "filled"}
       icon={config.icon}
       label={label}
+      sx={config.sx}
     />
   );
 }

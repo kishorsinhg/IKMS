@@ -1,6 +1,6 @@
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
-import { Box, Divider, IconButton, Stack, Typography } from "@mui/material";
+import { Box, IconButton, Stack, Typography } from "@mui/material";
 import { ReactNode } from "react";
 
 export interface ContextSection {
@@ -22,7 +22,7 @@ export function RightContextPanel({
   sections,
   collapsed,
   onToggle,
-  width = 340,
+  width = 336,
 }: RightContextPanelProps) {
   return (
     <Box
@@ -30,7 +30,7 @@ export function RightContextPanel({
         display: { xs: "none", lg: "block" },
         width: collapsed ? 52 : width,
         minWidth: collapsed ? 52 : 320,
-        maxWidth: collapsed ? 52 : 380,
+        maxWidth: collapsed ? 52 : 360,
         transition: "width 160ms ease",
       }}
     >
@@ -47,7 +47,12 @@ export function RightContextPanel({
           overflow: "hidden",
         }}
       >
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1, py: 0.75 }}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ px: 1.25, py: 0.875, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}
+        >
           {!collapsed ? (
             <Typography variant="subtitle2" component="h2">
               {title}
@@ -59,11 +64,23 @@ export function RightContextPanel({
         </Stack>
 
         {!collapsed ? (
-          <Box sx={{ overflowY: "auto", px: 1.5, pb: 1.5 }}>
-            <Stack spacing={1.25} divider={<Divider flexItem />}>
+          <Box sx={{ overflowY: "auto", px: 1.25, py: 1.25 }}>
+            <Stack spacing={1}>
               {sections.map((section) => (
-                <Box key={section.key} sx={{ pt: 0.5 }}>
-                  <Typography variant="subtitle2" gutterBottom>
+                <Box
+                  key={section.key}
+                  sx={{
+                    p: 1.25,
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    borderRadius: 1,
+                    backgroundColor: "background.paper",
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: "block", mb: 0.75, letterSpacing: "0.04em", textTransform: "uppercase" }}
+                  >
                     {section.title}
                   </Typography>
                   <Box>{section.content}</Box>

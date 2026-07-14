@@ -603,23 +603,6 @@ export function ClientProfilePage() {
                 spacing={0.75}
                 sx={{ width: { xs: "100%", lg: "auto" } }}
               >
-                {isMobile ? (
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={applyToolbarSearch}
-                    startIcon={<SearchOutlinedIcon fontSize="small" />}
-                    sx={{ width: { xs: "100%", sm: "auto" } }}
-                  >
-                    Search
-                  </Button>
-                ) : (
-                  <Tooltip title="Search">
-                    <IconButton aria-label="Search" color="primary" onClick={applyToolbarSearch}>
-                      <SearchOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
                 {currentTabQuery ? (
                   <Button
                     variant="text"
@@ -634,6 +617,16 @@ export function ClientProfilePage() {
               </Stack>
             )}
             activeFilters={activeFilters}
+            primaryAction={(
+              <Button
+                variant="contained"
+                size="small"
+                onClick={applyToolbarSearch}
+                startIcon={<SearchOutlinedIcon fontSize="small" />}
+              >
+                Search
+              </Button>
+            )}
             onRefresh={() => {
               void clientQuery.refetch();
               void notesQuery.refetch();
@@ -716,14 +709,16 @@ export function ClientProfilePage() {
         onClose={() => handleRowSelect("")}
         PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
       >
-        <Stack spacing={2} sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={0} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2">Selected record</Typography>
             <IconButton aria-label="Close detail" onClick={() => handleRowSelect("")}>
               <CloseOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {selectedRow ? <SelectionDetail activeTab={activeTab} row={selectedRow} /> : null}
+          <Box sx={{ overflowY: "auto", px: 2, py: 1.5 }}>
+            {selectedRow ? <SelectionDetail activeTab={activeTab} row={selectedRow} /> : null}
+          </Box>
         </Stack>
       </Drawer>
 
@@ -731,32 +726,50 @@ export function ClientProfilePage() {
         anchor="right"
         open={noteDrawerOpen}
         onClose={closeNoteDrawer}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
+        PaperProps={{
+          sx: {
+            width: { xs: "100%", sm: 440 },
+            maxWidth: "100%",
+            display: "grid",
+            gridTemplateRows: "auto minmax(0, 1fr) auto",
+          },
+        }}
       >
-        <Stack spacing={2} sx={{ p: 2 }}>
+        <Stack spacing={0.5} sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
           <Stack spacing={0.5}>
             <Typography variant="h3">{editingNoteId ? "Edit note" : "Add note"}</Typography>
             <Typography variant="body2" color="text.secondary">
               Capture concise customer context for operational follow-up.
             </Typography>
           </Stack>
-          <TextField
-            multiline
-            minRows={8}
-            value={noteDraft}
-            onChange={(event) => setNoteDraft(event.target.value)}
-            placeholder="Add a customer note"
-          />
+        </Stack>
+        <Box sx={{ overflowY: "auto", px: 2, py: 2 }}>
+          <Stack spacing={2}>
+            <TextField
+              label="Note"
+              multiline
+              minRows={8}
+              value={noteDraft}
+              onChange={(event) => setNoteDraft(event.target.value)}
+              placeholder="Add a customer note"
+              fullWidth
+            />
+          </Stack>
+        </Box>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderTop: (theme) => `1px solid ${theme.palette.divider}` }}>
+          <Typography variant="caption" color="text.secondary">
+            {noteDraft.trim() ? "Ready to save" : "No note content yet"}
+          </Typography>
           <Stack direction="row" spacing={1}>
+            <Button variant="text" color="inherit" onClick={closeNoteDrawer}>
+              Cancel
+            </Button>
             <Button
               variant="contained"
               onClick={handleNoteSubmit}
               disabled={createNoteMutation.isPending || updateNoteMutation.isPending || !noteDraft.trim()}
             >
               {editingNoteId ? "Save note" : "Create note"}
-            </Button>
-            <Button variant="text" color="inherit" onClick={closeNoteDrawer}>
-              Cancel
             </Button>
           </Stack>
         </Stack>

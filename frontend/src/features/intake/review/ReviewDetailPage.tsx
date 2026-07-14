@@ -505,23 +505,25 @@ export function ReviewDetailPage() {
           anchor="right"
           open={contextDrawerOpen}
           onClose={() => setContextDrawerOpen(false)}
-          PaperProps={{ sx: { width: { xs: "100%", sm: 360 } } }}
+          PaperProps={{ sx: { width: { xs: "100%", sm: 380 }, maxWidth: "100%" } }}
         >
-          <Stack spacing={1} sx={{ p: 2 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack spacing={0} sx={{ height: "100%" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
               <Typography variant="subtitle2">Evidence Assistant</Typography>
               <Button size="small" onClick={() => setContextDrawerOpen(false)}>
                 Close
               </Button>
             </Stack>
+            <Stack spacing={1} sx={{ p: 1.25, overflowY: "auto" }}>
             {contextSections.map((section) => (
-              <Paper key={section.key} variant="outlined" sx={{ p: 1.25 }}>
-                <Typography variant="subtitle2" gutterBottom>
+              <Paper key={section.key} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   {section.title}
                 </Typography>
                 {section.content}
               </Paper>
             ))}
+            </Stack>
           </Stack>
         </Drawer>
       ) : null}

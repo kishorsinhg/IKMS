@@ -142,6 +142,13 @@ export const ikmsTheme = createTheme({
           minHeight: 32,
           borderRadius: 4,
           textTransform: "none",
+          fontWeight: 600,
+        },
+        containedPrimary: {
+          border: "1px solid transparent",
+        },
+        outlined: {
+          borderColor: "#C3CBD5",
         },
       },
     },
@@ -152,6 +159,7 @@ export const ikmsTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 4,
+          border: "1px solid transparent",
         },
       },
     },
@@ -171,6 +179,32 @@ export const ikmsTheme = createTheme({
         input: {
           paddingTop: 7,
           paddingBottom: 7,
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          fontSize: 12,
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: {
+          marginLeft: 0,
+          marginRight: 0,
+          fontSize: 11,
+          lineHeight: 1.35,
+        },
+      },
+    },
+    MuiFormLabel: {
+      styleOverrides: {
+        root: {
+          fontSize: 12,
+          fontWeight: 600,
         },
       },
     },
@@ -217,6 +251,7 @@ export const ikmsTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
+          boxShadow: "none",
         },
       },
     },
@@ -266,6 +301,38 @@ export const ikmsTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 6,
+          border: "1px solid #D8DEE6",
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          padding: "12px 16px",
+          borderBottom: "1px solid #D8DEE6",
+          fontSize: 14,
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          padding: "16px",
+        },
+        dividers: {
+          padding: "16px",
+          borderTop: "none",
+          borderBottom: "1px solid #D8DEE6",
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          padding: "10px 16px",
+          borderTop: "1px solid #D8DEE6",
+          gap: 8,
         },
       },
     },
@@ -274,6 +341,7 @@ export const ikmsTheme = createTheme({
         paper: {
           borderRadius: 0,
           borderColor: "#D8DEE6",
+          boxShadow: "none",
         },
       },
     },
@@ -286,6 +354,16 @@ export const ikmsTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 4,
+          paddingTop: 4,
+          paddingBottom: 4,
+          alignItems: "center",
+        },
+        message: {
+          paddingTop: 6,
+          paddingBottom: 6,
+        },
+        action: {
+          alignItems: "center",
         },
       },
     },
@@ -331,11 +409,18 @@ export const ikmsTheme = createTheme({
           backgroundColor: "#F8FAFC",
           borderBottom: "1px solid #D8DEE6",
         },
+        row: {
+          "&:hover": {
+            backgroundColor: "#F8FAFC",
+          },
+        },
         cell: {
           borderTop: "none",
+          alignItems: "center",
         },
         footerContainer: {
           borderTop: "1px solid #D8DEE6",
+          minHeight: 44,
         },
       },
     },

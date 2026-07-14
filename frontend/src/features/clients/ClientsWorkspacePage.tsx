@@ -376,9 +376,6 @@ export function ClientsWorkspacePage() {
                 ))}
               </Select>
             </FormControl>
-            <Button variant="contained" onClick={applySearch} startIcon={<SearchOutlinedIcon fontSize="small" />}>
-              Search
-            </Button>
             {hasActiveFilters ? (
               <Button variant="text" color="inherit" onClick={clearFilters}>
                 Clear
@@ -387,6 +384,11 @@ export function ClientsWorkspacePage() {
           </Stack>
         )}
         activeFilters={activeFilters}
+        primaryAction={(
+          <Button variant="contained" onClick={applySearch} startIcon={<SearchOutlinedIcon fontSize="small" />}>
+            Search
+          </Button>
+        )}
         onRefresh={() => void clientsQuery.refetch()}
         secondaryActions={[
           { key: "create-customer", label: "Create customer", onClick: () => setCreateDialogOpen(true) },
@@ -478,14 +480,16 @@ export function ClientsWorkspacePage() {
         onClose={() => handleRowSelect("")}
         PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
       >
-        <Stack spacing={2} sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={0} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
             <Typography variant="subtitle2">Selected customer</Typography>
             <IconButton aria-label="Close detail" onClick={() => handleRowSelect("")}>
               <CloseOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {selectedRow ? <SelectedCustomerDetail client={selectedRow} onOpen={() => openCustomer(selectedRow.id, navigate)} /> : null}
+          <Box sx={{ overflowY: "auto", px: 2, py: 1.5 }}>
+            {selectedRow ? <SelectedCustomerDetail client={selectedRow} onOpen={() => openCustomer(selectedRow.id, navigate)} /> : null}
+          </Box>
         </Stack>
       </Drawer>
 

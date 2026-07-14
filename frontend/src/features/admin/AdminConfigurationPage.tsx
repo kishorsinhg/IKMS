@@ -1,9 +1,16 @@
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import ArrowForwardOutlinedIcon from "@mui/icons-material/ArrowForwardOutlined";
+import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
+import MailOutlineOutlinedIcon from "@mui/icons-material/MailOutlineOutlined";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
+import ViewListOutlinedIcon from "@mui/icons-material/ViewListOutlined";
 import {
   Alert,
   Box,
@@ -122,6 +129,15 @@ interface ModuleOption {
 const adminQueryKey = ["admin"] as const;
 const defaultPageSize = 10;
 const sortFields = new Set<AdminSortField>(["configuration", "type", "status", "lastUpdated", "updatedBy"]);
+
+function explorerLabel(icon: React.ReactNode, text: string) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center">
+      <Box sx={{ color: "text.secondary", display: "grid", placeItems: "center" }}>{icon}</Box>
+      <Typography variant="body2">{text}</Typography>
+    </Stack>
+  );
+}
 
 const moduleOptions: ModuleOption[] = [
   {
@@ -760,19 +776,19 @@ export function AdminConfigurationPage() {
                 ))}
               </Select>
             </FormControl>
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <Button variant="contained" onClick={applySearch}>
-                Search
+            {hasActiveFilters ? (
+              <Button variant="text" color="inherit" onClick={clearFilters}>
+                Clear
               </Button>
-              {hasActiveFilters ? (
-                <Button variant="text" color="inherit" onClick={clearFilters}>
-                  Clear
-                </Button>
-              ) : null}
-            </Stack>
+            ) : null}
           </Stack>
         )}
         activeFilters={activeFilters}
+        primaryAction={(
+          <Button variant="contained" onClick={applySearch}>
+            Search
+          </Button>
+        )}
         onRefresh={() => {
           void usersQuery.refetch();
           void documentTypesQuery.refetch();
@@ -836,6 +852,32 @@ export function AdminConfigurationPage() {
           <Divider sx={{ mb: 1 }} />
           <SimpleTreeView
             selectedItems={selectedModule}
+            sx={{
+              "--TreeView-itemChildrenIndentation": "12px",
+              "& .MuiTreeItem-content": {
+                minHeight: 30,
+                borderRadius: 1,
+                px: 0.75,
+                py: 0.25,
+              },
+              "& .MuiTreeItem-content.Mui-selected, & .MuiTreeItem-content.Mui-selected:hover": {
+                backgroundColor: "action.selected",
+                color: "text.primary",
+              },
+              "& .MuiTreeItem-content:hover": {
+                backgroundColor: "action.hover",
+              },
+              "& .MuiTreeItem-label": {
+                py: 0.125,
+              },
+              "& .MuiTreeItem-iconContainer": {
+                width: 18,
+                color: "text.secondary",
+              },
+              "& .MuiTreeItem-groupTransition": {
+                ml: 0.5,
+              },
+            }}
             onSelectedItemsChange={(_event: SyntheticEvent | null, itemIds: string | null) => {
               const next = Array.isArray(itemIds) ? itemIds[0] : itemIds;
               if (next) {
@@ -843,20 +885,20 @@ export function AdminConfigurationPage() {
               }
             }}
           >
-            <TreeItem itemId="access" label="Access">
-              <TreeItem itemId="users" label="Users" />
+            <TreeItem itemId="access" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Access")}>
+              <TreeItem itemId="users" label={explorerLabel(<PersonOutlineOutlinedIcon fontSize="small" />, "Users")} />
             </TreeItem>
-            <TreeItem itemId="configuration" label="Configuration">
-              <TreeItem itemId="document-types" label="Document Types" />
-              <TreeItem itemId="metadata-fields" label="Metadata Templates" />
+            <TreeItem itemId="configuration" label={explorerLabel(<DescriptionOutlinedIcon fontSize="small" />, "Configuration")}>
+              <TreeItem itemId="document-types" label={explorerLabel(<DescriptionOutlinedIcon fontSize="small" />, "Document Types")} />
+              <TreeItem itemId="metadata-fields" label={explorerLabel(<ViewListOutlinedIcon fontSize="small" />, "Metadata Templates")} />
             </TreeItem>
-            <TreeItem itemId="operations" label="Operations">
-              <TreeItem itemId="shared-folders" label="System Settings" />
-              <TreeItem itemId="mailboxes" label="Notification Rules" />
+            <TreeItem itemId="operations" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "Operations")}>
+              <TreeItem itemId="shared-folders" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "System Settings")} />
+              <TreeItem itemId="mailboxes" label={explorerLabel(<MailOutlineOutlinedIcon fontSize="small" />, "Notification Rules")} />
             </TreeItem>
-            <TreeItem itemId="governance" label="Governance">
-              <TreeItem itemId="review-settings" label="Permission Groups" />
-              <TreeItem itemId="ai-settings" label="AI Configuration" />
+            <TreeItem itemId="governance" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Governance")}>
+              <TreeItem itemId="review-settings" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Permission Groups")} />
+              <TreeItem itemId="ai-settings" label={explorerLabel(<AutoAwesomeOutlinedIcon fontSize="small" />, "AI Configuration")} />
             </TreeItem>
           </SimpleTreeView>
         </Box>
