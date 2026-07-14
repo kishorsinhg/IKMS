@@ -1,29 +1,189 @@
-import { FormEvent, useState } from "react";
+import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ExpandMoreOutlinedIcon from "@mui/icons-material/ExpandMoreOutlined";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Link,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import { GridColDef, GridSortModel } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { ui } from "../../app/ui";
-import { getCurrentUser } from "../../api/auth";
-import { createNote, deleteNote, getClient, listNotes, updateNote } from "../../api/clients";
-import { listClientDocuments, listClientEmails } from "../../api/intake";
+import { KeyboardEvent, ReactElement, useEffect, useMemo, useState } from "react";
+import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { createNote, deleteNote, getClient, listNotes, Note, updateNote } from "../../api/clients";
+import { DemoClientWorkspace, getDemoClientWorkspace, isDemoDataEnabled } from "../../api/demo";
+import { ClientDocumentSummary, ClientEmailSummary, listClientDocuments, listClientEmails } from "../../api/intake";
+import { useCurrentUser } from "../../app/auth/useCurrentUser";
+import { EntityGrid } from "../../app/components/EntityGrid";
+import { StatusBadge, StatusTone } from "../../app/components/StatusBadge";
+import { WorkspaceToolbar } from "../../app/components/WorkspaceToolbar";
+import { useNotification } from "../../app/providers/useNotification";
+import type { ContextSection } from "../../app/components/RightContextPanel";
+import type { IkmsShellOutletContext, ShellWorkspaceChrome } from "../../app/shell/IkmsAppShell";
 import { ClientSearchPanel } from "../search/ClientSearchPanel";
-import { DocumentsSection, EmailsSection } from "./knowledge/KnowledgeSections";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  RetryAction,
+} from "../../app/WorkspaceStates";
 
-const clientQueryKey = (clientId: string) => ["clients", "profile", clientId];
-const notesQueryKey = (clientId: string) => ["clients", clientId, "notes"];
-const documentsQueryKey = (clientId: string) => ["clients", clientId, "documents"];
-const emailsQueryKey = (clientId: string) => ["clients", clientId, "emails"];
+type CustomerTab = "documents" | "emails" | "notes" | "relationships" | "policies" | "claims" | "timeline";
+
+interface DocumentRow extends Record<string, unknown> {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  modified: string;
+  owner: string;
+  status: string;
+  statusTone: StatusTone;
+  previewHref: string;
+  downloadHref: string;
+  permissionLabel: string;
+}
+
+interface EmailRow extends Record<string, unknown> {
+  id: string;
+  subject: string;
+  sender: string;
+  date: string;
+  attachment: string;
+  status: string;
+  statusTone: StatusTone;
+  recipients: string;
+}
+
+interface NoteRow extends Record<string, unknown> {
+  id: string;
+  title: string;
+  author: string;
+  created: string;
+  updated: string;
+  text: string;
+}
+
+interface RelationshipRow extends Record<string, unknown> {
+  id: string;
+  relatedCustomer: string;
+  relationship: string;
+  source: string;
+  status: string;
+}
+
+interface PolicyRow extends Record<string, unknown> {
+  id: string;
+  policyNumber: string;
+  product: string;
+  insurer: string;
+  status: string;
+  expiry: string;
+  summary: string;
+}
+
+interface ClaimRow extends Record<string, unknown> {
+  id: string;
+  claimNumber: string;
+  policy: string;
+  status: string;
+  opened: string;
+  updated: string;
+  summary: string;
+}
+
+interface TimelineRow extends Record<string, unknown> {
+  id: string;
+  event: string;
+  type: string;
+  occurredAt: string;
+  actor: string;
+  detail: string;
+  status: string;
+  statusTone: StatusTone;
+}
+
+interface MobileListItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  meta: string;
+  status?: { label: string; tone: StatusTone };
+  actions?: Array<{
+    key: string;
+    label: string;
+    icon?: ReactElement;
+    href?: string;
+    onClick?: () => void;
+  }>;
+}
+
+const tabs: Array<{ key: CustomerTab; label: string; mobileLabel: string }> = [
+  { key: "documents", label: "Documents", mobileLabel: "Docs" },
+  { key: "emails", label: "Emails", mobileLabel: "Email" },
+  { key: "notes", label: "Notes", mobileLabel: "Notes" },
+  { key: "relationships", label: "Relationships", mobileLabel: "Related" },
+  { key: "policies", label: "Policy References", mobileLabel: "Policies" },
+  { key: "claims", label: "Claim References", mobileLabel: "Claims" },
+  { key: "timeline", label: "Timeline", mobileLabel: "Timeline" },
+];
+
+const clientQueryKey = (clientId: string) => ["clients", "profile", clientId] as const;
+const notesQueryKey = (clientId: string) => ["clients", clientId, "notes"] as const;
+const documentsQueryKey = (clientId: string) => ["clients", clientId, "documents"] as const;
+const emailsQueryKey = (clientId: string) => ["clients", clientId, "emails"] as const;
+const workspaceQueryKey = (clientId: string) => ["clients", clientId, "demo-workspace"] as const;
 
 export function ClientProfilePage() {
   const { clientId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [noteText, setNoteText] = useState("");
+  const { notify } = useNotification();
+  const { setWorkspaceChrome, clearWorkspaceChrome } = useOutletContext<IkmsShellOutletContext>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isTabletDown = useMediaQuery(theme.breakpoints.down("lg"));
+  const [noteDraft, setNoteDraft] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState("");
-  const currentUserQuery = useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: getCurrentUser,
-    retry: false,
-  });
+  const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const currentUserQuery = useCurrentUser();
+
+  const activeTab = parseTab(searchParams.get("tab"));
+  const currentTabQuery = searchParams.get(tabParam(activeTab, "q")) ?? "";
+  const selectedRowId = searchParams.get(tabParam(activeTab, "selected"));
+  const sortField = searchParams.get(tabParam(activeTab, "sort")) ?? "";
+  const sortDirection = searchParams.get(tabParam(activeTab, "dir")) === "desc" ? "desc" : "asc";
+  const [toolbarQuery, setToolbarQuery] = useState(currentTabQuery);
 
   const clientQuery = useQuery({
     queryKey: clientId ? clientQueryKey(clientId) : ["clients", "profile", "empty"],
@@ -45,263 +205,1488 @@ export function ClientProfilePage() {
     queryFn: () => listClientEmails(clientId!),
     enabled: Boolean(clientId),
   });
-  const noteMutation = useMutation({
+  const workspaceQuery = useQuery({
+    queryKey: clientId ? workspaceQueryKey(clientId) : ["clients", "workspace", "empty"],
+    queryFn: () => getDemoClientWorkspace(clientId!),
+    enabled: Boolean(clientId) && isDemoDataEnabled,
+  });
+
+  const createNoteMutation = useMutation({
     mutationFn: (text: string) => createNote(clientId!, { noteText: text }),
     onSuccess: async () => {
-      setNoteText("");
+      closeNoteDrawer();
+      notify({ severity: "success", message: "Note saved." });
       await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
     },
+    onError: () => notify({ severity: "error", message: "Unable to save note." }),
   });
   const updateNoteMutation = useMutation({
     mutationFn: ({ noteId, text }: { noteId: string; text: string }) => updateNote(noteId, { noteText: text }),
     onSuccess: async () => {
-      setEditingNoteId(null);
-      setEditingNoteText("");
+      closeNoteDrawer();
+      notify({ severity: "success", message: "Note updated." });
       await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
     },
+    onError: () => notify({ severity: "error", message: "Unable to update note." }),
   });
   const deleteNoteMutation = useMutation({
     mutationFn: (noteId: string) => deleteNote(noteId),
     onSuccess: async () => {
+      setDeleteDialogOpen(false);
       setEditingNoteId(null);
-      setEditingNoteText("");
+      notify({ severity: "success", message: "Note deleted." });
       await queryClient.invalidateQueries({ queryKey: notesQueryKey(clientId!) });
     },
+    onError: () => notify({ severity: "error", message: "Unable to delete note." }),
   });
+
+  useEffect(() => {
+    setToolbarQuery(currentTabQuery);
+  }, [currentTabQuery, activeTab]);
+
+  useEffect(() => {
+    function handleTabShortcuts(event: globalThis.KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+
+      const next = shortcutToTab(event.key);
+      if (!next) {
+        return;
+      }
+
+      event.preventDefault();
+      setScopedSearchParams(setSearchParams, searchParams, { tab: next });
+    }
+
+    window.addEventListener("keydown", handleTabShortcuts);
+    return () => window.removeEventListener("keydown", handleTabShortcuts);
+  }, [searchParams, setSearchParams]);
+
+  const client = clientQuery.data;
+  const workspace = workspaceQuery.data;
+  const currentUser = currentUserQuery.data;
+  const reviewQueueCount = workspace?.reviewQueue.length ?? 0;
+
+  const documentRows = useMemo(
+    () => mapDocumentRows(documentsQuery.data ?? [], currentUser?.permissions ?? []),
+    [documentsQuery.data, currentUser?.permissions],
+  );
+  const emailRows = useMemo(() => mapEmailRows(emailsQuery.data ?? []), [emailsQuery.data]);
+  const noteRows = useMemo(() => mapNoteRows(notesQuery.data ?? [], currentUser?.displayName ?? "Current user"), [notesQuery.data, currentUser?.displayName]);
+  const relationshipRows = useMemo<RelationshipRow[]>(() => [], []);
+  const policyRows = useMemo(() => mapPolicyRows(workspace), [workspace]);
+  const claimRows = useMemo(() => mapClaimRows(workspace), [workspace]);
+  const timelineRows = useMemo(
+    () => mapTimelineRows({ notes: notesQuery.data ?? [], documents: documentsQuery.data ?? [], emails: emailsQuery.data ?? [], workspace }),
+    [documentsQuery.data, emailsQuery.data, notesQuery.data, workspace],
+  );
+
+  const tabRows = useMemo(() => {
+    const rowsByTab = {
+      documents: documentRows,
+      emails: emailRows,
+      notes: noteRows,
+      relationships: relationshipRows,
+      policies: policyRows,
+      claims: claimRows,
+      timeline: timelineRows,
+    };
+    return rowsByTab[activeTab];
+  }, [activeTab, claimRows, documentRows, emailRows, noteRows, policyRows, relationshipRows, timelineRows]);
+
+  const filteredRows = useMemo(
+    () => filterRows(activeTab, tabRows, currentTabQuery),
+    [activeTab, currentTabQuery, tabRows],
+  );
+
+  const sortModel = useMemo<GridSortModel>(
+    () => (sortField ? [{ field: sortField, sort: sortDirection }] : []),
+    [sortDirection, sortField],
+  );
+  const sortedRows = useMemo(
+    () => sortRows(filteredRows, sortModel),
+    [filteredRows, sortModel],
+  );
+  const selectedRow = useMemo(
+    () => sortedRows.find((row) => String(row.id) === selectedRowId) ?? null,
+    [selectedRowId, sortedRows],
+  );
+
+  useEffect(() => {
+    if (selectedRowId && !sortedRows.some((row) => String(row.id) === selectedRowId)) {
+      setScopedSearchParams(setSearchParams, searchParams, { [tabParam(activeTab, "selected")]: null });
+    }
+  }, [activeTab, searchParams, selectedRowId, setSearchParams, sortedRows]);
+
+  const pageError =
+    clientQuery.isError || notesQuery.isError || documentsQuery.isError || emailsQuery.isError || currentUserQuery.isError;
+  const pageLoading =
+    clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading || currentUserQuery.isLoading;
+  const hasAiAssistant = currentUser?.permissions.includes("ASK_CLIENT_AI") ?? false;
+  const tabMeta = getTabMeta(activeTab);
+
+  const workspaceChrome = useMemo<ShellWorkspaceChrome | null>(() => {
+    if (!client || !currentUser) {
+      return null;
+    }
+
+    const sections = buildContextSections({
+      workspace,
+      activeTab,
+      selectedRow,
+      reviewQueueCount,
+      onOpenCustomerList: () => navigate("/clients"),
+    });
+
+    return {
+      title: client.displayName,
+      subtitle: `${client.clientId}${client.clientIdTemporary ? " (Temporary ID)" : ""} · ${client.clientType} · ${client.status}`,
+      breadcrumbs: [
+        { label: "IKMS" },
+        { label: "Customer Access", href: "/clients" },
+        { label: "Customer360" },
+      ],
+      secondaryActions: (
+        <Button
+          variant="text"
+          color="inherit"
+          startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+          onClick={() => navigate("/clients")}
+        >
+          Customer list
+        </Button>
+      ),
+      primaryActions: (
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          {activeTab === "notes" ? (
+            <Button
+              variant="contained"
+              startIcon={<AddOutlinedIcon fontSize="small" />}
+              onClick={() => openCreateNote()}
+            >
+              Add note
+            </Button>
+          ) : null}
+        </Stack>
+      ),
+      contextTitle: selectedRow ? `${tabMeta.label} Record` : "Customer Context",
+      contextSections: sections,
+      contextWidth: 320,
+    };
+  }, [activeTab, client, currentUser, navigate, reviewQueueCount, selectedRow, tabMeta.label, workspace]);
+
+  useEffect(() => {
+    if (!workspaceChrome) {
+      return undefined;
+    }
+
+    setWorkspaceChrome(workspaceChrome);
+    return () => clearWorkspaceChrome();
+  }, [clearWorkspaceChrome, setWorkspaceChrome, workspaceChrome]);
+
+  function openCreateNote() {
+    setEditingNoteId(null);
+    setNoteDraft("");
+    setNoteDrawerOpen(true);
+  }
+
+  function openEditNote(note: Note) {
+    setEditingNoteId(note.id);
+    setNoteDraft(note.noteText);
+    setNoteDrawerOpen(true);
+  }
+
+  function closeNoteDrawer() {
+    setNoteDrawerOpen(false);
+    setEditingNoteId(null);
+    setNoteDraft("");
+  }
+
+  function applyToolbarSearch() {
+    setScopedSearchParams(setSearchParams, searchParams, {
+      [tabParam(activeTab, "q")]: toolbarQuery.trim() || null,
+      [tabParam(activeTab, "selected")]: null,
+    });
+  }
+
+  function clearToolbarSearch() {
+    setToolbarQuery("");
+    setScopedSearchParams(setSearchParams, searchParams, {
+      [tabParam(activeTab, "q")]: null,
+      [tabParam(activeTab, "selected")]: null,
+    });
+  }
+
+  function handleToolbarKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyToolbarSearch();
+    }
+  }
+
+  function handleTabChange(_: React.SyntheticEvent, value: CustomerTab) {
+    setScopedSearchParams(setSearchParams, searchParams, { tab: value });
+  }
+
+  function handleSortModelChange(model: GridSortModel) {
+    const next = model[0];
+    setScopedSearchParams(setSearchParams, searchParams, {
+      [tabParam(activeTab, "sort")]: next?.field ?? null,
+      [tabParam(activeTab, "dir")]: next?.sort ?? null,
+    });
+  }
+
+  function handleRowSelect(rowId: string) {
+    setScopedSearchParams(setSearchParams, searchParams, {
+      [tabParam(activeTab, "selected")]: rowId,
+    });
+  }
+
+  function handleNoteSubmit() {
+    const trimmed = noteDraft.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (editingNoteId) {
+      updateNoteMutation.mutate({ noteId: editingNoteId, text: trimmed });
+      return;
+    }
+
+    createNoteMutation.mutate(trimmed);
+  }
 
   if (!clientId) {
     return (
-      <section style={ui.page}>
-        <header style={ui.pageHeader}>
-          <h2 style={ui.pageTitle}>Client Profile</h2>
-          <p style={ui.pageDescription}>
-            The client workspace is the central broker view for linked documents, emails, notes, AI Q&A, and activity.
-          </p>
-        </header>
-        <Link to="/clients" style={backLinkStyle}>Return to client workspace</Link>
-        <div style={sectionGrid}>
-          <ProfileSection title="Client Profile" description="Core identity, contact, and account fields." />
-          <ProfileSection title="Documents" description="Client-linked document knowledge and versions." />
-          <ProfileSection title="Emails" description="Mailbox and attachment history for the selected client." />
-          <ProfileSection title="Notes" description="Manual broker notes and follow-up context." />
-          <ProfileSection title="AI Q&A" description="Client-scoped evidence-based answers only." />
-          <ProfileSection title="Audit/Activity" description="Client-level audit and operational events." />
-        </div>
-      </section>
+      <EmptyState
+        title="Customer not selected"
+        message="Open a customer from Search or Customer Access to start Customer360."
+        action={
+          <Button variant="contained" onClick={() => navigate("/clients")}>
+            Open customer list
+          </Button>
+        }
+      />
     );
   }
 
-  if (clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading || currentUserQuery.isLoading) {
-    return <div>Loading client profile...</div>;
+  if (pageLoading) {
+    return (
+      <LoadingState
+        title="Loading Customer360"
+        message="Retrieving customer profile, related knowledge, and workspace permissions."
+      />
+    );
   }
 
-  if (clientQuery.isError || currentUserQuery.isError) {
-    return <div>Unable to load the selected client profile.</div>;
+  if (pageError || !client || !currentUser) {
+    return (
+      <ErrorState
+        title="Unable to load Customer360"
+        message="The selected customer workspace could not be opened."
+        action={<RetryAction onClick={() => window.location.reload()} />}
+      />
+    );
   }
 
-  const client = clientQuery.data!;
-  const currentUser = currentUserQuery.data!;
+  const activeFilters = currentTabQuery
+    ? [
+        {
+          key: `${activeTab}-query`,
+          label: `Search: ${currentTabQuery}`,
+          onDelete: clearToolbarSearch,
+        },
+      ]
+    : [];
 
-  function handleCreateNote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!noteText.trim()) {
-      return;
-    }
-    noteMutation.mutate(noteText.trim());
-  }
+  const activeColumns = buildColumns({
+    activeTab,
+    isTabletDown,
+    onEditNote: (noteId) => {
+      const note = notesQuery.data?.find((item) => item.id === noteId);
+      if (note) {
+        openEditNote(note);
+      }
+    },
+    onDeleteNote: (noteId) => {
+      setEditingNoteId(noteId);
+      setDeleteDialogOpen(true);
+    },
+  });
 
-  function startEditing(noteId: string, text: string) {
-    setEditingNoteId(noteId);
-    setEditingNoteText(text);
-  }
-
-  function handleUpdateNote(event: FormEvent<HTMLFormElement>, noteId: string) {
-    event.preventDefault();
-    if (!editingNoteText.trim()) {
-      return;
-    }
-    updateNoteMutation.mutate({ noteId, text: editingNoteText.trim() });
-  }
+  const mobileItems = buildMobileItems({
+    activeTab,
+    rows: sortedRows,
+    onOpenNote: (noteId) => {
+      const note = notesQuery.data?.find((item) => item.id === noteId);
+      if (note) {
+        openEditNote(note);
+      }
+    },
+    onDeleteNote: (noteId) => {
+      setEditingNoteId(noteId);
+      setDeleteDialogOpen(true);
+    },
+  });
 
   return (
-    <section style={ui.page}>
-      <section style={heroStyle}>
-        <div style={ui.pageHeader}>
-          <h2 style={ui.pageTitle}>Client Profile</h2>
-          <p style={ui.pageDescription}>
-            {client.displayName} · {client.clientId}{client.clientIdTemporary ? " (Temporary ID)" : ""}
-          </p>
-        </div>
-        <div style={ui.metricRow}>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{client.clientType}</strong>
-            <span style={metricLabelStyle}>Client type</span>
-          </div>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{client.status}</strong>
-            <span style={metricLabelStyle}>Record status</span>
-          </div>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{documentsQuery.data?.length ?? 0}</strong>
-            <span style={metricLabelStyle}>Documents</span>
-          </div>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{emailsQuery.data?.length ?? 0}</strong>
-            <span style={metricLabelStyle}>Emails</span>
-          </div>
-        </div>
-      </section>
+    <Stack spacing={1.25}>
+      <CustomerSummaryPanel
+        client={client}
+        lastActivity={timelineRows[0]?.occurredAt ? formatDateTime(timelineRows[0].occurredAt) : "No activity recorded"}
+      />
 
-      <Link to="/clients" style={backLinkStyle}>Return to client workspace</Link>
+      <Box
+        sx={{
+          border: (appTheme) => `1px solid ${appTheme.palette.divider}`,
+          borderRadius: 1,
+          backgroundColor: "background.paper",
+          overflow: "hidden",
+        }}
+      >
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant={isTabletDown ? "scrollable" : "standard"}
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          aria-label="Customer360 tabs"
+          sx={{ px: 1.25, pt: 0.25, minHeight: 44, borderBottom: (appTheme) => `1px solid ${appTheme.palette.divider}` }}
+        >
+          {tabs.map((tab) => (
+            <Tab key={tab.key} value={tab.key} label={isMobile ? tab.mobileLabel : tab.label} />
+          ))}
+        </Tabs>
 
-      <div style={sectionGrid}>
-        <ProfileSection
-          title="Client Profile"
-          description={`${client.clientType} · ${client.status}${client.primaryEmail ? ` · ${client.primaryEmail}` : ""}`}
-        />
-        <DocumentsSection documents={documentsQuery.data} permissions={currentUser.permissions} />
-        <EmailsSection emails={emailsQuery.data} />
-        <section style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>Notes</h3>
-          <form onSubmit={handleCreateNote} style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>
-            <textarea
-              rows={4}
-              value={noteText}
-              onChange={(event) => setNoteText(event.target.value)}
-              placeholder="Add a broker note"
-            />
-            <button type="submit" style={buttonStyle} disabled={noteMutation.isPending}>
-              {noteMutation.isPending ? "Saving..." : "Add note"}
-            </button>
-          </form>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
-            {notesQuery.data?.map((note) => (
-              <div key={note.id} style={noteCardStyle}>
-                <strong>{new Date(note.createdAt).toLocaleString()}</strong>
-                {editingNoteId === note.id ? (
-                  <form onSubmit={(event) => handleUpdateNote(event, note.id)} style={noteEditFormStyle}>
-                    <textarea
-                      rows={3}
-                      value={editingNoteText}
-                      onChange={(event) => setEditingNoteText(event.target.value)}
-                    />
-                    <div style={noteActionRowStyle}>
-                      <button type="submit" style={buttonStyle} disabled={updateNoteMutation.isPending}>
-                        {updateNoteMutation.isPending ? "Saving..." : "Save note"}
-                      </button>
-                      <button
-                        type="button"
-                        style={secondaryButtonStyle}
-                        onClick={() => {
-                          setEditingNoteId(null);
-                          setEditingNoteText("");
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+        <Stack spacing={0.875} sx={{ p: 1.25 }}>
+          {reviewQueueCount > 0 ? (
+            <Alert
+              severity="warning"
+              variant="outlined"
+              sx={{
+                py: 0,
+                "& .MuiAlert-message": {
+                  py: 0.5,
+                },
+                "& .MuiAlert-action": {
+                  alignItems: "center",
+                  py: 0,
+                  pr: 0,
+                },
+              }}
+              action={
+                <Link
+                  component="button"
+                  type="button"
+                  underline="hover"
+                  color="inherit"
+                  onClick={() => navigate("/review-queue")}
+                  sx={{ typography: "body2", fontWeight: 500 }}
+                >
+                  Open Review Queue
+                </Link>
+              }
+            >
+              {reviewQueueCount} {reviewQueueCount === 1 ? "review item is" : "review items are"} linked to this customer.
+            </Alert>
+          ) : null}
+
+          <WorkspaceToolbar
+            searchPlaceholder={tabMeta.searchPlaceholder}
+            searchValue={toolbarQuery}
+            onSearchChange={setToolbarQuery}
+            onSearchKeyDown={handleToolbarKeyDown}
+            filters={(
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={0.75}
+                sx={{ width: { xs: "100%", lg: "auto" } }}
+              >
+                {isMobile ? (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={applyToolbarSearch}
+                    startIcon={<SearchOutlinedIcon fontSize="small" />}
+                    sx={{ width: { xs: "100%", sm: "auto" } }}
+                  >
+                    Search
+                  </Button>
                 ) : (
-                  <>
-                    <span>{note.noteText}</span>
-                    <div style={noteActionRowStyle}>
-                      <button type="button" style={secondaryButtonStyle} onClick={() => startEditing(note.id, note.noteText)}>
-                        Edit note
-                      </button>
-                      <button
-                        type="button"
-                        style={dangerButtonStyle}
-                        disabled={deleteNoteMutation.isPending}
-                        onClick={() => deleteNoteMutation.mutate(note.id)}
-                      >
-                        Delete note
-                      </button>
-                    </div>
-                  </>
+                  <Tooltip title="Search">
+                    <IconButton aria-label="Search" color="primary" onClick={applyToolbarSearch}>
+                      <SearchOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
-              </div>
-            ))}
-            {notesQuery.data?.length === 0 ? <span>No notes yet.</span> : null}
-          </div>
-        </section>
-        <ClientSearchPanel clientId={clientId} />
-        <ProfileSection title="Audit/Activity" description="Client-level audit and operational events." />
-      </div>
-    </section>
+                {currentTabQuery ? (
+                  <Button
+                    variant="text"
+                    size="small"
+                    color="inherit"
+                    onClick={clearToolbarSearch}
+                    sx={{ width: { xs: "100%", sm: "auto" } }}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </Stack>
+            )}
+            activeFilters={activeFilters}
+            onRefresh={() => {
+              void clientQuery.refetch();
+              void notesQuery.refetch();
+              void documentsQuery.refetch();
+              void emailsQuery.refetch();
+              if (isDemoDataEnabled) {
+                void workspaceQuery.refetch();
+              }
+            }}
+          />
+
+          {sortedRows.length === 0 ? (
+            <Box sx={{ pt: 0.25 }}>
+              <EmptyState
+                title={tabMeta.emptyTitle}
+                message={tabMeta.emptyMessage}
+                compact
+              />
+            </Box>
+          ) : isMobile ? (
+            <MobileCollectionList
+              items={mobileItems}
+              selectedId={selectedRowId}
+              onSelect={handleRowSelect}
+            />
+          ) : (
+            <EntityGrid<Record<string, unknown>>
+              rows={sortedRows}
+              columns={activeColumns}
+              getRowId={(row) => String(row.id)}
+              onRowClick={({ row }) => handleRowSelect(String(row.id))}
+              sortModel={sortModel}
+              onSortModelChange={handleSortModelChange}
+              disableRowSelectionOnClick
+              getRowClassName={({ row }) => (String(row.id) === selectedRowId ? "ikms-selected-row" : "")}
+              sx={{
+                minHeight: Math.min(Math.max(236, 112 + Math.max(2, sortedRows.length) * 44), 680),
+                height: Math.min(Math.max(236, 112 + Math.max(2, sortedRows.length) * 44), 680),
+                "& .ikms-selected-row": {
+                  backgroundColor: theme.palette.action.selected,
+                },
+                "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus": {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: -2,
+                },
+              }}
+            />
+          )}
+
+          {!isMobile && isTabletDown && selectedRow ? (
+            <InlineSelectionPanel activeTab={activeTab} row={selectedRow} />
+          ) : null}
+        </Stack>
+      </Box>
+
+      {hasAiAssistant ? (
+        <Accordion disableGutters sx={{ border: (appTheme) => `1px solid ${appTheme.palette.divider}` }}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreOutlinedIcon fontSize="small" />}
+            aria-controls="customer360-ai-content"
+            id="customer360-ai-header"
+            sx={{ minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.75 } }}
+          >
+            <Stack spacing={0.25}>
+              <Typography variant="subtitle2">Evidence Assistant</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Search linked evidence and ask evidence-based questions when you need more context.
+              </Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0 }}>
+            <ClientSearchPanel clientId={clientId} compact />
+          </AccordionDetails>
+        </Accordion>
+      ) : null}
+
+      <Drawer
+        anchor="right"
+        open={isMobile && Boolean(selectedRow)}
+        onClose={() => handleRowSelect("")}
+        PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
+      >
+        <Stack spacing={2} sx={{ p: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle2">Selected record</Typography>
+            <IconButton aria-label="Close detail" onClick={() => handleRowSelect("")}>
+              <CloseOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+          {selectedRow ? <SelectionDetail activeTab={activeTab} row={selectedRow} /> : null}
+        </Stack>
+      </Drawer>
+
+      <Drawer
+        anchor="right"
+        open={noteDrawerOpen}
+        onClose={closeNoteDrawer}
+        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
+      >
+        <Stack spacing={2} sx={{ p: 2 }}>
+          <Stack spacing={0.5}>
+            <Typography variant="h3">{editingNoteId ? "Edit note" : "Add note"}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Capture concise customer context for operational follow-up.
+            </Typography>
+          </Stack>
+          <TextField
+            multiline
+            minRows={8}
+            value={noteDraft}
+            onChange={(event) => setNoteDraft(event.target.value)}
+            placeholder="Add a customer note"
+          />
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={handleNoteSubmit}
+              disabled={createNoteMutation.isPending || updateNoteMutation.isPending || !noteDraft.trim()}
+            >
+              {editingNoteId ? "Save note" : "Create note"}
+            </Button>
+            <Button variant="text" color="inherit" onClick={closeNoteDrawer}>
+              Cancel
+            </Button>
+          </Stack>
+        </Stack>
+      </Drawer>
+
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete note</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary">
+            This note will be removed from the customer record.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              if (editingNoteId) {
+                deleteNoteMutation.mutate(editingNoteId);
+              }
+            }}
+            disabled={deleteNoteMutation.isPending}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
   );
 }
 
-function ProfileSection({ title, description }: { title: string; description: string }) {
+function CustomerSummaryPanel({
+  client,
+  lastActivity,
+}: {
+  client: Awaited<ReturnType<typeof getClient>>;
+  lastActivity: string;
+}) {
+  const items = [
+    { label: "Customer ID", value: `${client.clientId}${client.clientIdTemporary ? " (Temporary)" : ""}` },
+    { label: "Customer Type", value: client.clientType },
+    { label: "Status", value: client.status },
+    { label: "Primary Contact", value: client.contactPerson ?? "Not available" },
+    { label: "Email", value: client.primaryEmail ?? "Not available" },
+    { label: "Phone", value: client.primaryPhone ?? "Not available" },
+    { label: "Last Activity", value: lastActivity },
+    { label: "Last Updated", value: formatDateTime(client.updatedAt) },
+  ];
+
   return (
-    <section style={cardStyle}>
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <p style={{ marginBottom: 0 }}>{description}</p>
-    </section>
+    <Box
+      sx={{
+        border: (theme) => `1px solid ${theme.palette.divider}`,
+        borderRadius: 1,
+        backgroundColor: "background.paper",
+        px: 1.5,
+        py: 0.875,
+      }}
+    >
+      <Stack spacing={0.75}>
+        <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>
+          Customer Summary
+        </Typography>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "repeat(2, minmax(0, 1fr))",
+              md: "repeat(4, minmax(0, 1fr))",
+            },
+            columnGap: 1,
+            rowGap: 0.75,
+          }}
+        >
+          {items.map((item) => (
+            <Box key={item.label} sx={{ minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.1 }}>
+                {item.label}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.125, lineHeight: 1.25 }} noWrap>
+                {item.value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
   );
 }
 
-const sectionGrid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: "1rem",
-};
+function MobileCollectionList({
+  items,
+  selectedId,
+  onSelect,
+}: {
+  items: MobileListItem[];
+  selectedId: string | null;
+  onSelect: (rowId: string) => void;
+}) {
+  return (
+    <List disablePadding sx={{ display: "grid", gap: 1 }}>
+      {items.map((item) => (
+        <Box
+          key={item.id}
+          sx={{
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+            borderRadius: 1,
+            backgroundColor: item.id === selectedId ? "action.selected" : "background.paper",
+            overflow: "hidden",
+          }}
+        >
+          <ListItemButton onClick={() => onSelect(item.id)} alignItems="flex-start">
+            <ListItemText
+              primary={(
+                <Stack spacing={1}>
+                  <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
+                    <Typography variant="body2" fontWeight={600}>
+                      {item.title}
+                    </Typography>
+                    {item.status ? <StatusBadge label={item.status.label} tone={item.status.tone} /> : null}
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {item.subtitle}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.meta}
+                  </Typography>
+                </Stack>
+              )}
+            />
+          </ListItemButton>
+          {item.actions && item.actions.length > 0 ? (
+            <>
+              <Divider />
+              <Stack direction="row" spacing={1} sx={{ px: 2, py: 1 }} flexWrap="wrap">
+                {item.actions.map((action) => (
+                  <Button
+                    key={action.key}
+                    size="small"
+                    startIcon={action.icon}
+                    component={action.href ? "a" : "button"}
+                    href={action.href}
+                    target={action.href ? "_blank" : undefined}
+                    rel={action.href ? "noreferrer" : undefined}
+                    onClick={action.onClick}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </Stack>
+            </>
+          ) : null}
+        </Box>
+      ))}
+    </List>
+  );
+}
 
-const cardStyle: React.CSSProperties = {
-  ...ui.card,
-};
+function InlineSelectionPanel({ activeTab, row }: { activeTab: CustomerTab; row: Record<string, unknown> }) {
+  return (
+    <Box
+      sx={{
+        border: (theme) => `1px solid ${theme.palette.divider}`,
+        borderRadius: 1,
+        backgroundColor: "background.paper",
+        p: 1.5,
+      }}
+    >
+      <Typography variant="subtitle2" gutterBottom>
+        Selected record
+      </Typography>
+      <SelectionDetail activeTab={activeTab} row={row} />
+    </Box>
+  );
+}
 
-const noteCardStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  padding: "0.95rem 1rem",
-  borderRadius: "0.95rem",
-  background: "var(--panel-muted)",
-  border: "1px solid rgba(191, 208, 226, 0.72)",
-};
+function SelectionDetail({ activeTab, row }: { activeTab: CustomerTab; row: Record<string, unknown> }) {
+  const details = describeSelection(activeTab, row);
 
-const buttonStyle: React.CSSProperties = {
-  ...ui.primaryButton,
-};
+  return (
+    <Stack spacing={1}>
+      <Typography variant="body2" fontWeight={600}>
+        {details.title}
+      </Typography>
+      {details.lines.map((line) => (
+        <Typography key={line} variant="body2" color="text.secondary">
+          {line}
+        </Typography>
+      ))}
+    </Stack>
+  );
+}
 
-const secondaryButtonStyle: React.CSSProperties = {
-  ...ui.secondaryButton,
-};
+function buildColumns({
+  activeTab,
+  isTabletDown,
+  onEditNote,
+  onDeleteNote,
+}: {
+  activeTab: CustomerTab;
+  isTabletDown: boolean;
+  onEditNote: (noteId: string) => void;
+  onDeleteNote: (noteId: string) => void;
+}): GridColDef<Record<string, unknown>>[] {
+  switch (activeTab) {
+    case "documents":
+      return [
+        {
+          field: "title",
+          headerName: "Document",
+          minWidth: 260,
+          flex: 1.2,
+          renderCell: ({ row }) => (
+            <Stack spacing={0.25} sx={{ py: 0.5 }}>
+              <Typography variant="body2" fontWeight={600} noWrap>
+                {String(row.title)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {String(row.category)} · {String(row.version)}
+              </Typography>
+            </Stack>
+          ),
+        },
+        { field: "category", headerName: "Category", minWidth: 150, flex: isTabletDown ? 0 : 0.75 },
+        { field: "version", headerName: "Version", width: 100 },
+        { field: "modified", headerName: "Modified", minWidth: 150, flex: 0.75 },
+        { field: "owner", headerName: "Owner", minWidth: 140, flex: isTabletDown ? 0 : 0.7 },
+        {
+          field: "status",
+          headerName: "Status",
+          width: 140,
+          renderCell: ({ row }) => <StatusBadge label={String(row.status)} tone={row.statusTone as StatusTone} />,
+        },
+        {
+          field: "actions",
+          headerName: "Actions",
+          width: 120,
+          sortable: false,
+          filterable: false,
+          renderCell: ({ row }) => (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title={`Preview ${String(row.permissionLabel).toLowerCase()}`}>
+                <IconButton
+                  size="small"
+                  aria-label={`Preview ${String(row.title)}`}
+                  component="a"
+                  href={String(row.previewHref)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <VisibilityOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={`Download ${String(row.permissionLabel).toLowerCase()}`}>
+                <IconButton
+                  size="small"
+                  aria-label={`Download ${String(row.title)}`}
+                  component="a"
+                  href={String(row.downloadHref)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <DownloadOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          ),
+        },
+      ];
+    case "emails":
+      return [
+        {
+          field: "subject",
+          headerName: "Subject",
+          minWidth: 280,
+          flex: 1.3,
+          renderCell: ({ row }) => (
+            <Stack spacing={0.25} sx={{ py: 0.5 }}>
+              <Typography variant="body2" fontWeight={600} noWrap>
+                {String(row.subject)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {String(row.recipients)}
+              </Typography>
+            </Stack>
+          ),
+        },
+        { field: "sender", headerName: "Sender", minWidth: 220, flex: 1 },
+        { field: "date", headerName: "Date", minWidth: 150, flex: 0.8 },
+        { field: "attachment", headerName: "Attachment", width: 120 },
+        {
+          field: "status",
+          headerName: "Status",
+          width: 140,
+          renderCell: ({ row }) => <StatusBadge label={String(row.status)} tone={row.statusTone as StatusTone} />,
+        },
+      ];
+    case "notes":
+      return [
+        {
+          field: "title",
+          headerName: "Title",
+          minWidth: 260,
+          flex: 1.2,
+          renderCell: ({ row }) => (
+            <Stack spacing={0.25} sx={{ py: 0.5 }}>
+              <Typography variant="body2" fontWeight={600} noWrap>
+                {String(row.title)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {String(row.text)}
+              </Typography>
+            </Stack>
+          ),
+        },
+        { field: "author", headerName: "Author", minWidth: 160, flex: 0.8 },
+        { field: "created", headerName: "Created", minWidth: 150, flex: 0.8 },
+        { field: "updated", headerName: "Updated", minWidth: 150, flex: 0.8 },
+        {
+          field: "actions",
+          headerName: "Actions",
+          width: 110,
+          sortable: false,
+          filterable: false,
+          renderCell: ({ row }) => (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Edit note">
+                <IconButton size="small" aria-label="Edit note" onClick={() => onEditNote(String(row.id))}>
+                  <EditOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete note">
+                <IconButton size="small" aria-label="Delete note" onClick={() => onDeleteNote(String(row.id))}>
+                  <DeleteOutlineOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          ),
+        },
+      ];
+    case "relationships":
+      return [
+        { field: "relatedCustomer", headerName: "Related Customer", minWidth: 240, flex: 1.1 },
+        { field: "relationship", headerName: "Relationship", minWidth: 180, flex: 0.8 },
+        { field: "source", headerName: "Source", minWidth: 160, flex: 0.7 },
+        { field: "status", headerName: "Status", minWidth: 120, flex: 0.5 },
+      ];
+    case "policies":
+      return [
+        { field: "policyNumber", headerName: "Policy Number", minWidth: 180, flex: 0.9 },
+        { field: "product", headerName: "Product", minWidth: 200, flex: 1 },
+        { field: "insurer", headerName: "Insurer", minWidth: 200, flex: 1 },
+        { field: "status", headerName: "Status", minWidth: 130, flex: 0.7 },
+        { field: "expiry", headerName: "Expiry", minWidth: 140, flex: 0.7 },
+      ];
+    case "claims":
+      return [
+        { field: "claimNumber", headerName: "Claim Number", minWidth: 180, flex: 0.9 },
+        { field: "policy", headerName: "Policy", minWidth: 180, flex: 0.9 },
+        { field: "status", headerName: "Status", minWidth: 130, flex: 0.6 },
+        { field: "opened", headerName: "Opened", minWidth: 140, flex: 0.7 },
+        { field: "updated", headerName: "Updated", minWidth: 140, flex: 0.7 },
+      ];
+    case "timeline":
+      return [
+        {
+          field: "event",
+          headerName: "Event",
+          minWidth: 260,
+          flex: 1.1,
+          renderCell: ({ row }) => (
+            <Stack spacing={0.25} sx={{ py: 0.5 }}>
+              <Typography variant="body2" fontWeight={600} noWrap>
+                {String(row.event)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {String(row.detail)}
+              </Typography>
+            </Stack>
+          ),
+        },
+        { field: "type", headerName: "Type", minWidth: 130, flex: 0.6 },
+        { field: "occurredAt", headerName: "Occurred", minWidth: 160, flex: 0.8 },
+        { field: "actor", headerName: "Actor", minWidth: 140, flex: 0.7 },
+        {
+          field: "status",
+          headerName: "Status",
+          width: 130,
+          renderCell: ({ row }) => <StatusBadge label={String(row.status)} tone={row.statusTone as StatusTone} />,
+        },
+      ];
+  }
+}
 
-const dangerButtonStyle: React.CSSProperties = {
-  ...ui.dangerButton,
-};
+function buildMobileItems({
+  activeTab,
+  rows,
+  onOpenNote,
+  onDeleteNote,
+}: {
+  activeTab: CustomerTab;
+  rows: Record<string, unknown>[];
+  onOpenNote: (noteId: string) => void;
+  onDeleteNote: (noteId: string) => void;
+}): MobileListItem[] {
+  return rows.map((row) => {
+    switch (activeTab) {
+      case "documents":
+        return {
+          id: String(row.id),
+          title: String(row.title),
+          subtitle: `${String(row.category)} · ${String(row.version)}`,
+          meta: String(row.modified),
+          status: { label: String(row.status), tone: row.statusTone as StatusTone },
+          actions: [
+            { key: "preview", label: "Preview", icon: <VisibilityOutlinedIcon fontSize="small" />, href: String(row.previewHref) },
+            { key: "download", label: "Download", icon: <DownloadOutlinedIcon fontSize="small" />, href: String(row.downloadHref) },
+          ],
+        };
+      case "emails":
+        return {
+          id: String(row.id),
+          title: String(row.subject),
+          subtitle: String(row.sender),
+          meta: `${String(row.date)} · ${String(row.attachment)}`,
+          status: { label: String(row.status), tone: row.statusTone as StatusTone },
+        };
+      case "notes":
+        return {
+          id: String(row.id),
+          title: String(row.title),
+          subtitle: String(row.text),
+          meta: `${String(row.updated)} · ${String(row.author)}`,
+          actions: [
+            { key: "edit", label: "Edit note", icon: <EditOutlinedIcon fontSize="small" />, onClick: () => onOpenNote(String(row.id)) },
+            { key: "delete", label: "Delete note", icon: <DeleteOutlineOutlinedIcon fontSize="small" />, onClick: () => onDeleteNote(String(row.id)) },
+          ],
+        };
+      case "relationships":
+        return {
+          id: String(row.id),
+          title: String(row.relatedCustomer),
+          subtitle: String(row.relationship),
+          meta: `${String(row.source)} · ${String(row.status)}`,
+        };
+      case "policies":
+        return {
+          id: String(row.id),
+          title: String(row.policyNumber),
+          subtitle: String(row.product),
+          meta: `${String(row.insurer)} · ${String(row.expiry)}`,
+          status: { label: String(row.status), tone: "info" },
+        };
+      case "claims":
+        return {
+          id: String(row.id),
+          title: String(row.claimNumber),
+          subtitle: String(row.policy),
+          meta: `${String(row.opened)} · ${String(row.updated)}`,
+          status: { label: String(row.status), tone: "warning" },
+        };
+      case "timeline":
+        return {
+          id: String(row.id),
+          title: String(row.event),
+          subtitle: String(row.detail),
+          meta: `${String(row.occurredAt)} · ${String(row.actor)}`,
+          status: { label: String(row.status), tone: row.statusTone as StatusTone },
+        };
+    }
+  });
+}
 
-const noteActionRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "0.75rem",
-  flexWrap: "wrap",
-  marginTop: "0.35rem",
-};
+function buildContextSections({
+  workspace,
+  activeTab,
+  selectedRow,
+  reviewQueueCount,
+  onOpenCustomerList,
+}: {
+  workspace: DemoClientWorkspace | undefined;
+  activeTab: CustomerTab;
+  selectedRow: Record<string, unknown> | null;
+  reviewQueueCount: number;
+  onOpenCustomerList: () => void;
+}): ContextSection[] {
+  const sections: ContextSection[] = [];
 
-const noteEditFormStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-};
+  if (selectedRow) {
+    const details = describeSelection(activeTab, selectedRow);
+    sections.push({
+      key: "selected-record",
+      title: `${getTabMeta(activeTab).label} Record`,
+      content: (
+        <Stack spacing={0.5}>
+          <Typography variant="body2" fontWeight={600}>
+            {details.title}
+          </Typography>
+          {details.lines.map((line) => (
+            <Typography key={line} variant="body2" color="text.secondary">
+              {line}
+            </Typography>
+          ))}
+        </Stack>
+      ),
+    });
+  }
 
-const backLinkStyle: React.CSSProperties = {
-  width: "fit-content",
-  color: "var(--accent)",
-  fontWeight: 700,
-  textDecoration: "none",
-};
+  if (workspace?.aiSummaries.length) {
+    sections.push({
+      key: "ai-brief",
+      title: "AI Customer Brief",
+      content: (
+        <Stack spacing={0.5}>
+          <Typography variant="body2" color="text.secondary">
+            {workspace.aiSummaries[0].summary}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Confidence: {workspace.aiSummaries[0].confidence}
+          </Typography>
+        </Stack>
+      ),
+    });
+  }
 
-const heroStyle: React.CSSProperties = {
-  ...ui.heroCard,
-  display: "grid",
-  gap: "1.25rem",
-};
+  if (reviewQueueCount > 0) {
+    sections.push({
+      key: "alerts",
+      title: "Alerts",
+      content: (
+        <Stack spacing={0.75}>
+          <Typography variant="body2" color="text.secondary">
+            {reviewQueueCount} {reviewQueueCount === 1 ? "review item is" : "review items are"} linked to this customer.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Open the Review workspace to process linked queue items.
+          </Typography>
+        </Stack>
+      ),
+    });
+  }
 
-const metricValueStyle: React.CSSProperties = {
-  fontSize: "1.2rem",
-  letterSpacing: "-0.02em",
-};
+  sections.push({
+    key: "quick-actions",
+    title: "Quick Actions",
+    content: (
+      <Stack spacing={0.75}>
+        <Button variant="text" color="inherit" size="small" onClick={onOpenCustomerList}>
+          Customer list
+        </Button>
+      </Stack>
+    ),
+  });
 
-const metricLabelStyle: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: "0.84rem",
-};
+  return sections;
+}
+
+function parseTab(value: string | null): CustomerTab {
+  return tabs.some((tab) => tab.key === value) ? (value as CustomerTab) : "documents";
+}
+
+function shortcutToTab(key: string): CustomerTab | null {
+  switch (key) {
+    case "1":
+      return "documents";
+    case "2":
+      return "emails";
+    case "3":
+      return "notes";
+    case "4":
+      return "relationships";
+    case "5":
+      return "policies";
+    case "6":
+      return "claims";
+    case "7":
+      return "timeline";
+    default:
+      return null;
+  }
+}
+
+function tabParam(tab: CustomerTab, suffix: string) {
+  return `${tab}-${suffix}`;
+}
+
+function setScopedSearchParams(
+  setSearchParams: ReturnType<typeof useSearchParams>[1],
+  currentParams: URLSearchParams,
+  nextValues: Record<string, string | null>,
+) {
+  const next = new URLSearchParams(currentParams);
+  Object.entries(nextValues).forEach(([key, value]) => {
+    if (!value) {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+    }
+  });
+  setSearchParams(next, { replace: true });
+}
+
+function getTabMeta(tab: CustomerTab) {
+  switch (tab) {
+    case "documents":
+      return {
+        label: "Documents",
+        searchPlaceholder: "Filter documents by title, source, status, or date",
+        emptyTitle: "No documents linked",
+        emptyMessage: "No client documents are currently available.",
+      };
+    case "emails":
+      return {
+        label: "Emails",
+        searchPlaceholder: "Filter emails by subject, sender, recipient, or status",
+        emptyTitle: "No emails linked",
+        emptyMessage: "No client emails are currently available.",
+      };
+    case "notes":
+      return {
+        label: "Notes",
+        searchPlaceholder: "Filter notes by title, text, or date",
+        emptyTitle: "No notes recorded",
+        emptyMessage: "Use Add note to capture operational context.",
+      };
+    case "relationships":
+      return {
+        label: "Relationships",
+        searchPlaceholder: "Filter relationships",
+        emptyTitle: "No relationships available",
+        emptyMessage: "No related customers or linked parties are currently available for this customer.",
+      };
+    case "policies":
+      return {
+        label: "Policy References",
+        searchPlaceholder: "Filter policies by number, insurer, product, or status",
+        emptyTitle: "No policies linked",
+        emptyMessage: "No policy references are available for this customer.",
+      };
+    case "claims":
+      return {
+        label: "Claim References",
+        searchPlaceholder: "Filter claims by number, policy, or status",
+        emptyTitle: "No claims linked",
+        emptyMessage: "No claim references are available for this customer.",
+      };
+    case "timeline":
+      return {
+        label: "Timeline",
+        searchPlaceholder: "Filter timeline by event, actor, or detail",
+        emptyTitle: "No timeline activity",
+        emptyMessage: "Timeline events will appear when operational activity is available.",
+      };
+  }
+}
+
+function mapDocumentRows(documents: ClientDocumentSummary[], permissions: string[]): DocumentRow[] {
+  const canViewOriginal = permissions.includes("VIEW_ORIGINAL_DOCUMENTS") && permissions.includes("VIEW_PII");
+  const canViewRedacted = permissions.includes("VIEW_REDACTED_DOCUMENTS");
+
+  return documents.map((document) => {
+    const permissionLabel = document.containsPii && !canViewOriginal ? "redacted copy" : "document";
+
+    return {
+      id: document.id,
+      title: document.title,
+      category: document.source,
+      version: document.currentVersionId ?? "Current",
+      modified: formatDateTime(document.createdAt),
+      owner: document.parentEmailId ? "Email import" : "Customer intake",
+      status: document.reviewStatus,
+      statusTone: mapOperationalTone(document.reviewStatus),
+      previewHref: `/api/documents/${document.id}/preview`,
+      downloadHref: `/api/documents/${document.id}/download`,
+      permissionLabel:
+        document.containsPii && canViewOriginal
+          ? "original document"
+          : document.containsPii && canViewRedacted
+            ? "redacted document"
+            : permissionLabel,
+    };
+  });
+}
+
+function mapEmailRows(emails: ClientEmailSummary[]): EmailRow[] {
+  return emails.map((email) => ({
+    id: email.id,
+    subject: email.subject,
+    sender: email.sender,
+    date: formatDateTime(email.receivedAt),
+    attachment: email.recipients.includes("@") ? "Available" : "None",
+    status: email.reviewStatus,
+    statusTone: mapOperationalTone(email.reviewStatus),
+    recipients: email.recipients,
+  }));
+}
+
+function mapNoteRows(notes: Note[], currentUserName: string): NoteRow[] {
+  return notes.map((note, index) => ({
+    id: note.id,
+    title: `Note ${index + 1}`,
+    author: currentUserName,
+    created: formatDateTime(note.createdAt),
+    updated: formatDateTime(note.updatedAt),
+    text: note.noteText,
+  }));
+}
+
+function mapPolicyRows(workspace: DemoClientWorkspace | undefined): PolicyRow[] {
+  return (workspace?.policyReferences ?? []).map((policy) => ({
+    id: policy.id,
+    policyNumber: policy.policyNumber,
+    product: policy.lineOfBusiness,
+    insurer: policy.carrier,
+    status: policy.status,
+    expiry: policy.expirationDate,
+    summary: policy.summary,
+  }));
+}
+
+function mapClaimRows(workspace: DemoClientWorkspace | undefined): ClaimRow[] {
+  return (workspace?.claimReferences ?? []).map((claim) => ({
+    id: claim.id,
+    claimNumber: claim.claimNumber,
+    policy: claim.carrier,
+    status: claim.status,
+    opened: claim.reportedDate,
+    updated: claim.lossDate,
+    summary: claim.summary,
+  }));
+}
+
+function mapTimelineRows({
+  notes,
+  documents,
+  emails,
+  workspace,
+}: {
+  notes: Note[];
+  documents: ClientDocumentSummary[];
+  emails: ClientEmailSummary[];
+  workspace: DemoClientWorkspace | undefined;
+}): TimelineRow[] {
+  const derived: TimelineRow[] = [
+    ...documents.map((document) => ({
+      id: `document-${document.id}`,
+      event: document.title,
+      type: "Document Added",
+      occurredAt: formatDateTime(document.createdAt),
+      actor: "System",
+      detail: `${document.source} · ${document.reviewStatus}`,
+      status: document.reviewStatus,
+      statusTone: mapOperationalTone(document.reviewStatus),
+    })),
+    ...emails.map((email) => ({
+      id: `email-${email.id}`,
+      event: email.subject,
+      type: "Email Imported",
+      occurredAt: formatDateTime(email.receivedAt),
+      actor: email.sender,
+      detail: `${email.reviewStatus} · ${email.processingStatus}`,
+      status: email.reviewStatus,
+      statusTone: mapOperationalTone(email.reviewStatus),
+    })),
+    ...notes.map((note) => ({
+      id: `note-${note.id}`,
+      event: "Customer note updated",
+      type: "Note Created",
+      occurredAt: formatDateTime(note.updatedAt),
+      actor: "Current user",
+      detail: note.noteText,
+      status: note.status,
+      statusTone: (note.status === "ACTIVE" ? "success" : "neutral") as StatusTone,
+    })),
+  ];
+
+  const demoEvents = [
+    ...(workspace?.recentActivity ?? []).map((activity) => ({
+      id: `activity-${activity.id}`,
+      event: activity.title,
+      type: activity.type,
+      occurredAt: formatDateTime(activity.occurredAt),
+      actor: activity.actor,
+      detail: activity.description,
+      status: "Recorded",
+      statusTone: "info" as StatusTone,
+    })),
+    ...(workspace?.auditEvents ?? []).map((event) => ({
+      id: `audit-${event.id}`,
+      event: event.action,
+      type: event.category,
+      occurredAt: formatDateTime(event.occurredAt),
+      actor: event.actorUsername ?? "System",
+      detail: event.outcome,
+      status: event.outcome,
+      statusTone: mapAuditOutcomeTone(event.outcome),
+    })),
+  ];
+
+  return [...derived, ...demoEvents].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
+}
+
+function filterRows(tab: CustomerTab, rows: Record<string, unknown>[], query: string) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return rows;
+  }
+
+  return rows.filter((row) =>
+    Object.values(selectSearchableFields(tab, row))
+      .join(" ")
+      .toLowerCase()
+      .includes(normalized),
+  );
+}
+
+function selectSearchableFields(tab: CustomerTab, row: Record<string, unknown>) {
+  switch (tab) {
+    case "documents":
+      return { title: row.title, category: row.category, status: row.status, modified: row.modified };
+    case "emails":
+      return { subject: row.subject, sender: row.sender, recipients: row.recipients, status: row.status };
+    case "notes":
+      return { title: row.title, text: row.text, updated: row.updated };
+    case "relationships":
+      return { relatedCustomer: row.relatedCustomer, relationship: row.relationship, source: row.source };
+    case "policies":
+      return { policyNumber: row.policyNumber, product: row.product, insurer: row.insurer, status: row.status };
+    case "claims":
+      return { claimNumber: row.claimNumber, policy: row.policy, status: row.status, summary: row.summary };
+    case "timeline":
+      return { event: row.event, detail: row.detail, actor: row.actor, type: row.type };
+  }
+}
+
+function sortRows(rows: Record<string, unknown>[], sortModel: GridSortModel) {
+  const sort = sortModel[0];
+  if (!sort?.field || !sort.sort) {
+    return rows;
+  }
+
+  return [...rows].sort((left, right) => {
+    const leftValue = String(left[sort.field] ?? "").toLowerCase();
+    const rightValue = String(right[sort.field] ?? "").toLowerCase();
+    const result = leftValue.localeCompare(rightValue);
+    return sort.sort === "asc" ? result : -result;
+  });
+}
+
+function describeSelection(activeTab: CustomerTab, row: Record<string, unknown>) {
+  switch (activeTab) {
+    case "documents":
+      return {
+        title: String(row.title),
+        lines: [
+          `${String(row.category)} · ${String(row.status)}`,
+          `Modified ${String(row.modified)} · Owner ${String(row.owner)}`,
+        ],
+      };
+    case "emails":
+      return {
+        title: String(row.subject),
+        lines: [
+          `${String(row.sender)} · ${String(row.status)}`,
+          `${String(row.recipients)} · ${String(row.date)}`,
+        ],
+      };
+    case "notes":
+      return {
+        title: String(row.title),
+        lines: [String(row.text), `${String(row.updated)} · ${String(row.author)}`],
+      };
+    case "relationships":
+      return {
+        title: String(row.relatedCustomer),
+        lines: [`${String(row.relationship)} · ${String(row.source)}`, `Status: ${String(row.status)}`],
+      };
+    case "policies":
+      return {
+        title: String(row.policyNumber),
+        lines: [`${String(row.product)} · ${String(row.insurer)}`, `${String(row.status)} · Expires ${String(row.expiry)}`],
+      };
+    case "claims":
+      return {
+        title: String(row.claimNumber),
+        lines: [`${String(row.policy)} · ${String(row.status)}`, `Opened ${String(row.opened)} · Updated ${String(row.updated)}`],
+      };
+    case "timeline":
+      return {
+        title: String(row.event),
+        lines: [`${String(row.type)} · ${String(row.actor)}`, `${String(row.occurredAt)} · ${String(row.detail)}`],
+      };
+  }
+}
+
+function mapOperationalTone(status: string): StatusTone {
+  switch (status.toUpperCase()) {
+    case "APPROVED":
+    case "ACTIVE":
+    case "LINKED":
+    case "CLASSIFIED":
+    case "AVAILABLE":
+      return "success";
+    case "PENDING":
+    case "IN_PROGRESS":
+    case "RESERVED":
+      return "warning";
+    case "FAILED":
+    case "REJECTED":
+    case "BLOCKED":
+      return "error";
+    default:
+      return "info";
+  }
+}
+
+function mapAuditOutcomeTone(outcome: string): StatusTone {
+  switch (outcome.toUpperCase()) {
+    case "SUCCESS":
+    case "APPROVED":
+      return "success";
+    case "DENIED":
+    case "FAILED":
+      return "error";
+    default:
+      return "info";
+  }
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString();
+}

@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { isDemoDataEnabled, listDemoDocumentTypes, listDemoMetadataFields } from "./demo";
 import { UserRole, UserStatus } from "./auth";
 
 export interface AdminUser {
@@ -77,6 +78,9 @@ export function listAdminUsers() {
 }
 
 export function listDocumentTypes() {
+  if (isDemoDataEnabled) {
+    return listDemoDocumentTypes();
+  }
   return apiClient.get<DocumentTypeConfig[]>("/api/admin/document-types");
 }
 
@@ -85,6 +89,9 @@ export function createDocumentType(request: { name: string; description?: string
 }
 
 export function listMetadataFields() {
+  if (isDemoDataEnabled) {
+    return listDemoMetadataFields();
+  }
   return apiClient.get<MetadataFieldConfig[]>("/api/admin/metadata-fields");
 }
 

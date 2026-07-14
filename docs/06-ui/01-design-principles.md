@@ -1,346 +1,491 @@
-# IKMS UI Design Principles (Human Guide)
+# IKMS UI Design Principles
 
-**Version:** 2.0\
-**Audience:** Product Owners, UX Designers, Frontend Developers,
-Architects\
-**Purpose:** Establish the design philosophy and UX standards for IKMS.
+**Version:** 3.1  
+**Purpose:** Mandatory UI principles for all IKMS workspaces.  
+**Audience:** Product, UX, Frontend Developers, AI Coding Agents.
 
-> **Note:** This document defines **design intent**. It is **not** the
-> implementation guide for AI agents. Codex/Claude Code implementation
-> rules belong in a separate `10-codex-ui-rules.md`.
+---
 
-------------------------------------------------------------------------
+# 1. Product Identity
 
-# 1. Product Vision
+IKMS is an **AI-powered Enterprise Knowledge Workspace** for insurance brokers.
 
-IKMS is an **Enterprise Insurance Knowledge Management Platform**
-designed for operational users who spend **8+ hours per day** processing
-customers, documents, policies, claims and AI-assisted workflows.
+It complements the broker's existing systems of record.
 
-The UI should optimize for:
+IKMS manages operational knowledge including:
 
--   Productivity over decoration
--   Information density over whitespace
--   Consistency over creativity
--   Trust over novelty
--   Operational awareness over dashboards
--   Accessibility by default
+- Documents
+- Emails
+- Notes
+- AI summaries
+- Metadata
+- Relationships
+- Policy references
+- Claim references
+- Evidence
 
-------------------------------------------------------------------------
+IKMS is not:
 
-# 2. Design Character
+- A policy administration system
+- A claims system
+- A CRM
+- A BI dashboard
+- A marketing application
 
-The application should feel:
+---
 
--   Calm
--   Professional
--   Trustworthy
--   Evidence-driven
--   Permission-aware
--   Predictable
--   Efficient
+# 2. Primary Goal
+
+Enable operational users to locate, review, validate and manage knowledge with minimum effort.
+
+Every UI decision must improve:
+
+- Findability
+- Readability
+- Consistency
+- Operational speed
+- Decision support
+
+---
+
+# 3. Target Users
+
+Primary users:
+
+- Processor
+- Indexer
+- Supervisor
+- Compliance
+- Administrator
+
+Usage characteristics:
+
+- Desktop-first
+- Keyboard-heavy
+- High-volume processing
+- 6–8 hours of daily usage
+
+---
+
+# 4. Material UI Foundation
+
+Material UI is the standard frontend component foundation for IKMS.
+
+Use Material UI for standard controls, including:
+
+- Buttons
+- Icon buttons
+- Inputs
+- Selects
+- Autocomplete
+- Checkboxes
+- Radio buttons
+- Switches
+- Menus
+- Dialogs
+- Drawers
+- Tabs
+- Tooltips
+- Alerts
+- Snackbars
+- Skeletons
+- Progress indicators
+- Pagination
+- Data grids
+- Tree views
+
+IKMS defines:
+
+- Material theme configuration
+- Enterprise density
+- Application shell
+- Workspace layouts
+- Business-specific components
+- AI and evidence patterns
+
+Do not recreate a standard Material UI component unless:
+
+- Material UI cannot meet a documented requirement
+- Accessibility would be reduced
+- A business-specific interaction requires custom behaviour
+
+Custom IKMS components should compose Material UI primitives.
+
+---
+
+# 5. Design Philosophy
+
+IKMS is a modern Enterprise Workspace.
+
+Target characteristics:
+
+- Compact
+- Structured
+- Professional
+- Predictable
+- Neutral
+- Information-dense
+- Minimal decoration
+
+Reference products:
+
+- OpenText Content Suite
+- ServiceNow Workspace
+- Salesforce Service Console
+- Guidewire
+- Outlook
+- Azure Portal
+- Jira
+- VS Code
+
+---
+
+# 6. Search First
+
+Search is the authenticated landing page.
+
+Users must be able to immediately:
+
+- Search
+- Filter
+- Continue work
+- Open recent activity
+- Navigate to customer or document context
+
+Search must remain accessible from every workspace.
+
+---
+
+# 7. Grid First
+
+Operational collections must use:
+
+- MUI X Data Grid
+- Table
+- Tree view
+- Structured list
+
+Collections include:
+
+- Customers
+- Documents
+- Emails
+- Notes
+- Search results
+- Review queues
+- Intake queues
+- Activities
+- Relationships
+- Policy references
+- Claim references
+- Audit events
+- Administration records
+
+Do not use cards for operational collections.
+
+---
+
+# 8. Card Usage
+
+Cards are allowed only for contextual content.
+
+Allowed:
+
+- AI Brief
+- Alerts
+- Summary
+- Quick Actions
+- Evidence Summary
+- Warnings
+
+Not allowed:
+
+- Customers
+- Documents
+- Emails
+- Notes
+- Search Results
+- Queues
+- Audit Events
+- Policy References
+- Claim References
+
+Use MUI `Card` sparingly. Prefer bordered `Box` or `Paper` for structural regions.
+
+---
+
+# 9. Standard Workspace Pattern
+
+Every workspace follows:
+
+```text
+Workspace Header
+↓
+Toolbar / Search
+↓
+Main Operational Region
+↓
+Optional Right Context Panel
+```
+
+The layout remains consistent across:
+
+- Search
+- Customer360
+- Review
+- Administration
+- Audit
+
+---
+
+# 10. Context First
+
+Primary work occupies most of the screen.
+
+Secondary context belongs in the right context panel.
+
+Typical context:
+
+- AI Brief
+- Activity
+- Alerts
+- Evidence
+- Review History
+- Related Records
+- Quick Actions
+
+The context panel must not replace the primary workspace.
+
+---
+
+# 11. AI Assisted
+
+AI behaves as an operational colleague.
+
+Allowed:
+
+- Summaries
+- Recommendations
+- Warnings
+- Evidence
+- Missing metadata
+- Relationship insights
+- What changed
+- What needs attention
+
+Not allowed:
+
+- Floating chatbot as the primary interface
+- Autonomous operational decisions
+- Unsupported conclusions
+- Hidden evidence
+
+---
+
+# 12. Human Controlled
+
+Users approve:
+
+- Metadata
+- Classification
+- Review outcomes
+- Final actions
+
+AI suggestions require human review.
+
+---
+
+# 13. Evidence Before Decision
+
+Present information in this order:
+
+```text
+Evidence
+↓
+AI Recommendation
+↓
+User Action
+```
+
+Every important AI recommendation should expose:
+
+- Source
+- Reason
+- Confidence
+- Missing information
+
+---
+
+# 14. Information Density
+
+Prefer:
+
+- Compact spacing
+- Small controls
+- Multiple visible rows
+- Sticky headers
+- Persistent toolbars
+- Minimal scrolling
+- Split views
 
 Avoid:
 
--   Consumer/mobile-app aesthetics
--   Marketing-style landing pages
--   Excessive animations
--   Large unused whitespace
--   Oversized cards
--   Decorative charts without business value
+- Oversized controls
+- Excessive whitespace
+- Large rounded containers
+- Decorative empty sections
 
-------------------------------------------------------------------------
+---
 
-# 3. Core Design Principles
+# 15. Visual Language
 
-## Readability First
+Use:
 
-Users continuously read:
+- Inter typography
+- Navy, slate, neutral and blue palette
+- Thin borders
+- Minimal shadows
+- Small radius
+- Restrained status colors
+- Consistent outlined icons
 
--   Client profiles
--   Policies
--   Claims
--   Documents
--   AI answers
--   Audit history
+Avoid:
 
-Typography and hierarchy must support rapid scanning.
+- Gradients
+- Glassmorphism
+- Marketing layouts
+- Decorative motion
+- Bright accent colors
+- Emoji as interface icons
 
-------------------------------------------------------------------------
+---
 
-## Controlled Information Density
+# 16. Consistency
 
-Desktop is the primary platform.
+Equivalent actions remain in equivalent locations.
 
-Show meaningful information without overwhelming users.
+| Element | Standard Location |
+|---|---|
+| Search | Toolbar |
+| Filters | Toolbar |
+| Bulk actions | Above grid |
+| Workspace actions | Header |
+| AI Brief | Right context panel |
+| Status | Grid or metadata section |
+| Secondary edit | Drawer |
+| Confirmation | Dialog |
 
-Prefer compact enterprise layouts rather than sparse consumer layouts.
+Consistency overrides visual experimentation.
 
-------------------------------------------------------------------------
+---
 
-## Trust Through Restraint
+# 17. Context Preservation
 
-Visual design should communicate reliability.
+Preserve where possible:
 
-Use restrained colors.
+- Search text
+- Filters
+- Sorting
+- Selected row
+- Scroll position
+- Active tab
+- Resized panels
+- Workspace state
 
-Highlight only meaningful operational states.
+Users should not lose operational context during navigation.
 
-------------------------------------------------------------------------
+---
 
-## Evidence First
+# 18. Status Visibility
 
-Documents, AI responses, metadata and citations should always remain
-connected.
+Operational states must be visible.
 
-Never separate conclusions from supporting evidence.
+Examples:
 
-------------------------------------------------------------------------
+- Indexed
+- Pending
+- In Review
+- Approved
+- Rejected
+- Archived
+- Restricted
+- Failed
+- Needs Attention
 
-## Permission-Aware UX
+Do not rely on color alone.
 
-Role differences must be explicit.
+---
 
-Masked, redacted and restricted information should appear
-intentional---not broken.
+# 19. Desktop First
 
-------------------------------------------------------------------------
+Primary target:
 
-# 4. Enterprise Layout Principles
+- 1920 × 1080
 
-Every workspace should generally contain:
+Supported:
 
-1.  Breadcrumb
-2.  Page title
-3.  Short description
-4.  Primary actions
-5.  Search / filters
-6.  Main work area
-7.  Supporting panels
-8.  Status information
+- 1600 × 900
+- 1440 × 900
+- 1366 × 768
+- Minimum 1280px desktop width
 
-Navigation should remain persistent on desktop.
+Below 1280px:
 
-------------------------------------------------------------------------
+- Collapse the right context panel first
+- Preserve grid usability
+- Allow horizontal scrolling
+- Do not convert grids into cards
 
-# 5. Operational Workspaces
+---
 
-Design around work, not CRUD.
-
-Typical workspace patterns include:
-
--   Dashboard
--   Search Workspace
--   Review Queue
--   Client Profile
--   Document Viewer
--   Administration
--   Audit Explorer
-
-Each workspace should clearly answer:
-
--   What requires attention?
--   What changed?
--   What is blocked?
--   What should I do next?
-
-------------------------------------------------------------------------
-
-# 6. Forms
-
-Forms should:
-
--   Group related information
--   Keep labels visible
--   Use inline validation
--   Reduce scrolling
--   Support keyboard navigation
-
-Avoid unnecessary wizard flows.
-
-------------------------------------------------------------------------
-
-# 7. Tables
-
-Operational data should primarily use tables instead of cards.
-
-Tables should emphasize:
-
--   Readability
--   Sorting
--   Filtering
--   Status visibility
--   Auditability
-
-------------------------------------------------------------------------
-
-# 8. Empty States
-
-Every empty state should explain:
-
--   Why the screen is empty
--   What action is available next
--   How users can continue
-
-Avoid playful illustrations.
-
-------------------------------------------------------------------------
-
-# 9. State Design
-
-The following states must have consistent visual language:
-
--   Loading
--   Empty
--   Success
--   Validation Error
--   Backend Failure
--   Unauthorized
--   Review Required
--   Duplicate Detected
--   Redacted
--   PII Masked
--   AI Refusal
--   Conflict Detected
-
-Every state should explain the situation and the recommended next
-action.
-
-------------------------------------------------------------------------
-
-# 10. Color Philosophy
-
-Use color to communicate meaning.
-
-Primary colors should represent:
-
--   Primary Action
--   Success
--   Warning
--   Error
--   Neutral
-
-Never rely solely on color to communicate state.
-
-------------------------------------------------------------------------
-
-# 11. Typography
-
-Typography should support scanning.
-
-Differentiate clearly between:
-
--   Titles
--   Section headings
--   Metadata
--   Narrative content
--   Status labels
-
-Avoid oversized headings inside operational panels.
-
-------------------------------------------------------------------------
-
-# 12. Motion
-
-Animation should:
-
--   Reinforce user actions
--   Reduce perceived latency
--   Preserve context
-
-Avoid decorative animation.
-
-------------------------------------------------------------------------
-
-# 13. Accessibility
-
-IKMS targets WCAG AA.
+# 20. Accessibility
 
 Support:
 
--   Keyboard navigation
--   Screen readers
--   High contrast
--   Visible focus
--   Semantic controls
+- Keyboard navigation
+- Visible focus
+- WCAG AA contrast
+- Accessible labels
+- Screen readers
+- Semantic headings
+- Status communication beyond color
+- Tooltips for icon-only actions
 
-------------------------------------------------------------------------
+Use Material UI accessibility behaviour rather than replacing it with custom controls.
 
-# 14. Responsive Behaviour
+---
 
-Desktop-first.
+# 21. Performance
 
-On smaller screens:
+Preferred:
 
--   Collapse layouts progressively
--   Preserve navigation context
--   Avoid horizontal scrolling
--   Prioritize read-only workflows where editing becomes impractical
+- Incremental loading
+- Virtualized grids
+- Lazy loading
+- Skeletons
+- Independent panel loading
+- Preserved previous content during refresh
 
-------------------------------------------------------------------------
+Avoid blocking the entire workspace when one region is loading.
 
-# 15. Role Experience
+---
 
-Each role should feel purpose-built.
+# 22. Implementation Rules
 
-Indexer: - Queue driven
+Every workspace shall:
 
-Processor: - Evidence driven
+- Use Material UI as the component foundation.
+- Use the shared IKMS Material theme.
+- Use MUI X Data Grid for operational collections where available.
+- Use the installed MUI licence tier only.
+- Use the standard workspace layout.
+- Use cards only for contextual content.
+- Keep AI inside the contextual workspace region.
+- Preserve navigation state.
+- Maintain compact enterprise spacing.
+- Use one outlined icon library consistently.
+- Use the official IKMS logo asset.
+- Avoid custom duplicates of standard MUI controls.
+- Optimize operational efficiency over decoration.
 
-Supervisor: - Decision driven
-
-Administrator: - Configuration driven
-
-------------------------------------------------------------------------
-
-# 16. Design Priorities
-
-When trade-offs exist, prioritize:
-
-1.  Productivity
-2.  Readability
-3.  Consistency
-4.  Information Density
-5.  Accessibility
-6.  Visual Polish
-
-------------------------------------------------------------------------
-
-# 17. Definition of Good Design
-
-A successful screen allows users to:
-
--   Understand their current context immediately
--   Identify available actions
--   Locate required information quickly
--   Complete work with minimal clicks
--   Trust AI recommendations through supporting evidence
--   Recover easily from errors
-
-------------------------------------------------------------------------
-
-# 18. Related Documents
-
-This document is part of the UI documentation set.
-
-    docs/ui/
-
-    01-design-principles.md     ← This document
-    02-design-system.md
-    03-layout-guidelines.md
-    04-component-library.md
-    05-enterprise-patterns.md
-    06-ai-experience.md
-    07-accessibility.md
-    08-responsive.md
-    09-design-tokens.md
-    10-codex-ui-rules.md
-
-------------------------------------------------------------------------
-
-# Final Principle
-
-> IKMS is an enterprise operations platform---not a showcase website.
-
-Every design decision should help insurance professionals complete work
-**faster, more accurately, and with greater confidence**.
+These principles are mandatory for every IKMS screen.

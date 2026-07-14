@@ -1,4 +1,14 @@
 import { apiClient } from "./client";
+import {
+  createDemoClient,
+  createDemoNote,
+  deleteDemoNote,
+  getDemoClient,
+  isDemoDataEnabled,
+  listDemoClients,
+  listDemoNotes,
+  updateDemoNote,
+} from "./demo";
 
 export type ClientType = "INDIVIDUAL" | "BUSINESS";
 export type ClientStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";
@@ -81,15 +91,24 @@ export function importClients(file: File) {
 }
 
 export function listClients(query = "") {
+  if (isDemoDataEnabled) {
+    return listDemoClients(query);
+  }
   const search = query ? `?query=${encodeURIComponent(query)}` : "";
   return apiClient.get<ClientSummary[]>(`/api/clients${search}`);
 }
 
 export function createClient(request: CreateClientRequest) {
+  if (isDemoDataEnabled) {
+    return createDemoClient(request);
+  }
   return apiClient.post<ClientProfile>("/api/clients", request);
 }
 
 export function getClient(clientId: string) {
+  if (isDemoDataEnabled) {
+    return getDemoClient(clientId);
+  }
   return apiClient.get<ClientProfile>(`/api/clients/${clientId}`);
 }
 
@@ -98,17 +117,29 @@ export function updateClient(clientId: string, request: UpdateClientRequest) {
 }
 
 export function listNotes(clientId: string) {
+  if (isDemoDataEnabled) {
+    return listDemoNotes(clientId);
+  }
   return apiClient.get<Note[]>(`/api/clients/${clientId}/notes`);
 }
 
 export function createNote(clientId: string, request: CreateNoteRequest) {
+  if (isDemoDataEnabled) {
+    return createDemoNote(clientId, request);
+  }
   return apiClient.post<Note>(`/api/clients/${clientId}/notes`, request);
 }
 
 export function updateNote(noteId: string, request: UpdateNoteRequest) {
+  if (isDemoDataEnabled) {
+    return updateDemoNote(noteId, request);
+  }
   return apiClient.patch<Note>(`/api/notes/${noteId}`, request);
 }
 
 export function deleteNote(noteId: string) {
+  if (isDemoDataEnabled) {
+    return deleteDemoNote(noteId);
+  }
   return apiClient.delete<void>(`/api/notes/${noteId}`);
 }

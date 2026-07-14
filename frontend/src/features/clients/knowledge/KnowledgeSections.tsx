@@ -86,9 +86,9 @@ const itemStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.28rem",
   padding: "0.95rem 1rem",
-  borderRadius: "0.95rem",
-  background: "var(--panel-muted)",
-  border: "1px solid rgba(191, 208, 226, 0.72)",
+  borderRadius: "4px",
+  background: "var(--ikms-panel-muted)",
+  border: "1px solid var(--ikms-line)",
 };
 
 const actionRowStyle: React.CSSProperties = {
@@ -99,7 +99,7 @@ const actionRowStyle: React.CSSProperties = {
 };
 
 const actionLinkStyle: React.CSSProperties = {
-  color: "var(--accent)",
+  color: "var(--ikms-accent)",
   fontWeight: 700,
   textDecoration: "none",
 };

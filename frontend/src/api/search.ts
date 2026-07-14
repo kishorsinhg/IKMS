@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { askDemoClientQuestion, isDemoDataEnabled, searchDemoClientKnowledge, sendDemoAiFeedback } from "./demo";
 
 export interface SearchResult {
   sourceType: string;
@@ -33,14 +34,23 @@ export interface AskClientResponse {
 }
 
 export function searchClientKnowledge(clientId: string, query: string) {
+  if (isDemoDataEnabled) {
+    return searchDemoClientKnowledge(clientId, query);
+  }
   const search = query ? `?query=${encodeURIComponent(query)}` : "";
   return apiClient.get<SearchResult[]>(`/api/clients/${clientId}/search${search}`);
 }
 
 export function askClientQuestion(clientId: string, question: string) {
+  if (isDemoDataEnabled) {
+    return askDemoClientQuestion(clientId, question);
+  }
   return apiClient.post<AskClientResponse>(`/api/clients/${clientId}/ask`, { question });
 }
 
 export function sendAiFeedback(interactionId: string, helpful: boolean, comment?: string) {
+  if (isDemoDataEnabled) {
+    return sendDemoAiFeedback(interactionId, helpful);
+  }
   return apiClient.post<void>(`/api/ai-interactions/${interactionId}/feedback`, { helpful, comment });
 }

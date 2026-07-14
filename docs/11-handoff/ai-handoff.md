@@ -207,3 +207,24 @@ Start the next session by reviewing `git status`, confirming `main` is clean and
 Recommended next implementation slice:
 
 - Validate the new provider-backed extraction/embedding path against a live configured LLM endpoint and, if needed, add OCR-specific provider adapters for scanned-document cases.
+
+Updated state after the 2026-07-13 frontend demo-data and Search Workspace refinement slice:
+
+- Frontend now supports a development-only demo knowledge dataset via `frontend/src/api/demo.ts`, gated behind local dev mode and `VITE_ENABLE_DEMO_DATA=false` for easy disablement.
+- Existing frontend auth/client/intake/search/audit/admin API wrappers now short-circuit to the demo dataset only in development, preserving production API contracts and avoiding backend changes.
+- The demo dataset includes realistic broker-facing customers, documents, emails, notes, policy references, claim references, AI summaries, recent activity, review queue items, and audit events so workflow quality can be evaluated before Customer360 is built.
+- `frontend/src/features/clients/ClientProfilePage.tsx` now renders those demo-only knowledge surfaces to support Customer360-adjacent evaluation without changing backend scope.
+- `frontend/src/features/search/SearchLandingPage.tsx` has been refined into a denser enterprise workspace: stronger global search hero, compact continue-working rows, operational “Today’s Work” summaries, a lighter recent-activity timeline, better empty guidance, and reduced chrome competition from the shell/sidebar.
+- Shared shell styling in `frontend/src/app/app.css` was tightened to reduce sidebar dominance and improve above-the-fold density for long-session operational use.
+- Frontend validation for this slice passed with `npm run lint`, `npm run test`, and `npm run build`.
+
+Updated state after the 2026-07-14 Administration admin-capture checkpoint:
+
+- The real Administration workspace is now capturable for UX review using the existing auth/API model with demo mode disabled and mocked `/api` admin responses, without changing the UI.
+- Fresh Administration screenshots now exist in `frontend/test-results/administration-workspace/` for desktop, tablet, mobile, editor, loading, empty, no-results, error, and module-switching states.
+- Validation was rerun successfully for the current frontend slice with `npm run lint`, `npm test`, `npm run build`, and `npm run test:e2e`.
+- The built-in demo sign-out/login flow still renders a blank `/login` page in this local environment, so admin screenshot capture currently depends on the mocked-admin Playwright approach rather than the demo login screen.
+
+Recommended next implementation slice:
+
+- Run the application-wide UX consistency review across Search, Customer List, Customer360, Review Queue, Review Detail, Audit, and Administration using the captured admin screenshots as the Administration reference set.

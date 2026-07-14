@@ -1,4 +1,5 @@
 import { apiBaseUrl, apiClient } from "./client";
+import { exportDemoAuditLogs, isDemoDataEnabled, searchDemoAuditLogs } from "./demo";
 
 export interface AuditLogEntry {
   id: string;
@@ -25,10 +26,16 @@ export interface AuditFilters {
 }
 
 export function searchAuditLogs(filters: AuditFilters) {
+  if (isDemoDataEnabled) {
+    return searchDemoAuditLogs(filters);
+  }
   return apiClient.get<AuditLogEntry[]>(`/api/audit${toQueryString(filters)}`);
 }
 
 export async function exportAuditLogs(filters: AuditFilters) {
+  if (isDemoDataEnabled) {
+    return exportDemoAuditLogs(filters);
+  }
   const response = await fetch(`${apiBaseUrl}/api/audit/export${toQueryString(filters)}`, {
     method: "GET",
     credentials: "include",

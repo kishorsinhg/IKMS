@@ -31,13 +31,6 @@ export function ClientImportPage() {
 
   return (
     <section style={ui.page}>
-      <header style={ui.pageHeader}>
-        <h2 style={ui.pageTitle}>Client CSV Import</h2>
-        <p style={ui.pageDescription}>
-          Validate client rows and surface duplicate warnings before broader client-profile implementation.
-        </p>
-      </header>
-
       <form onSubmit={handleSubmit} style={{ ...ui.card, display: "grid", gap: "0.75rem", maxWidth: "620px" }}>
         <input
           type="file"
@@ -49,7 +42,7 @@ export function ClientImportPage() {
         </button>
       </form>
 
-      {errorMessage ? <div style={{ color: "var(--danger)", fontWeight: 600 }}>{errorMessage}</div> : null}
+      {errorMessage ? <div style={{ color: "var(--ikms-danger)", fontWeight: 600 }}>{errorMessage}</div> : null}
 
       {result ? (
         <section style={{ display: "grid", gap: "1rem" }}>
@@ -61,7 +54,7 @@ export function ClientImportPage() {
           </div>
 
           {result.fileErrors.length > 0 ? (
-            <div style={{ color: "var(--danger)", fontWeight: 600 }}>{result.fileErrors.join(" ")}</div>
+            <div style={{ color: "var(--ikms-danger)", fontWeight: 600 }}>{result.fileErrors.join(" ")}</div>
           ) : null}
 
           <div style={{ overflowX: "auto" }}>
@@ -105,9 +98,9 @@ const summaryStyle: React.CSSProperties = {
   gap: "1rem",
   flexWrap: "wrap",
   padding: "1rem",
-  borderRadius: "1rem",
-  background: "var(--panel-muted)",
-  border: "1px solid rgba(191, 208, 226, 0.72)",
+  borderRadius: "4px",
+  background: "var(--ikms-panel-muted)",
+  border: "1px solid var(--ikms-line)",
 };
 
 const tableStyle: React.CSSProperties = {

@@ -1,8 +1,44 @@
-import { useEffect, useState } from "react";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
+import MoreHorizOutlinedIcon from "@mui/icons-material/MoreHorizOutlined";
+import OpenInFullOutlinedIcon from "@mui/icons-material/OpenInFullOutlined";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Drawer,
+  FormControl,
+  IconButton,
+  InputLabel,
+  List,
+  ListItemButton,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+} from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import { GridColDef, GridPaginationModel, GridSortModel } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ui } from "../../../app/ui";
+import { KeyboardEvent as ReactKeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { listDocumentTypes, listMetadataFields } from "../../../api/admin";
-import { listClients } from "../../../api/clients";
+import { ClientSummary, listClients } from "../../../api/clients";
 import {
   approveReviewItem,
   correctReviewItemMetadata,
@@ -10,33 +46,108 @@ import {
   linkReviewItemClient,
   listReviewQueue,
   rejectReviewItem,
+  ReviewQueueItem,
   ReviewQueueReason,
   ReviewQueueStatus,
 } from "../../../api/intake";
+import { EntityGrid } from "../../../app/components/EntityGrid";
+import type { ContextSection } from "../../../app/components/RightContextPanel";
+import { StatusBadge, StatusTone } from "../../../app/components/StatusBadge";
+import { WorkspaceToolbar } from "../../../app/components/WorkspaceToolbar";
+import { useNotification } from "../../../app/providers/useNotification";
+import type { IkmsShellOutletContext, ShellWorkspaceChrome } from "../../../app/shell/IkmsAppShell";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  NoResultsState,
+  RetryAction,
+} from "../../../app/WorkspaceStates";
+
+type ReviewSortField = "title" | "customer" | "itemType" | "reason" | "status" | "assignedTo";
+type ReviewGridRow = ReviewQueueItem & Record<string, unknown> & {
+  customerName: string;
+  reviewTypeLabel: string;
+  reasonLabel: string;
+  reasonTone: StatusTone;
+  statusTone: StatusTone;
+  assignmentLabel: string;
+};
+
+interface MetadataDraft {
+  title: string;
+  documentTypeId: string;
+  metadataValues: Record<string, string>;
+}
+
+const reviewQueueKey = ["review-queue"] as const;
+const defaultPageSize = 10;
+
+const statusOptions: Array<{ value: ReviewQueueStatus | "ALL"; label: string }> = [
+  { value: "ALL", label: "All statuses" },
+  { value: "OPEN", label: "Open" },
+  { value: "IN_PROGRESS", label: "In progress" },
+  { value: "RESOLVED", label: "Resolved" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const reasonOptions: Array<{ value: ReviewQueueReason | "ALL"; label: string }> = [
+  { value: "ALL", label: "All reasons" },
+  { value: "UNLINKED", label: "Unlinked" },
+  { value: "LOW_CLIENT_CONFIDENCE", label: "Low client confidence" },
+  { value: "LOW_CLASSIFICATION_CONFIDENCE", label: "Low classification confidence" },
+  { value: "LOW_EXTRACTION_CONFIDENCE", label: "Low extraction confidence" },
+  { value: "DUPLICATE_UNCERTAINTY", label: "Duplicate uncertainty" },
+  { value: "REDACTION_FAILED", label: "Redaction failed" },
+  { value: "PROMPT_INJECTION_RISK", label: "Prompt injection risk" },
+  { value: "PROCESSING_FAILED", label: "Processing failed" },
+];
 
 export function ReviewQueuePage() {
+  const theme = useTheme();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<ReviewQueueStatus | "">("OPEN");
-  const [reasonFilter, setReasonFilter] = useState<ReviewQueueReason | "">("");
-  const [selectedItemId, setSelectedItemId] = useState("");
+  const { notify } = useNotification();
+  const { setWorkspaceChrome, clearWorkspaceChrome } = useOutletContext<IkmsShellOutletContext>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isTabletDown = useMediaQuery(theme.breakpoints.down("lg"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [localQuery, setLocalQuery] = useState(searchParams.get("q") ?? "");
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [mobileToolbarMenuAnchor, setMobileToolbarMenuAnchor] = useState<HTMLElement | null>(null);
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [title, setTitle] = useState("");
-  const [documentTypeId, setDocumentTypeId] = useState("");
-  const [carrier, setCarrier] = useState("");
-  const [policyNumber, setPolicyNumber] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [metadataDraft, setMetadataDraft] = useState<MetadataDraft>({
+    title: "",
+    documentTypeId: "",
+    metadataValues: {},
+  });
 
-  const itemsQuery = useQuery({
-    queryKey: ["review-queue", statusFilter, reasonFilter],
-    queryFn: () => listReviewQueue(statusFilter, reasonFilter),
+  const query = searchParams.get("q") ?? "";
+  const selectedStatus = parseStatusFilter(searchParams.get("status"));
+  const selectedReason = parseReasonFilter(searchParams.get("reason"));
+  const selectedId = searchParams.get("selected");
+  const sortField = parseSortField(searchParams.get("sort"));
+  const sortDirection = searchParams.get("dir") === "desc" ? "desc" : "asc";
+  const page = parsePositiveInt(searchParams.get("page"), 0);
+  const pageSize = parsePositiveInt(searchParams.get("pageSize"), defaultPageSize);
+
+  const queueQuery = useQuery({
+    queryKey: [...reviewQueueKey, selectedStatus, selectedReason],
+    queryFn: () => listReviewQueue(selectedStatus === "ALL" ? "" : selectedStatus, selectedReason === "ALL" ? "" : selectedReason),
   });
   const detailQuery = useQuery({
-    queryKey: ["review-queue", "detail", selectedItemId],
-    queryFn: () => getReviewQueueItem(selectedItemId),
-    enabled: Boolean(selectedItemId),
+    queryKey: [...reviewQueueKey, "detail", selectedId],
+    queryFn: () => getReviewQueueItem(selectedId!),
+    enabled: Boolean(selectedId),
   });
   const clientsQuery = useQuery({
-    queryKey: ["clients", "review-selector"],
+    queryKey: ["clients", "review-lookup"],
     queryFn: () => listClients(""),
   });
   const documentTypesQuery = useQuery({
@@ -47,292 +158,1297 @@ export function ReviewQueuePage() {
     queryKey: ["admin", "metadata-fields", "review"],
     queryFn: listMetadataFields,
   });
-  const selectedItem = detailQuery.data;
+
+  const clientLookup = useMemo(
+    () => new Map((clientsQuery.data ?? []).map((client) => [client.id, client])),
+    [clientsQuery.data],
+  );
 
   useEffect(() => {
-    const firstItemId = itemsQuery.data?.[0]?.id ?? "";
-    if (!selectedItemId || !itemsQuery.data?.some((item) => item.id === selectedItemId)) {
-      setSelectedItemId(firstItemId);
+    setLocalQuery(query);
+  }, [query]);
+
+  const queueRows = useMemo<ReviewGridRow[]>(() => {
+    return (queueQuery.data ?? []).map((item) => {
+      const linkedClient = item.clientId ? clientLookup.get(item.clientId) : null;
+      return {
+        ...item,
+        customerName: linkedClient?.displayName ?? (item.clientId ? item.clientId : "Unlinked"),
+        reviewTypeLabel: formatReviewType(item.itemType),
+        reasonLabel: formatReason(item.reason),
+        reasonTone: mapReasonTone(item.reason),
+        statusTone: mapStatusTone(item.status),
+        assignmentLabel: item.assignedTo ?? "Unassigned",
+      };
+    });
+  }, [clientLookup, queueQuery.data]);
+
+  const filteredRows = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) {
+      return queueRows;
     }
-  }, [itemsQuery.data, selectedItemId]);
+
+    return queueRows.filter((row) =>
+      [
+        row.title ?? "",
+        row.customerName,
+        row.reviewTypeLabel,
+        row.reasonLabel,
+        row.status,
+        row.assignmentLabel,
+        row.itemId,
+      ].some((value) => String(value).toLowerCase().includes(trimmed)),
+    );
+  }, [query, queueRows]);
+
+  const sortModel = useMemo<GridSortModel>(() => [{ field: sortField, sort: sortDirection }], [sortDirection, sortField]);
+  const sortedRows = useMemo(() => sortRows(filteredRows, sortModel), [filteredRows, sortModel]);
+  const pagedRows = useMemo(
+    () => sortedRows.slice(page * pageSize, page * pageSize + pageSize),
+    [page, pageSize, sortedRows],
+  );
+  const selectedRow = useMemo(
+    () => sortedRows.find((row) => row.id === selectedId) ?? null,
+    [selectedId, sortedRows],
+  );
+  const selectedItem = detailQuery.data ?? selectedRow;
+  const selectedClient = selectedItem?.clientId ? clientLookup.get(selectedItem.clientId) ?? null : null;
 
   useEffect(() => {
-    if (!selectedItem) {
-      setTitle("");
-      setDocumentTypeId("");
-      setCarrier("");
-      setPolicyNumber("");
+    if (!selectedId && sortedRows[0]) {
+      setScopedSearchParams(setSearchParams, searchParams, { selected: sortedRows[0].id });
       return;
     }
 
-    setTitle(selectedItem.title ?? "");
-    setDocumentTypeId(selectedItem.documentTypeId ?? "");
-    setCarrier(selectedItem.metadataValues?.carrier ?? "");
-    setPolicyNumber(selectedItem.metadataValues?.policyNumber ?? "");
+    if (selectedId && !sortedRows.some((row) => row.id === selectedId)) {
+      setScopedSearchParams(setSearchParams, searchParams, { selected: sortedRows[0]?.id ?? null, page: "0" });
+    }
+  }, [searchParams, selectedId, setSearchParams, sortedRows]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(sortedRows.length / pageSize) - 1);
+    if (page > maxPage) {
+      setScopedSearchParams(setSearchParams, searchParams, { page: String(maxPage) });
+    }
+  }, [page, pageSize, searchParams, setSearchParams, sortedRows.length]);
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setSelectedClientId("");
+      setMetadataDraft({ title: "", documentTypeId: "", metadataValues: {} });
+      return;
+    }
+
+    setSelectedClientId(selectedItem.clientId ?? "");
+    setMetadataDraft({
+      title: selectedItem.title ?? "",
+      documentTypeId: selectedItem.documentTypeId ?? "",
+      metadataValues: selectedItem.metadataValues ?? {},
+    });
+  }, [selectedItem]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileDetailOpen(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    function handleKeyboardShortcuts(event: globalThis.KeyboardEvent) {
+      if (!selectedItem) {
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        setMetadataDialogOpen(true);
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        setApproveDialogOpen(true);
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        setRejectDialogOpen(true);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcuts);
   }, [selectedItem]);
 
   const refreshQueue = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["review-queue"] });
+    await queryClient.invalidateQueries({ queryKey: reviewQueueKey });
   };
 
   const linkMutation = useMutation({
-    mutationFn: () => linkReviewItemClient(selectedItemId, selectedClientId),
-    onSuccess: refreshQueue,
-  });
-  const metadataMutation = useMutation({
-    mutationFn: () => correctReviewItemMetadata(selectedItemId, {
-      title,
-      documentTypeId: documentTypeId || undefined,
-      metadataValues: {
-        ...(carrier.trim() ? { carrier: carrier.trim() } : {}),
-        ...(policyNumber.trim() ? { policyNumber: policyNumber.trim() } : {}),
-      },
-    }),
+    mutationFn: () => linkReviewItemClient(selectedItem!.id, selectedClientId),
     onSuccess: async () => {
+      notify({ severity: "success", message: "Review item linked to customer." });
+      setLinkDialogOpen(false);
       await refreshQueue();
     },
+    onError: () => {
+      notify({ severity: "error", message: "Unable to link the review item." });
+    },
   });
-  const approveMutation = useMutation({
-    mutationFn: () => approveReviewItem(selectedItemId),
-    onSuccess: refreshQueue,
-  });
-  const rejectMutation = useMutation({
-    mutationFn: () => rejectReviewItem(selectedItemId, rejectReason),
+
+  const metadataMutation = useMutation({
+    mutationFn: () =>
+      correctReviewItemMetadata(selectedItem!.id, {
+        title: metadataDraft.title.trim(),
+        documentTypeId: metadataDraft.documentTypeId || undefined,
+        metadataValues: trimMetadataValues(metadataDraft.metadataValues),
+      }),
     onSuccess: async () => {
+      notify({ severity: "success", message: "Review metadata updated." });
+      setMetadataDialogOpen(false);
+      await refreshQueue();
+    },
+    onError: () => {
+      notify({ severity: "error", message: "Unable to update review metadata." });
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveReviewItem(selectedItem!.id),
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Review item approved." });
+      setApproveDialogOpen(false);
+      await refreshQueue();
+    },
+    onError: () => {
+      notify({ severity: "error", message: "Unable to approve the review item." });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => rejectReviewItem(selectedItem!.id, rejectReason.trim()),
+    onSuccess: async () => {
+      notify({ severity: "warning", message: "Review item rejected." });
+      setRejectDialogOpen(false);
       setRejectReason("");
       await refreshQueue();
     },
+    onError: () => {
+      notify({ severity: "error", message: "Unable to reject the review item." });
+    },
   });
 
+  function applySearch() {
+    setScopedSearchParams(setSearchParams, searchParams, {
+      q: localQuery.trim() || null,
+      page: "0",
+      selected: null,
+    });
+  }
+
+  function clearFilters() {
+    setLocalQuery("");
+    setScopedSearchParams(setSearchParams, searchParams, {
+      q: null,
+      status: null,
+      reason: null,
+      page: "0",
+      selected: null,
+    });
+  }
+
+  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applySearch();
+    }
+  }
+
+  const handleRowSelect = useCallback((itemId: string) => {
+    setScopedSearchParams(setSearchParams, searchParams, { selected: itemId });
+    if (isMobile) {
+      setMobileDetailOpen(true);
+    }
+  }, [isMobile, searchParams, setSearchParams]);
+
+  const openSelectedItem = useCallback((itemId: string) => {
+    handleRowSelect(itemId);
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-id="${itemId}"]`) as HTMLElement | null;
+      row?.scrollIntoView({ block: "nearest" });
+      row?.focus();
+    });
+  }, [handleRowSelect]);
+
+  const navigateToReviewItem = useCallback((itemId: string) => {
+    openSelectedItem(itemId);
+    const query = searchParams.toString();
+    navigate(`/review-queue/${itemId}${query ? `?${query}` : ""}`, {
+      state: { from: `/review-queue${query ? `?${query}` : ""}` },
+    });
+  }, [navigate, openSelectedItem, searchParams]);
+
+  function handleSortModelChange(model: GridSortModel) {
+    const next = model[0];
+    setScopedSearchParams(setSearchParams, searchParams, {
+      sort: next?.field ?? "title",
+      dir: next?.sort ?? "asc",
+    });
+  }
+
+  function handlePaginationModelChange(model: GridPaginationModel) {
+    setScopedSearchParams(setSearchParams, searchParams, {
+      page: String(model.page),
+      pageSize: String(model.pageSize),
+    });
+  }
+
+  const activeFilters = buildActiveFilters({
+    query,
+    selectedStatus,
+    selectedReason,
+    onClearQuery: () => {
+      setLocalQuery("");
+      setScopedSearchParams(setSearchParams, searchParams, { q: null, page: "0", selected: null });
+    },
+    onClearStatus: () => setScopedSearchParams(setSearchParams, searchParams, { status: null, page: "0", selected: null }),
+    onClearReason: () => setScopedSearchParams(setSearchParams, searchParams, { reason: null, page: "0", selected: null }),
+  });
+
+  const toolbarSecondaryActions = selectedItem
+    ? [
+        { key: "open-review-item", label: "Open review item", onClick: () => navigateToReviewItem(selectedItem.id) },
+        { key: "link-customer", label: "Link customer", onClick: () => setLinkDialogOpen(true) },
+        { key: "edit-metadata", label: "Edit metadata", onClick: () => setMetadataDialogOpen(true) },
+        { key: "reject-item", label: "Reject item", onClick: () => setRejectDialogOpen(true) },
+        { key: "keyboard-shortcuts", label: "Keyboard shortcuts", onClick: () => setShortcutsDialogOpen(true) },
+      ]
+    : [
+        { key: "keyboard-shortcuts", label: "Keyboard shortcuts", onClick: () => setShortcutsDialogOpen(true) },
+      ];
+
+  const selectedActionStrip = !isMobile && selectedItem ? (
+    <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+      <Chip
+        size="small"
+        variant="outlined"
+        label={`${sortedRows.length} ${sortedRows.length === 1 ? "item" : "items"}`}
+      />
+      <Chip size="small" variant="outlined" color="info" label="Review item selected" />
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<OpenInFullOutlinedIcon fontSize="small" />}
+        onClick={() => navigateToReviewItem(selectedItem.id)}
+      >
+        Open review item
+      </Button>
+      <Button
+        size="small"
+        variant="contained"
+        startIcon={<TaskAltOutlinedIcon fontSize="small" />}
+        onClick={() => setApproveDialogOpen(true)}
+      >
+        Approve
+      </Button>
+      <Button size="small" variant="text" color="inherit" onClick={() => setLinkDialogOpen(true)}>
+        Link customer
+      </Button>
+      <Button size="small" variant="text" color="inherit" onClick={() => setMetadataDialogOpen(true)}>
+        Edit metadata
+      </Button>
+      <Button size="small" color="error" variant="text" onClick={() => setRejectDialogOpen(true)}>
+        Reject
+      </Button>
+    </Stack>
+  ) : null;
+
+  const chrome = useMemo<ShellWorkspaceChrome>(() => ({
+    title: "Review",
+    subtitle: "Resolve intake exceptions, validate extracted data, and complete human review without leaving the queue.",
+    contextTitle: selectedItem ? "Selected Review Item" : "Review Context",
+    contextWidth: 336,
+    contextSections: buildContextSections({
+      selectedItem,
+      selectedClient,
+      metadataFields: metadataFieldsQuery.data ?? [],
+      onLink: () => setLinkDialogOpen(true),
+      onEditMetadata: () => setMetadataDialogOpen(true),
+      onOpen: () => {
+        if (selectedItem) {
+          navigateToReviewItem(selectedItem.id);
+        }
+      },
+      onApprove: () => setApproveDialogOpen(true),
+      onReject: () => setRejectDialogOpen(true),
+      totalVisible: sortedRows.length,
+      query,
+      selectedStatus,
+      selectedReason,
+    }),
+  }), [
+    metadataFieldsQuery.data,
+    navigateToReviewItem,
+    query,
+    selectedClient,
+    selectedItem,
+    selectedReason,
+    selectedStatus,
+    sortedRows.length,
+  ]);
+
+  useEffect(() => {
+    setWorkspaceChrome(chrome);
+    return () => clearWorkspaceChrome();
+  }, [chrome, clearWorkspaceChrome, setWorkspaceChrome]);
+
+  const columns = useMemo<GridColDef<ReviewGridRow>[]>(() => {
+    const desktopColumns: GridColDef<ReviewGridRow>[] = [
+      {
+        field: "title",
+        headerName: "Review item",
+        flex: 1.4,
+        minWidth: 260,
+        renderCell: ({ row }) => (
+          <Stack spacing={0.25} sx={{ py: 0.5, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={600} noWrap title={row.title ?? row.itemId}>
+              {row.title ?? row.itemId}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap title={row.itemId}>
+              {row.itemId}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "customerName",
+        headerName: "Customer",
+        flex: 1,
+        minWidth: 180,
+        renderCell: ({ row }) => (
+          <Typography variant="body2" noWrap title={row.customerName}>
+            {row.customerName}
+          </Typography>
+        ),
+      },
+      {
+        field: "itemType",
+        headerName: "Review type",
+        flex: 0.8,
+        minWidth: 150,
+        valueGetter: (_, row) => row.reviewTypeLabel,
+      },
+      {
+        field: "reason",
+        headerName: "Reason",
+        flex: 0.95,
+        minWidth: 200,
+        renderCell: ({ row }) => <StatusBadge label={row.reasonLabel} tone={row.reasonTone} />,
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        flex: 0.7,
+        minWidth: 140,
+        renderCell: ({ row }) => <StatusBadge label={formatStatus(row.status)} tone={row.statusTone} />,
+      },
+      {
+        field: "assignedTo",
+        headerName: "Assigned",
+        flex: 0.75,
+        minWidth: 140,
+        valueGetter: (_, row) => row.assignmentLabel,
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 96,
+        sortable: false,
+        filterable: false,
+        renderCell: ({ row }) => (
+          <Tooltip title="Open review item">
+            <IconButton
+              size="small"
+              aria-label={`Open review item ${row.title ?? row.itemId}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                navigateToReviewItem(row.id);
+              }}
+            >
+              <OpenInFullOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ),
+      },
+    ];
+
+    if (isTabletDown) {
+      return desktopColumns.filter((column) => !["assignedTo"].includes(String(column.field)));
+    }
+
+    return desktopColumns;
+  }, [isTabletDown, navigateToReviewItem]);
+
+  const gridHeight = Math.min(Math.max(276, 108 + Math.max(2, sortedRows.length) * 44), 700);
+  const hasActiveFilters = activeFilters.length > 0;
+  const paginationModel = { page, pageSize };
+
+  if (queueQuery.isLoading && !queueQuery.data) {
+    return (
+      <LoadingState
+        title="Loading review queue"
+        message="Preparing the operational review queue."
+      />
+    );
+  }
+
+  if (queueQuery.isError) {
+    return (
+      <ErrorState
+        title="Unable to load the review queue"
+        message="The current review items could not be retrieved."
+        action={<RetryAction onClick={() => void queueQuery.refetch()} />}
+      />
+    );
+  }
+
   return (
-    <section style={ui.page}>
-      <header style={ui.pageHeader}>
-        <p style={ui.eyebrow}>Indexer workspace / Review queue</p>
-        <h2 style={ui.pageTitle}>Review queue</h2>
-        <p style={ui.pageDescription}>
-          Resolve unlinked or low-confidence intake items without administrator assistance.
-        </p>
-      </header>
-
-      <section style={ui.heroCard}>
-        <div style={ui.metricRow}>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{itemsQuery.data?.length ?? 0}</strong>
-            <span style={metricLabelStyle}>Visible items</span>
-          </div>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{itemsQuery.data?.filter((item) => item.status === "OPEN").length ?? 0}</strong>
-            <span style={metricLabelStyle}>Open</span>
-          </div>
-          <div style={ui.metricCard}>
-            <strong style={metricValueStyle}>{itemsQuery.data?.filter((item) => lowConfidenceReasons.has(item.reason)).length ?? 0}</strong>
-            <span style={metricLabelStyle}>Low confidence</span>
-          </div>
-        </div>
-      </section>
-
-      <div style={layoutStyle}>
-        <section style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Filters</h3>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
-            <label style={{ display: "grid", gap: "0.35rem" }}>
-              <span>Status</span>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ReviewQueueStatus | "")}>
-                <option value="">All statuses</option>
-                <option value="OPEN">Open</option>
-                <option value="IN_PROGRESS">In progress</option>
-                <option value="RESOLVED">Resolved</option>
-                <option value="REJECTED">Rejected</option>
-              </select>
-            </label>
-            <label style={{ display: "grid", gap: "0.35rem" }}>
-              <span>Reason</span>
-              <select value={reasonFilter} onChange={(event) => setReasonFilter(event.target.value as ReviewQueueReason | "")}>
-                <option value="">All reasons</option>
-                <option value="UNLINKED">Unlinked</option>
-                <option value="LOW_CLIENT_CONFIDENCE">Low client confidence</option>
-                <option value="LOW_CLASSIFICATION_CONFIDENCE">Low classification confidence</option>
-                <option value="LOW_EXTRACTION_CONFIDENCE">Low extraction confidence</option>
-                <option value="DUPLICATE_UNCERTAINTY">Duplicate uncertainty</option>
-                <option value="REDACTION_FAILED">Redaction failed</option>
-                <option value="PROMPT_INJECTION_RISK">Prompt injection risk</option>
-                <option value="PROCESSING_FAILED">Processing failed</option>
-              </select>
-            </label>
-            <div style={tableWrapStyle}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itemsQuery.data?.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.itemType}</td>
-                      <td>{item.reason}</td>
-                      <td><span style={ui.statusBadge}>{item.status}</span></td>
-                      <td>
-                        <button
-                          type="button"
-                          style={item.id === selectedItemId ? selectedItemButtonStyle : itemButtonStyle}
-                          onClick={() => setSelectedItemId(item.id)}
-                        >
-                          {`${item.itemType} · ${item.reason} · ${item.status}`}
-                        </button>
-                      </td>
-                    </tr>
+    <Stack spacing={1.5}>
+      <WorkspaceToolbar
+        searchPlaceholder="Search by title, customer, queue item, or assignment"
+        searchValue={localQuery}
+        onSearchChange={setLocalQuery}
+        onSearchKeyDown={handleSearchKeyDown}
+        searchAriaLabel="Review queue query"
+        filters={(
+          <Stack spacing={1} sx={{ width: { xs: "100%", xl: "auto" } }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+              <FormControl size="small" sx={{ minWidth: 0, flex: 1 }}>
+                <Select<ReviewQueueStatus | "ALL">
+                  value={selectedStatus}
+                  inputProps={{ "aria-label": "Review status" }}
+                  onChange={(event) => {
+                    setScopedSearchParams(setSearchParams, searchParams, {
+                      status: event.target.value === "ALL" ? null : String(event.target.value),
+                      page: "0",
+                      selected: null,
+                    });
+                  }}
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            {itemsQuery.data?.length === 0 ? <span>No matching review items.</span> : null}
-          </div>
-        </section>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 0, flex: 1.25 }}>
+                <Select<ReviewQueueReason | "ALL">
+                  value={selectedReason}
+                  inputProps={{ "aria-label": "Review reason" }}
+                  onChange={(event) => {
+                    setScopedSearchParams(setSearchParams, searchParams, {
+                      reason: event.target.value === "ALL" ? null : String(event.target.value),
+                      page: "0",
+                      selected: null,
+                    });
+                  }}
+                >
+                  {reasonOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {isMobile ? (
+                <Stack direction="row" spacing={0.25} alignItems="center">
+                  <Tooltip title="Run queue search">
+                    <IconButton aria-label="Run queue search" onClick={applySearch} size="small">
+                      <SearchOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Refresh">
+                    <IconButton aria-label="Refresh" onClick={() => void queueQuery.refetch()} size="small">
+                      <RefreshOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="More actions">
+                    <IconButton
+                      aria-label="More actions"
+                      size="small"
+                      onClick={(event: MouseEvent<HTMLElement>) => setMobileToolbarMenuAnchor(event.currentTarget)}
+                    >
+                      <MoreHorizOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  {hasActiveFilters ? (
+                    <Button size="small" variant="text" color="inherit" onClick={clearFilters}>
+                      Clear
+                    </Button>
+                  ) : null}
+                </Stack>
+              ) : (
+                <>
+                  <Button variant="contained" startIcon={<SearchOutlinedIcon fontSize="small" />} onClick={applySearch}>
+                    Search
+                  </Button>
+                  {hasActiveFilters ? (
+                    <Button variant="text" color="inherit" onClick={clearFilters}>
+                      Clear
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </Stack>
+            {isMobile ? (
+              <Menu
+                anchorEl={mobileToolbarMenuAnchor}
+                open={Boolean(mobileToolbarMenuAnchor)}
+                onClose={() => setMobileToolbarMenuAnchor(null)}
+              >
+                {selectedItem ? (
+                  <MenuItem
+                    onClick={() => {
+                      setMobileToolbarMenuAnchor(null);
+                      navigateToReviewItem(selectedItem.id);
+                    }}
+                  >
+                    Open review item
+                  </MenuItem>
+                ) : null}
+                {selectedItem ? (
+                  <MenuItem
+                    onClick={() => {
+                      setMobileToolbarMenuAnchor(null);
+                      setApproveDialogOpen(true);
+                    }}
+                  >
+                    Approve
+                  </MenuItem>
+                ) : null}
+                {selectedItem ? (
+                  <MenuItem
+                    onClick={() => {
+                      setMobileToolbarMenuAnchor(null);
+                      setLinkDialogOpen(true);
+                    }}
+                  >
+                    Link customer
+                  </MenuItem>
+                ) : null}
+                {selectedItem ? (
+                  <MenuItem
+                    onClick={() => {
+                      setMobileToolbarMenuAnchor(null);
+                      setMetadataDialogOpen(true);
+                    }}
+                  >
+                    Edit metadata
+                  </MenuItem>
+                ) : null}
+                {selectedItem ? (
+                  <MenuItem
+                    onClick={() => {
+                      setMobileToolbarMenuAnchor(null);
+                      setRejectDialogOpen(true);
+                    }}
+                  >
+                    Reject
+                  </MenuItem>
+                ) : null}
+                <MenuItem
+                  onClick={() => {
+                    setMobileToolbarMenuAnchor(null);
+                    setShortcutsDialogOpen(true);
+                  }}
+                >
+                  Keyboard shortcuts
+                </MenuItem>
+              </Menu>
+            ) : null}
+          </Stack>
+        )}
+        activeFilters={activeFilters}
+        bulkActions={selectedActionStrip}
+        onRefresh={isMobile ? undefined : () => void queueQuery.refetch()}
+        secondaryActions={isMobile ? undefined : toolbarSecondaryActions}
+      />
 
-        <div style={detailColumnStyle}>
-          <section style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Open review item</h3>
-          {selectedItem ? (
-            <div style={{ display: "grid", gap: "0.35rem" }}>
-              <strong>{selectedItem.itemType}</strong>
-              <span>Queue ID: {selectedItem.id}</span>
-              <span>Item ID: {selectedItem.itemId}</span>
-              <span>Title: {selectedItem.title ?? "n/a"}</span>
-              <span>{selectedItem.reason} · <span style={ui.statusBadge}>{selectedItem.status}</span></span>
-            </div>
+      <Dialog open={shortcutsDialogOpen} onClose={() => setShortcutsDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Keyboard shortcuts</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1}>
+            <Typography variant="body2"><strong>Ctrl/Cmd + S</strong> Edit metadata</Typography>
+            <Typography variant="body2"><strong>Ctrl/Cmd + Enter</strong> Approve</Typography>
+            <Typography variant="body2"><strong>Ctrl/Cmd + R</strong> Reject</Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShortcutsDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Box
+        sx={{
+          border: (appTheme) => `1px solid ${appTheme.palette.divider}`,
+          borderRadius: 1,
+          backgroundColor: "background.paper",
+          overflow: "hidden",
+        }}
+      >
+        <Stack spacing={1} sx={{ px: 2, py: 1.25 }}>
+          {sortedRows.length === 0 ? (
+            hasActiveFilters || query.trim() ? (
+              <NoResultsState
+                title="No review items match these filters"
+                message="Try a broader search or remove one of the current queue filters."
+                action={<RetryAction label="Clear filters" onClick={clearFilters} />}
+                compact
+              />
+            ) : (
+              <EmptyState
+                title="No review items are waiting"
+                message="The review queue is currently empty for the selected status and reason."
+                action={<RetryAction label="Refresh queue" onClick={() => void queueQuery.refetch()} />}
+                compact
+              />
+            )
+          ) : isMobile ? (
+            <MobileReviewList rows={pagedRows} selectedId={selectedId} onSelect={handleRowSelect} />
           ) : (
-            <p>Reviewers will inspect extracted details and intake evidence here.</p>
+            <EntityGrid<ReviewGridRow>
+              rows={sortedRows}
+              columns={columns}
+              getRowId={(row) => row.id}
+              pagination
+              paginationMode="client"
+              paginationModel={paginationModel}
+              onPaginationModelChange={handlePaginationModelChange}
+              sortModel={sortModel}
+              onSortModelChange={handleSortModelChange}
+              onRowClick={({ row }) => handleRowSelect(row.id)}
+              onRowDoubleClick={({ row }) => navigateToReviewItem(row.id)}
+              onCellKeyDown={(params, event) => {
+                if (event.key === "Enter") {
+                  navigateToReviewItem(params.row.id);
+                }
+              }}
+              getRowClassName={({ row }) => (row.id === selectedId ? "ikms-selected-row" : "")}
+              emptyTitle="No review items"
+              emptyMessage="There are no review items for the current queue view."
+              sx={{
+                minHeight: gridHeight,
+                height: gridHeight,
+                "& .ikms-selected-row": {
+                  backgroundColor: theme.palette.action.selected,
+                  boxShadow: `inset 3px 0 0 ${theme.palette.primary.main}`,
+                },
+                "& .MuiDataGrid-cell:focus, & .MuiDataGrid-columnHeader:focus": {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: -2,
+                },
+              }}
+            />
           )}
-          </section>
-          <section style={cardStyle}>
-            <h3 style={sectionTitleStyle}>Resolve actions</h3>
-            <div style={actionGridStyle}>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Link to client</span>
-                <select value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}>
-                  <option value="">Select client</option>
-                  {clientsQuery.data?.map((client) => (
-                    <option key={client.id} value={client.id}>{client.displayName}</option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" style={buttonStyle} disabled={!selectedItemId || !selectedClientId} onClick={() => linkMutation.mutate()}>
-                Link client
-              </button>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Correct title</span>
-                <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Updated title" />
-              </label>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Document type</span>
-                <select value={documentTypeId} onChange={(event) => setDocumentTypeId(event.target.value)}>
-                  <option value="">Select document type</option>
-                  {documentTypesQuery.data?.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Carrier metadata</span>
-                <input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier" />
-              </label>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Policy number metadata</span>
-                <input value={policyNumber} onChange={(event) => setPolicyNumber(event.target.value)} placeholder="Policy number" />
-              </label>
-              {metadataFieldsQuery.data?.length ? (
-                <span style={ui.pageDescription}>
-                  Configured metadata fields: {metadataFieldsQuery.data.map((item) => item.fieldKey).join(", ")}
-                </span>
-              ) : null}
-              <button type="button" style={buttonStyle} disabled={!selectedItemId || !title.trim()} onClick={() => metadataMutation.mutate()}>
-                Save metadata
-              </button>
-              <button type="button" style={buttonStyle} disabled={!selectedItemId} onClick={() => approveMutation.mutate()}>
-                Approve
-              </button>
-              <label style={{ display: "grid", gap: "0.35rem" }}>
-                <span>Reject reason</span>
-                <input value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Reason for rejection" />
-              </label>
-              <button type="button" style={dangerButtonStyle} disabled={!selectedItemId} onClick={() => rejectMutation.mutate()}>
-                Reject
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </section>
+        </Stack>
+      </Box>
+
+      <Drawer
+        anchor="right"
+        open={isMobile && mobileDetailOpen && Boolean(selectedItem)}
+        onClose={() => setMobileDetailOpen(false)}
+        PaperProps={{ sx: { width: "100%", maxWidth: "100%" } }}
+      >
+        <Stack spacing={2} sx={{ p: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle2">Selected review item</Typography>
+            <IconButton aria-label="Close detail" onClick={() => setMobileDetailOpen(false)}>
+              <CloseOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+          {selectedItem ? (
+            <SelectedReviewDetail
+              item={selectedItem}
+              client={selectedClient}
+              metadataFields={metadataFieldsQuery.data?.map((field) => field.fieldKey) ?? []}
+              onOpen={() => navigateToReviewItem(selectedItem.id)}
+              onLink={() => setLinkDialogOpen(true)}
+              onEditMetadata={() => setMetadataDialogOpen(true)}
+              onApprove={() => setApproveDialogOpen(true)}
+              onReject={() => setRejectDialogOpen(true)}
+            />
+          ) : null}
+        </Stack>
+      </Drawer>
+
+      <Dialog open={linkDialogOpen} onClose={() => setLinkDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Link review item to customer</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Select the customer that should own this review item.
+            </Typography>
+            <FormControl size="small" fullWidth>
+              <InputLabel id="review-link-customer-label">Customer</InputLabel>
+              <Select
+                labelId="review-link-customer-label"
+                label="Customer"
+                value={selectedClientId}
+                onChange={(event) => setSelectedClientId(String(event.target.value))}
+              >
+                {(clientsQuery.data ?? []).map((client) => (
+                  <MenuItem key={client.id} value={client.id}>
+                    {client.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => linkMutation.mutate()}
+            disabled={!selectedItem || !selectedClientId || linkMutation.isPending}
+          >
+            {linkMutation.isPending ? "Linking..." : "Link customer"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={metadataDialogOpen} onClose={() => setMetadataDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Edit review metadata</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+            <TextField
+              label="Title"
+              value={metadataDraft.title}
+              onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))}
+              autoFocus
+            />
+            <FormControl size="small" fullWidth>
+              <InputLabel id="review-document-type-label">Document Type</InputLabel>
+              <Select
+                labelId="review-document-type-label"
+                label="Document Type"
+                value={metadataDraft.documentTypeId}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, documentTypeId: String(event.target.value) }))}
+              >
+                <MenuItem value="">None</MenuItem>
+                {(documentTypesQuery.data ?? []).map((item) => (
+                  <MenuItem key={item.id} value={item.id}>
+                    {item.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {(metadataFieldsQuery.data ?? []).map((field) => (
+              <TextField
+                key={field.id}
+                label={field.label}
+                value={metadataDraft.metadataValues[field.fieldKey] ?? ""}
+                onChange={(event) =>
+                  setMetadataDraft((current) => ({
+                    ...current,
+                    metadataValues: {
+                      ...current.metadataValues,
+                      [field.fieldKey]: event.target.value,
+                    },
+                  }))
+                }
+              />
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMetadataDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => metadataMutation.mutate()}
+            disabled={!selectedItem || !metadataDraft.title.trim() || metadataMutation.isPending}
+          >
+            {metadataMutation.isPending ? "Saving..." : "Save metadata"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Approve review item</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary">
+            Approve this item after confirming the customer link, title, document type, and extracted metadata.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => approveMutation.mutate()}
+            disabled={!selectedItem || approveMutation.isPending}
+          >
+            {approveMutation.isPending ? "Approving..." : "Approve"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Reject review item</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+            <Alert severity="warning" variant="outlined">
+              Rejection keeps the decision human-controlled and records an explicit reason for follow-up.
+            </Alert>
+            <TextField
+              label="Rejection reason"
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              multiline
+              minRows={3}
+              autoFocus
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => rejectMutation.mutate()}
+            disabled={!selectedItem || !rejectReason.trim() || rejectMutation.isPending}
+          >
+            {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
   );
 }
 
-const layoutStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(420px, 1.1fr) minmax(320px, 0.9fr)",
-  gap: "1rem",
-};
+function MobileReviewList({
+  rows,
+  selectedId,
+  onSelect,
+}: {
+  rows: ReviewGridRow[];
+  selectedId: string | null;
+  onSelect: (itemId: string) => void;
+}) {
+  return (
+    <List disablePadding sx={{ display: "grid", gap: 0.75 }}>
+      {rows.map((row) => (
+        <Box
+          key={row.id}
+          sx={{
+            border: (theme) => `1px solid ${theme.palette.divider}`,
+            borderRadius: 1,
+            borderColor: row.id === selectedId ? "primary.main" : "divider",
+            backgroundColor: row.id === selectedId ? "action.selected" : "background.paper",
+            overflow: "hidden",
+          }}
+        >
+          <ListItemButton onClick={() => onSelect(row.id)} alignItems="flex-start" sx={{ px: 1.5, py: 1.25 }}>
+            <ListItemText
+              primary={(
+                <Stack spacing={0.75}>
+                  <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
+                    <Typography variant="body2" fontWeight={600} sx={{ pr: 1 }}>
+                      {row.title ?? row.itemId}
+                    </Typography>
+                    <StatusBadge label={formatStatus(row.status)} tone={row.statusTone} />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {row.customerName}
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    <StatusBadge label={row.reasonLabel} tone={row.reasonTone} />
+                    <Typography variant="caption" color="text.secondary">
+                      {row.reviewTypeLabel}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              )}
+            />
+          </ListItemButton>
+        </Box>
+      ))}
+    </List>
+  );
+}
 
-const detailColumnStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "1rem",
-};
+function SelectedReviewDetail({
+  item,
+  client,
+  metadataFields,
+  onOpen,
+  onLink,
+  onEditMetadata,
+  onApprove,
+  onReject,
+}: {
+  item: ReviewQueueItem;
+  client: ClientSummary | null;
+  metadataFields: string[];
+  onOpen: () => void;
+  onLink: () => void;
+  onEditMetadata: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <Stack spacing={1.5}>
+      <Stack spacing={0.75}>
+        <Typography variant="body2" fontWeight={600}>
+          {item.title ?? item.itemId}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {formatReviewType(item.itemType)} · {item.itemId}
+        </Typography>
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <StatusBadge label={formatReason(item.reason)} tone={mapReasonTone(item.reason)} variant="outlined" />
+          <StatusBadge label={formatStatus(item.status)} tone={mapStatusTone(item.status)} />
+        </Stack>
+      </Stack>
 
-const cardStyle: React.CSSProperties = {
-  ...ui.card,
-};
+      <Stack spacing={0.5}>
+        <Typography variant="subtitle2">Customer context</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {client ? `${client.displayName} (${client.clientId})` : "No customer linked"}
+        </Typography>
+      </Stack>
 
-const buttonStyle: React.CSSProperties = {
-  ...ui.primaryButton,
-};
+      <Stack spacing={0.5}>
+        <Typography variant="subtitle2">Extracted metadata</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {metadataFields.length > 0
+            ? metadataFields
+              .filter((field) => item.metadataValues[field])
+              .map((field) => `${field}: ${item.metadataValues[field]}`)
+              .join(" · ") || "No extracted metadata available"
+            : "No configured metadata fields available"}
+        </Typography>
+      </Stack>
 
-const dangerButtonStyle: React.CSSProperties = {
-  ...ui.dangerButton,
-};
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Button size="small" variant="outlined" startIcon={<OpenInFullOutlinedIcon fontSize="small" />} onClick={onOpen}>
+          Open review item
+        </Button>
+        <Button size="small" variant="contained" startIcon={<TaskAltOutlinedIcon fontSize="small" />} onClick={onApprove}>
+          Approve
+        </Button>
+        <Button size="small" variant="outlined" startIcon={<LinkOutlinedIcon fontSize="small" />} onClick={onLink}>
+          Link customer
+        </Button>
+        <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon fontSize="small" />} onClick={onEditMetadata}>
+          Edit metadata
+        </Button>
+        <Button size="small" color="error" variant="text" onClick={onReject}>
+          Reject
+        </Button>
+      </Stack>
+    </Stack>
+  );
+}
 
-const itemButtonStyle: React.CSSProperties = {
-  padding: "0.45rem 0.7rem",
-  borderRadius: "0.75rem",
-  border: "1px solid rgba(191, 208, 226, 0.72)",
-  background: "var(--panel-solid)",
-  cursor: "pointer",
-};
+function buildContextSections({
+  selectedItem,
+  selectedClient,
+  metadataFields,
+  onLink,
+  onEditMetadata,
+  onOpen,
+  onApprove,
+  onReject,
+  totalVisible,
+  query,
+  selectedStatus,
+  selectedReason,
+}: {
+  selectedItem: ReviewQueueItem | null;
+  selectedClient: ClientSummary | null;
+  metadataFields: Array<{ fieldKey: string; label: string }>;
+  onLink: () => void;
+  onEditMetadata: () => void;
+  onOpen: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  totalVisible: number;
+  query: string;
+  selectedStatus: ReviewQueueStatus | "ALL";
+  selectedReason: ReviewQueueReason | "ALL";
+}): ContextSection[] {
+  if (!selectedItem) {
+    return [
+      {
+        key: "queue-summary",
+        title: "Queue Summary",
+        content: (
+          <Stack spacing={0.75}>
+            <Typography variant="body2" color="text.secondary">
+              {totalVisible} visible {totalVisible === 1 ? "item" : "items"} in the current queue view.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Status: {selectedStatus === "ALL" ? "All statuses" : formatStatus(selectedStatus)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Reason: {selectedReason === "ALL" ? "All reasons" : formatReason(selectedReason)}
+            </Typography>
+            {query.trim() ? (
+              <Typography variant="body2" color="text.secondary">
+                Search: {query}
+              </Typography>
+            ) : null}
+          </Stack>
+        ),
+      },
+      {
+        key: "queue-guidance",
+        title: "Queue Guidance",
+        content: (
+          <Stack spacing={0.75}>
+            <Typography variant="body2" color="text.secondary">
+              Select a queue item to review extracted metadata, confirm customer linkage, and complete the next permitted action.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Use the overflow menu for keyboard shortcuts.
+            </Typography>
+          </Stack>
+        ),
+      },
+    ];
+  }
 
-const selectedItemButtonStyle: React.CSSProperties = {
-  ...itemButtonStyle,
-  background: "linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%)",
-  border: "1px solid transparent",
-  color: "#fffaf0",
-};
+  const metadataSummary = metadataFields
+    .filter((field) => selectedItem.metadataValues[field.fieldKey])
+    .map((field) => `${field.label}: ${selectedItem.metadataValues[field.fieldKey]}`);
 
-const sectionTitleStyle: React.CSSProperties = {
-  marginTop: 0,
-  marginBottom: "1rem",
-};
+  return [
+    {
+      key: "selected-summary",
+      title: "Selected Item",
+      content: (
+        <Stack spacing={0.75}>
+          <Typography variant="body2" fontWeight={600}>
+            {selectedItem.title ?? selectedItem.itemId}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {formatReviewType(selectedItem.itemType)} · {selectedItem.itemId}
+          </Typography>
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <StatusBadge label={formatReason(selectedItem.reason)} tone={mapReasonTone(selectedItem.reason)} variant="outlined" />
+            <StatusBadge label={formatStatus(selectedItem.status)} tone={mapStatusTone(selectedItem.status)} />
+          </Stack>
+        </Stack>
+      ),
+    },
+    {
+      key: "customer-context",
+      title: "Customer Context",
+      content: (
+        <Stack spacing={0.5}>
+          <Typography variant="body2" color="text.secondary">
+            {selectedClient ? selectedClient.displayName : "No customer linked"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {selectedClient ? `${selectedClient.clientId} · ${selectedClient.clientType}` : "Link the item to continue customer-specific handling."}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      key: "metadata-summary",
+      title: "Extracted Metadata",
+      content: (
+        <Stack spacing={0.5}>
+          <Typography variant="body2" color="text.secondary">
+            {metadataSummary.length > 0 ? metadataSummary.join(" · ") : "No extracted metadata is currently available."}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      key: "quick-actions",
+      title: "Quick Actions",
+      content: (
+        <Stack spacing={0.75}>
+          <Button size="small" variant="contained" startIcon={<AssignmentTurnedInOutlinedIcon fontSize="small" />} onClick={onApprove}>
+            Approve item
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<OpenInFullOutlinedIcon fontSize="small" />} onClick={onOpen}>
+            Open review item
+          </Button>
+          <Button size="small" variant="text" color="inherit" startIcon={<LinkOutlinedIcon fontSize="small" />} onClick={onLink}>
+            Link customer
+          </Button>
+          <Button size="small" variant="text" color="inherit" startIcon={<EditOutlinedIcon fontSize="small" />} onClick={onEditMetadata}>
+            Edit metadata
+          </Button>
+          <Button size="small" color="error" variant="text" onClick={onReject}>
+            Reject item
+          </Button>
+        </Stack>
+      ),
+    },
+  ];
+}
 
-const tableWrapStyle: React.CSSProperties = {
-  overflowX: "auto",
-};
+function buildActiveFilters({
+  query,
+  selectedStatus,
+  selectedReason,
+  onClearQuery,
+  onClearStatus,
+  onClearReason,
+}: {
+  query: string;
+  selectedStatus: ReviewQueueStatus | "ALL";
+  selectedReason: ReviewQueueReason | "ALL";
+  onClearQuery: () => void;
+  onClearStatus: () => void;
+  onClearReason: () => void;
+}) {
+  return [
+    ...(query.trim() ? [{ key: "query", label: `Query: ${query.trim()}`, onDelete: onClearQuery }] : []),
+    ...(selectedStatus !== "ALL" ? [{ key: "status", label: `Status: ${formatStatus(selectedStatus)}`, onDelete: onClearStatus }] : []),
+    ...(selectedReason !== "ALL" ? [{ key: "reason", label: `Reason: ${formatReason(selectedReason)}`, onDelete: onClearReason }] : []),
+  ];
+}
 
-const actionGridStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-};
+function sortRows(rows: ReviewGridRow[], sortModel: GridSortModel) {
+  const next = sortModel[0];
+  if (!next?.field || !next.sort) {
+    return rows;
+  }
 
-const metricValueStyle: React.CSSProperties = {
-  fontSize: "1.35rem",
-  letterSpacing: "-0.03em",
-};
+  return [...rows].sort((left, right) => {
+    const leftValue = sortValue(left, next.field as ReviewSortField);
+    const rightValue = sortValue(right, next.field as ReviewSortField);
+    const comparison = leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: "base" });
+    return next.sort === "asc" ? comparison : comparison * -1;
+  });
+}
 
-const metricLabelStyle: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: "0.84rem",
-};
-  const lowConfidenceReasons = new Set<ReviewQueueReason>([
-    "LOW_CLIENT_CONFIDENCE",
-    "LOW_CLASSIFICATION_CONFIDENCE",
-    "LOW_EXTRACTION_CONFIDENCE",
-  ]);
+function sortValue(row: ReviewGridRow, field: ReviewSortField) {
+  switch (field) {
+    case "customer":
+      return row.customerName;
+    case "itemType":
+      return row.reviewTypeLabel;
+    case "reason":
+      return row.reasonLabel;
+    case "status":
+      return formatStatus(row.status);
+    case "assignedTo":
+      return row.assignmentLabel;
+    case "title":
+    default:
+      return row.title ?? row.itemId;
+  }
+}
+
+function trimMetadataValues(metadataValues: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(metadataValues)
+      .map(([key, value]) => [key, value.trim()])
+      .filter(([, value]) => value.length > 0),
+  );
+}
+
+function formatReviewType(type: ReviewQueueItem["itemType"]) {
+  switch (type) {
+    case "DOCUMENT_VERSION":
+      return "Document Version";
+    case "EMAIL":
+      return "Email";
+    case "DOCUMENT":
+    default:
+      return "Document";
+  }
+}
+
+function formatReason(reason: ReviewQueueReason) {
+  return reason
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatStatus(status: ReviewQueueStatus) {
+  return status === "IN_PROGRESS"
+    ? "In progress"
+    : status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+function mapStatusTone(status: ReviewQueueStatus): StatusTone {
+  switch (status) {
+    case "RESOLVED":
+      return "success";
+    case "REJECTED":
+      return "error";
+    case "IN_PROGRESS":
+      return "info";
+    case "OPEN":
+    default:
+      return "warning";
+  }
+}
+
+function mapReasonTone(reason: ReviewQueueReason): StatusTone {
+  switch (reason) {
+    case "PROCESSING_FAILED":
+    case "PROMPT_INJECTION_RISK":
+    case "REDACTION_FAILED":
+      return "error";
+    case "LOW_CLIENT_CONFIDENCE":
+    case "LOW_CLASSIFICATION_CONFIDENCE":
+    case "LOW_EXTRACTION_CONFIDENCE":
+    case "DUPLICATE_UNCERTAINTY":
+      return "warning";
+    case "UNLINKED":
+    default:
+      return "info";
+  }
+}
+
+function parseStatusFilter(value: string | null): ReviewQueueStatus | "ALL" {
+  return statusOptions.some((option) => option.value === value)
+    ? (value as ReviewQueueStatus | "ALL")
+    : "OPEN";
+}
+
+function parseReasonFilter(value: string | null): ReviewQueueReason | "ALL" {
+  return reasonOptions.some((option) => option.value === value)
+    ? (value as ReviewQueueReason | "ALL")
+    : "ALL";
+}
+
+function parseSortField(value: string | null): ReviewSortField {
+  const allowed: ReviewSortField[] = ["title", "customer", "itemType", "reason", "status", "assignedTo"];
+  return allowed.includes(value as ReviewSortField) ? (value as ReviewSortField) : "title";
+}
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  if (value === null || value === "") {
+    return fallback;
+  }
+  const next = Number(value);
+  return Number.isFinite(next) && next >= 0 ? next : fallback;
+}
+
+function setScopedSearchParams(
+  setSearchParams: ReturnType<typeof useSearchParams>[1],
+  current: URLSearchParams,
+  updates: Record<string, string | null>,
+) {
+  const next = new URLSearchParams(current);
+  Object.entries(updates).forEach(([key, value]) => {
+    if (value === null || value === "") {
+      next.delete(key);
+      return;
+    }
+    next.set(key, value);
+  });
+  setSearchParams(next, { replace: true });
+}

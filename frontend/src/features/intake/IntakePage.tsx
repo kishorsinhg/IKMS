@@ -20,13 +20,6 @@ export function IntakePage() {
 
   return (
     <section style={ui.page}>
-      <header style={ui.pageHeader}>
-        <h2 style={ui.pageTitle}>Intake operations</h2>
-        <p style={ui.pageDescription}>
-          Manual upload, duplicate outcomes, and automated intake status will be managed here.
-        </p>
-      </header>
-
       <div style={gridStyle}>
         <section style={cardStyle}>
           <h3 style={sectionTitleStyle}>Manual upload</h3>
@@ -103,14 +96,14 @@ const statusCardStyle: React.CSSProperties = {
   display: "grid",
   gap: "0.25rem",
   padding: "0.9rem 1rem",
-  borderRadius: "0.95rem",
-  background: "var(--panel-muted)",
-  border: "1px solid rgba(191, 208, 226, 0.72)",
+  borderRadius: "4px",
+  background: "var(--ikms-panel-muted)",
+  border: "1px solid var(--ikms-line)",
 };
 
 const errorStyle: React.CSSProperties = {
   marginBottom: 0,
-  color: "var(--danger)",
+  color: "var(--ikms-danger)",
 };
 
 const sectionTitleStyle: React.CSSProperties = {

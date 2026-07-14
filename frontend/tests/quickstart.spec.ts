@@ -1,35 +1,34 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("IKMS quickstart smoke flow", () => {
-  test("supports login, client navigation, intake, admin, and audit shell flows", async ({ page }) => {
-    await page.goto("/login");
-
-    await expect(page.getByRole("heading", { name: "IKMS Sign In" })).toBeVisible();
-    await page.getByLabel("Username").fill("admin");
-    await page.getByLabel("Password").fill("ChangeMe123!");
-    await page.getByRole("button", { name: "Sign in" }).click();
-
-    await expect(page).toHaveURL(/\/clients$/);
-    await expect(page.getByRole("heading", { name: "Clients workspace" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Open CSV import" }).click();
-    await expect(page).toHaveURL(/\/clients\/import$/);
-    await expect(page.getByRole("heading", { name: "Client CSV import" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Intake" }).click();
-    await expect(page).toHaveURL(/\/intake$/);
-    await expect(page.getByRole("heading", { name: "Intake operations" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Search" }).click();
+  test("supports authenticated search-first navigation and protected route handling", async ({ page }) => {
+    await page.goto("/");
     await expect(page).toHaveURL(/\/search$/);
-    await expect(page.getByRole("heading", { name: "Client search and AI Q&A" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Search", exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Administration" }).click();
+    await page.goto("/clients");
+    await expect(page).toHaveURL(/\/clients$/);
+    await expect(page.getByRole("heading", { name: "Customer Access", exact: true })).toBeVisible();
+
+    await page.goto("/clients/import");
+    await expect(page).toHaveURL(/\/clients\/import$/);
+    await expect(page.getByRole("heading", { name: "Client Import", exact: true })).toBeVisible();
+
+    await page.goto("/intake");
+    await expect(page).toHaveURL(/\/intake$/);
+    await expect(page.getByRole("heading", { name: "Intake", exact: true })).toBeVisible();
+
+    await page.goto("/search");
+    await expect(page).toHaveURL(/\/search$/);
+    await expect(page.getByRole("heading", { name: "Search", exact: true })).toBeVisible();
+
+    await expect(page.getByRole("link", { name: "Administration" })).toHaveCount(0);
+    await page.goto("/administration");
     await expect(page).toHaveURL(/\/administration$/);
-    await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
+    await expect(page.getByText("Workspace restricted")).toBeVisible();
 
-    await page.getByRole("link", { name: "Audit" }).click();
+    await page.goto("/audit");
     await expect(page).toHaveURL(/\/audit$/);
-    await expect(page.getByRole("heading", { name: "Audit and governance" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Audit", exact: true })).toBeVisible();
   });
 });

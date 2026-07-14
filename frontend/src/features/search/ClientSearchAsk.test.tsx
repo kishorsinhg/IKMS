@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { NotificationProvider } from "../../app/providers/NotificationProvider";
+import { IkmsThemeProvider } from "../../app/theme/IkmsThemeProvider";
 import { ClientProfilePage } from "../clients/ClientProfilePage";
 
 describe("ClientSearchAsk", () => {
@@ -95,14 +97,31 @@ describe("ClientSearchAsk", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/clients/client-1"]}>
-          <Routes>
-            <Route path="/clients/:clientId" element={<ClientProfilePage />} />
-          </Routes>
-        </MemoryRouter>
+        <IkmsThemeProvider>
+          <NotificationProvider>
+            <MemoryRouter initialEntries={["/clients/client-1"]}>
+              <Routes>
+                <Route
+                  element={
+                    <Outlet
+                      context={{
+                        setWorkspaceChrome: vi.fn(),
+                        clearWorkspaceChrome: vi.fn(),
+                      }}
+                    />
+                  }
+                >
+                  <Route path="/clients/:clientId" element={<ClientProfilePage />} />
+                </Route>
+              </Routes>
+            </MemoryRouter>
+          </NotificationProvider>
+        </IkmsThemeProvider>
       </QueryClientProvider>,
     );
 
+    await waitFor(() => expect(screen.getByRole("button", { name: /Evidence Assistant/i })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Evidence Assistant/i }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "AI Q&A" })).toBeInTheDocument());
     await user.type(screen.getByPlaceholderText("Search documents, emails, and notes"), "renewal");
     await waitFor(() => expect(screen.getByText("Policy Schedule")).toBeInTheDocument());

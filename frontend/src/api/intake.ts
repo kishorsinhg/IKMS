@@ -1,4 +1,15 @@
 import { apiClient } from "./client";
+import {
+  demoApproveReviewItem,
+  demoCorrectReviewItemMetadata,
+  demoLinkReviewItemClient,
+  demoRejectReviewItem,
+  getDemoReviewQueueItem,
+  isDemoDataEnabled,
+  listDemoClientDocuments,
+  listDemoClientEmails,
+  listDemoReviewQueue,
+} from "./demo";
 
 export type ReviewQueueItemType = "DOCUMENT" | "EMAIL" | "DOCUMENT_VERSION";
 export type ReviewQueueReason =
@@ -68,14 +79,23 @@ export function uploadDocument(file: File, clientId?: string) {
 }
 
 export function listClientDocuments(clientId: string) {
+  if (isDemoDataEnabled) {
+    return listDemoClientDocuments(clientId);
+  }
   return apiClient.get<ClientDocumentSummary[]>(`/api/clients/${clientId}/documents`);
 }
 
 export function listClientEmails(clientId: string) {
+  if (isDemoDataEnabled) {
+    return listDemoClientEmails(clientId);
+  }
   return apiClient.get<ClientEmailSummary[]>(`/api/clients/${clientId}/emails`);
 }
 
 export function listReviewQueue(status?: ReviewQueueStatus | "", reason?: ReviewQueueReason | "") {
+  if (isDemoDataEnabled) {
+    return listDemoReviewQueue(status, reason);
+  }
   const searchParams = new URLSearchParams();
   if (status) {
     searchParams.set("status", status);
@@ -88,10 +108,16 @@ export function listReviewQueue(status?: ReviewQueueStatus | "", reason?: Review
 }
 
 export function getReviewQueueItem(itemId: string) {
+  if (isDemoDataEnabled) {
+    return getDemoReviewQueueItem(itemId);
+  }
   return apiClient.get<ReviewQueueItem>(`/api/review-queue/${itemId}`);
 }
 
 export function linkReviewItemClient(itemId: string, clientId: string) {
+  if (isDemoDataEnabled) {
+    return demoLinkReviewItemClient(itemId, clientId);
+  }
   return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/link-client`, { clientId });
 }
 
@@ -99,13 +125,22 @@ export function correctReviewItemMetadata(
   itemId: string,
   request: { title: string; documentTypeId?: string; metadataValues?: Record<string, string> },
 ) {
+  if (isDemoDataEnabled) {
+    return demoCorrectReviewItemMetadata(itemId, request);
+  }
   return apiClient.patch<ReviewQueueItem>(`/api/review-queue/${itemId}/metadata`, request);
 }
 
 export function approveReviewItem(itemId: string) {
+  if (isDemoDataEnabled) {
+    return demoApproveReviewItem(itemId);
+  }
   return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/approve`);
 }
 
 export function rejectReviewItem(itemId: string, reason: string) {
+  if (isDemoDataEnabled) {
+    return demoRejectReviewItem(itemId, reason);
+  }
   return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/reject`, { reason });
 }
