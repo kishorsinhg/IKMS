@@ -45,7 +45,7 @@ public class ReviewQueueController {
   public ReviewContracts.ReviewQueueItemResponse correctMetadata(
       @PathVariable UUID itemId,
       @Valid @RequestBody ReviewContracts.CorrectMetadataRequest request) {
-    return reviewQueueService.correctMetadata(itemId, request.title(), request.documentTypeId(), request.metadataValues());
+    return reviewQueueService.correctMetadata(itemId, request.title(), request.documentTypeId(), request.metadataValues(), request.reviewerComment());
   }
 
   @PostMapping("/{itemId}/approve")
@@ -58,5 +58,12 @@ public class ReviewQueueController {
       @PathVariable UUID itemId,
       @Valid @RequestBody ReviewContracts.ReviewDecisionRequest request) {
     return reviewQueueService.reject(itemId, request.reason());
+  }
+
+  @PostMapping("/{itemId}/retry")
+  public ReviewContracts.ReviewQueueItemResponse retry(
+      @PathVariable UUID itemId,
+      @Valid @RequestBody(required = false) ReviewContracts.RetryReviewJobRequest request) {
+    return reviewQueueService.retry(itemId, request == null ? null : request.reviewerComment());
   }
 }

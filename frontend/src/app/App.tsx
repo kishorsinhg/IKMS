@@ -32,6 +32,7 @@ import { ClientImportPage } from "../features/clients/import/ClientImportPage";
 import { IntakePage } from "../features/intake/IntakePage";
 import { ReviewDetailPage } from "../features/intake/review/ReviewDetailPage";
 import { ReviewQueuePage } from "../features/intake/review/ReviewQueuePage";
+import { KnowledgeQualityPage } from "../features/quality/KnowledgeQualityPage";
 import { SearchLandingPage } from "../features/search/SearchLandingPage";
 import { IkmsAppShell } from "./shell/IkmsAppShell";
 
@@ -103,6 +104,14 @@ export function App() {
             element={
               <RoutePermissionGuard permission="MANAGE_CONFIGURATION">
                 <AdminConfigurationPage />
+              </RoutePermissionGuard>
+            }
+          />
+          <Route
+            path="/knowledge-quality"
+            element={
+              <RoutePermissionGuard permission="MANAGE_CONFIGURATION">
+                <KnowledgeQualityPage />
               </RoutePermissionGuard>
             }
           />

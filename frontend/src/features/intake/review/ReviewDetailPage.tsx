@@ -5,8 +5,6 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
 import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-import ZoomInOutlinedIcon from "@mui/icons-material/ZoomInOutlined";
-import ZoomOutOutlinedIcon from "@mui/icons-material/ZoomOutOutlined";
 import {
   Alert,
   Box,
@@ -16,19 +14,13 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Drawer,
   FormControl,
-  IconButton,
   InputLabel,
-  List,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
   Stack,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -40,6 +32,16 @@ import { listDocumentTypes, listMetadataFields } from "../../../api/admin";
 import { getClient, listClients } from "../../../api/clients";
 import { DemoClientWorkspace, getDemoClientWorkspace, isDemoDataEnabled } from "../../../api/demo";
 import {
+  getClientKnowledgeTimeline,
+  getClientRelatedKnowledge,
+  getDocumentVersions,
+  getSourceRelatedKnowledge,
+  knowledgeQueryKeys,
+  type CustomerKnowledgeTimelineEvent,
+  type DocumentVersionSummary,
+  type RelatedKnowledgeLink,
+} from "../../../api/knowledge";
+import {
   approveReviewItem,
   ClientDocumentSummary,
   ClientEmailSummary,
@@ -49,14 +51,41 @@ import {
   listClientDocuments,
   listClientEmails,
   rejectReviewItem,
+  retryReviewItem,
   ReviewQueueItem,
   ReviewQueueReason,
   ReviewQueueStatus,
 } from "../../../api/intake";
 import { useCurrentUser } from "../../../app/auth/useCurrentUser";
+import { AssistantPanel } from "../../../app/components/assistant-panel/AssistantPanel";
+import type {
+  AssistantEvidenceReference,
+  AssistantSourceReference,
+  SuggestedQuestion,
+} from "../../../app/components/assistant-panel/assistantTypes";
+import { AISummary } from "../../../app/components/document-viewer/AISummary";
+import { EvidenceCard } from "../../../app/components/document-viewer/EvidenceCard";
+import {
+  EnterpriseDocumentViewer,
+  type EnterpriseDocumentViewerProps,
+} from "../../../app/components/document-viewer/EnterpriseDocumentViewer";
+import { MetadataGroup as EvidenceMetadataGroup } from "../../../app/components/document-viewer/MetadataGroup";
+import { documentViewerPlaceholderLayers } from "../../../app/components/document-viewer/documentViewerLayers";
+import {
+  type AiSummaryState,
+  type EvidenceWorkspaceSection,
+  normalizeConfidence,
+} from "../../../app/components/document-viewer/evidenceWorkspaceTypes";
 import type { ContextSection } from "../../../app/components/RightContextPanel";
 import { StatusBadge, StatusTone } from "../../../app/components/StatusBadge";
 import { WorkspaceToolbar } from "../../../app/components/WorkspaceToolbar";
+import {
+  buildKnowledgeAssistantEvidenceReferences,
+  buildKnowledgeAssistantSourceReferences,
+  collectKnowledgeBusinessReferenceFields,
+  humanizeKnowledgeRelationshipType,
+  summarizeKnowledgeVersions,
+} from "../../../app/knowledge/knowledgeContext";
 import { useNotification } from "../../../app/providers/useNotification";
 import type { IkmsShellOutletContext, ShellWorkspaceChrome } from "../../../app/shell/IkmsAppShell";
 import {
@@ -102,9 +131,9 @@ export function ReviewDetailPage() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
+  const [assistantDraft, setAssistantDraft] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
-  const [viewerZoom, setViewerZoom] = useState(100);
   const [metadataDraft, setMetadataDraft] = useState<MetadataDraft>({
     title: "",
     documentTypeId: "",
@@ -185,6 +214,37 @@ export function ReviewDetailPage() {
     () => matchReviewEmail(reviewItem, emailsQuery.data ?? []),
     [emailsQuery.data, reviewItem],
   );
+  const knowledgeSourceType = linkedDocument ? "DOCUMENT" : linkedEmail ? "EMAIL" : null;
+  const knowledgeSourceId = linkedDocument?.id ?? linkedEmail?.id ?? null;
+  const timelineQuery = useQuery({
+    queryKey: clientId ? knowledgeQueryKeys.clientTimeline(clientId, { limit: 5 }) : ["review-detail", "timeline", "empty"],
+    queryFn: ({ signal }) => getClientKnowledgeTimeline(clientId!, { limit: 5 }, signal),
+    enabled: Boolean(clientId),
+  });
+  const relatedKnowledgeQuery = useQuery({
+    queryKey: clientId ? knowledgeQueryKeys.clientRelated(clientId, 8) : ["review-detail", "related", "empty"],
+    queryFn: ({ signal }) => getClientRelatedKnowledge(clientId!, 8, signal),
+    enabled: Boolean(clientId),
+  });
+  const sourceRelatedKnowledgeQuery = useQuery({
+    queryKey: knowledgeSourceType && knowledgeSourceId
+      ? knowledgeQueryKeys.sourceRelated(knowledgeSourceType, knowledgeSourceId, 8)
+      : ["review-detail", "source-related", "empty"],
+    queryFn: ({ signal }) => getSourceRelatedKnowledge(knowledgeSourceType!, knowledgeSourceId!, 8, signal),
+    enabled: Boolean(knowledgeSourceType && knowledgeSourceId),
+  });
+  const versionHistoryQuery = useQuery({
+    queryKey: linkedDocument?.id ? knowledgeQueryKeys.documentVersions(linkedDocument.id) : ["review-detail", "versions", "empty"],
+    queryFn: ({ signal }) => getDocumentVersions(linkedDocument!.id, signal),
+    enabled: Boolean(linkedDocument?.id),
+  });
+  const relatedKnowledgeLinks = useMemo(
+    () =>
+      sourceRelatedKnowledgeQuery.data?.links?.length
+        ? sourceRelatedKnowledgeQuery.data.links
+        : relatedKnowledgeQuery.data?.links ?? [],
+    [relatedKnowledgeQuery.data?.links, sourceRelatedKnowledgeQuery.data?.links],
+  );
 
   const canViewOriginal =
     currentUser?.permissions.includes("VIEW_ORIGINAL_DOCUMENTS") &&
@@ -199,6 +259,21 @@ export function ReviewDetailPage() {
   const metadataGroups = useMemo(
     () => buildMetadataGroups(metadataDraft, metadataFieldsQuery.data ?? [], metadataQuery),
     [metadataDraft, metadataFieldsQuery.data, metadataQuery],
+  );
+  const viewerEvidenceSections = useMemo(
+    () =>
+      buildReviewViewerEvidenceSections({
+        item: reviewItem ?? null,
+        client: clientQuery.data ?? null,
+        document: linkedDocument,
+        email: linkedEmail,
+        workspace: relatedWorkspace,
+        relatedLinks: relatedKnowledgeLinks,
+        versions: versionHistoryQuery.data ?? [],
+        metadataGroups,
+        aiSummaryState: workspaceQuery.isLoading ? "loading" : workspaceQuery.isError ? "error" : relatedWorkspace?.aiSummaries[0] ? "ready" : "unavailable",
+      }),
+    [clientQuery.data, linkedDocument, linkedEmail, metadataGroups, relatedKnowledgeLinks, relatedWorkspace, reviewItem, versionHistoryQuery.data, workspaceQuery.isError, workspaceQuery.isLoading],
   );
   const activeFilters = metadataQuery.trim()
     ? [
@@ -226,6 +301,7 @@ export function ReviewDetailPage() {
         title: metadataDraft.title.trim(),
         documentTypeId: metadataDraft.documentTypeId || undefined,
         metadataValues: trimMetadataValues(metadataDraft.metadataValues),
+        reviewerComment: "Reviewer metadata correction from Review Detail",
       }),
     onSuccess: async () => {
       notify({ severity: "success", message: "Review changes saved." });
@@ -265,6 +341,15 @@ export function ReviewDetailPage() {
     onError: () => notify({ severity: "error", message: "Unable to link the review item." }),
   });
 
+  const retryMutation = useMutation({
+    mutationFn: () => retryReviewItem(reviewItem!.id, "Retry requested from Review Detail"),
+    onSuccess: async () => {
+      notify({ severity: "info", message: "Document processing retry requested." });
+      await refreshReviewState();
+    },
+    onError: () => notify({ severity: "error", message: "Unable to retry document processing." }),
+  });
+
   useEffect(() => {
     function handleKeyboardShortcuts(event: KeyboardEvent) {
       if (!reviewItem) {
@@ -296,29 +381,61 @@ export function ReviewDetailPage() {
 
   const contextSections = useMemo(
     () =>
-      buildContextSections({
-        item: reviewItem ?? null,
-        client: clientQuery.data ?? null,
-        document: linkedDocument,
-        email: linkedEmail,
-        workspace: relatedWorkspace,
-        onReject: () => setRejectDialogOpen(true),
-        onLinkCustomer: () => setLinkDialogOpen(true),
-        onEditMetadata: () => setEditMode(true),
-        onOpenCustomer: canOpenCustomer ? () => navigate(`/clients/${clientQuery.data!.id}`) : undefined,
-        onOpenOriginal: canOpenDocument ? () => window.open(previewHref!, "_blank", "noopener,noreferrer") : undefined,
-      }),
-    [
-      canOpenCustomer,
-      canOpenDocument,
-      clientQuery.data,
-      linkedDocument,
-      linkedEmail,
-      navigate,
-      previewHref,
-      relatedWorkspace,
-      reviewItem,
-    ],
+      reviewItem
+        ? [
+            ...buildContextSections({
+              item: reviewItem,
+              client: clientQuery.data ?? null,
+              document: linkedDocument,
+              email: linkedEmail,
+              workspace: relatedWorkspace,
+              relatedLinks: relatedKnowledgeLinks,
+              timelineEvents: timelineQuery.data?.events ?? [],
+              versions: versionHistoryQuery.data ?? [],
+              processingJob: reviewItem.processingJob ?? null,
+              onReject: () => setRejectDialogOpen(true),
+              onLinkCustomer: () => setLinkDialogOpen(true),
+              onEditMetadata: () => setEditMode(true),
+              onRetryProcessing: reviewItem.processingJob ? () => retryMutation.mutate() : undefined,
+              onOpenCustomer: canOpenCustomer ? () => navigate(`/clients/${clientQuery.data!.id}`) : undefined,
+              onOpenOriginal: canOpenDocument ? () => window.open(previewHref!, "_blank", "noopener,noreferrer") : undefined,
+            }),
+            {
+              key: "assistant",
+              title: "Assistant Workspace",
+              content: (
+                <AssistantPanel
+                  title="Enterprise AI Assistant"
+                  subtitle="Review detail context only. Conversation placeholders are shown where no assistant API is currently available."
+                  conversationState="empty"
+                  messages={[]}
+                  suggestedQuestions={buildReviewAssistantQuestions(reviewItem, setAssistantDraft, relatedKnowledgeLinks, versionHistoryQuery.data ?? [])}
+                  evidenceReferences={buildReviewAssistantEvidenceReferences(reviewItem, linkedDocument, linkedEmail, relatedKnowledgeLinks, timelineQuery.data?.events ?? [])}
+                  sourceReferences={buildReviewAssistantSourceReferences(reviewItem, clientQuery.data ?? null, linkedDocument, linkedEmail, relatedKnowledgeLinks)}
+                  emptyTitle="Conversation unavailable"
+                  emptyMessage="Review Detail does not expose an assistant conversation endpoint in the current frontend contract."
+                  composerContent={(
+                    <Stack spacing={1}>
+                      <TextField
+                        size="small"
+                        multiline
+                        minRows={2}
+                        value={assistantDraft}
+                        onChange={(event) => setAssistantDraft(event.target.value)}
+                        placeholder="Capture a review-specific assistant prompt"
+                        aria-label="Review assistant prompt"
+                      />
+                      <Button variant="contained" disabled>
+                        AI unavailable in Review Detail
+                      </Button>
+                    </Stack>
+                  )}
+                />
+              ),
+            },
+          ]
+        : [],
+    [assistantDraft, canOpenCustomer, canOpenDocument, clientQuery.data, linkedDocument, linkedEmail, navigate, previewHref, relatedKnowledgeLinks, relatedWorkspace, retryMutation, reviewItem, timelineQuery.data?.events, versionHistoryQuery.data],
   );
 
   const chrome = useMemo<ShellWorkspaceChrome | null>(() => {
@@ -335,14 +452,26 @@ export function ReviewDetailPage() {
         { label: "Review Detail" },
       ],
       secondaryActions: (
-        <Button
-          variant="text"
-          color="inherit"
-          startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
-          onClick={() => navigate(backToQueueHref)}
-        >
-          Back to queue
-        </Button>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {reviewItem.processingJob ? (
+            <Button
+              variant="text"
+              color="inherit"
+              onClick={() => retryMutation.mutate()}
+              disabled={retryMutation.isPending}
+            >
+              {retryMutation.isPending ? "Retrying..." : "Retry processing"}
+            </Button>
+          ) : null}
+          <Button
+            variant="text"
+            color="inherit"
+            startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+            onClick={() => navigate(backToQueueHref)}
+          >
+            Back to queue
+          </Button>
+        </Stack>
       ),
       primaryActions: (
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -360,7 +489,7 @@ export function ReviewDetailPage() {
       contextSections,
       contextWidth: 324,
     };
-  }, [approveMutation.isPending, backToQueueHref, contextSections, navigate, reviewItem]);
+  }, [approveMutation.isPending, backToQueueHref, contextSections, navigate, retryMutation, reviewItem]);
 
   useEffect(() => {
     if (!chrome) {
@@ -477,17 +606,17 @@ export function ReviewDetailPage() {
           previewHref={!isDemoDataEnabled ? previewHref : null}
           canOpenDocument={canOpenDocument}
           canViewOriginal={Boolean(canViewOriginal)}
-          zoom={viewerZoom}
-          onZoomChange={setViewerZoom}
           previewAvailable={previewAvailable}
           prioritizeMetadata={!previewAvailable}
           isMobile={isMobile}
+          evidenceSections={viewerEvidenceSections}
         />
 
         <MetadataEditorPanel
           item={reviewItem}
           metadataDraft={metadataDraft}
           metadataGroups={metadataGroups}
+          processingJob={reviewItem.processingJob ?? null}
           documentTypes={documentTypesQuery.data ?? []}
           editMode={editMode}
           onToggleEdit={() => setEditMode((current) => !current)}
@@ -500,32 +629,37 @@ export function ReviewDetailPage() {
         />
       </Box>
 
-      {!isDesktopContext ? (
-        <Drawer
-          anchor="right"
+      {!isDesktopContext && reviewItem ? (
+        <AssistantPanel
+          title="Enterprise AI Assistant"
+          subtitle="Review detail context only. Conversation placeholders are shown where no assistant API is currently available."
+          variant={isMobile ? "sheet" : "drawer"}
           open={contextDrawerOpen}
           onClose={() => setContextDrawerOpen(false)}
-          PaperProps={{ sx: { width: { xs: "100%", sm: 380 }, maxWidth: "100%" } }}
-        >
-          <Stack spacing={0} sx={{ height: "100%" }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1.25, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
-              <Typography variant="subtitle2">Evidence Assistant</Typography>
-              <Button size="small" onClick={() => setContextDrawerOpen(false)}>
-                Close
+          conversationState="empty"
+          messages={[]}
+          suggestedQuestions={buildReviewAssistantQuestions(reviewItem, setAssistantDraft, relatedKnowledgeLinks, versionHistoryQuery.data ?? [])}
+          evidenceReferences={buildReviewAssistantEvidenceReferences(reviewItem, linkedDocument, linkedEmail, relatedKnowledgeLinks, timelineQuery.data?.events ?? [])}
+          sourceReferences={buildReviewAssistantSourceReferences(reviewItem, clientQuery.data ?? null, linkedDocument, linkedEmail, relatedKnowledgeLinks)}
+          emptyTitle="Conversation unavailable"
+          emptyMessage="Review Detail does not expose an assistant conversation endpoint in the current frontend contract."
+          composerContent={(
+            <Stack spacing={1}>
+              <TextField
+                size="small"
+                multiline
+                minRows={2}
+                value={assistantDraft}
+                onChange={(event) => setAssistantDraft(event.target.value)}
+                placeholder="Capture a review-specific assistant prompt"
+                aria-label="Review assistant prompt"
+              />
+              <Button variant="contained" disabled>
+                AI unavailable in Review Detail
               </Button>
             </Stack>
-            <Stack spacing={1} sx={{ p: 1.25, overflowY: "auto" }}>
-            {contextSections.map((section) => (
-              <Paper key={section.key} variant="outlined" sx={{ p: 1.25, borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  {section.title}
-                </Typography>
-                {section.content}
-              </Paper>
-            ))}
-            </Stack>
-          </Stack>
-        </Drawer>
+          )}
+        />
       ) : null}
 
       <Dialog open={linkDialogOpen} onClose={() => setLinkDialogOpen(false)} fullWidth maxWidth="xs">
@@ -623,11 +757,10 @@ function DocumentViewerSurface({
   previewHref,
   canOpenDocument,
   canViewOriginal,
-  zoom,
-  onZoomChange,
   previewAvailable,
   prioritizeMetadata,
   isMobile,
+  evidenceSections,
 }: {
   item: ReviewQueueItem;
   document: ClientDocumentSummary | null;
@@ -635,152 +768,49 @@ function DocumentViewerSurface({
   previewHref: string | null;
   canOpenDocument: boolean;
   canViewOriginal: boolean;
-  zoom: number;
-  onZoomChange: (next: number) => void;
   previewAvailable: boolean;
   prioritizeMetadata: boolean;
   isMobile: boolean;
+  evidenceSections: EnterpriseDocumentViewerProps["evidenceSections"];
 }) {
+  const viewerState = previewAvailable ? "ready" : canOpenDocument ? "unsupported" : item.itemType === "EMAIL" ? "unsupported" : "unsupported";
+  const viewerDocument = {
+    id: document?.id ?? email?.id ?? item.id,
+    title: document?.title ?? email?.subject ?? item.title ?? item.itemId,
+    subtitle: document
+      ? `${document.source} · ${document.processingStatus}`
+      : email
+        ? `${email.sender} · ${email.processingStatus}`
+        : `${formatReviewType(item.itemType)} · ${item.itemId}`,
+    fileKind: item.itemType === "EMAIL" ? "email" as const : "pdf" as const,
+    previewUrl: previewAvailable ? previewHref : null,
+    downloadUrl: document ? `/api/documents/${document.id}/download` : null,
+    originalUrl: canOpenDocument ? previewHref : null,
+    originalActionLabel: canViewOriginal ? "Open original" : "Open document",
+    pages: [{ id: `${item.id}-page-1`, label: "Page 1", pageNumber: 1 }],
+    unsupportedReason:
+      item.itemType === "EMAIL"
+        ? "Inline email preview is not available in the current API."
+        : "Inline preview is unavailable for this review item. Continue with metadata validation and linked business context.",
+  };
+
   return (
     <Paper
       variant="outlined"
       sx={{
-        display: "grid",
-        gridTemplateRows: previewAvailable ? "auto minmax(0, 1fr)" : "auto",
-        minHeight: previewAvailable ? { xs: 360, lg: 560 } : undefined,
         order: prioritizeMetadata && isMobile ? 2 : 1,
-        overflow: "hidden",
+        p: 1,
       }}
     >
-      <Stack
-        spacing={previewAvailable ? 1 : 0.75}
-        sx={{
-          px: 1.25,
-          py: previewAvailable ? 1.1 : 0.95,
-          borderBottom: previewAvailable ? (theme) => `1px solid ${theme.palette.divider}` : undefined,
-        }}
-      >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-          <Stack spacing={0.25}>
-            <Typography variant="subtitle2">Document Viewer</Typography>
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {document?.title ?? email?.subject ?? item.title ?? item.itemId}
-            </Typography>
-          </Stack>
-          {canOpenDocument && previewHref ? (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<OpenInNewOutlinedIcon fontSize="small" />}
-              component="a"
-              href={previewHref!}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {canViewOriginal ? "Open original" : "Open document"}
-            </Button>
-          ) : null}
-        </Stack>
-
-        {previewAvailable ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Tooltip title="Zoom out">
-              <span>
-                <IconButton size="small" onClick={() => onZoomChange(Math.max(75, zoom - 10))}>
-                  <ZoomOutOutlinedIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Zoom in">
-              <span>
-                <IconButton size="small" onClick={() => onZoomChange(Math.min(150, zoom + 10))}>
-                  <ZoomInOutlinedIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Button size="small" variant="text" color="inherit" onClick={() => onZoomChange(100)}>
-              Fit width
-            </Button>
-            <Button size="small" variant="text" color="inherit" onClick={() => onZoomChange(90)}>
-              Fit page
-            </Button>
-            <Typography variant="caption" color="text.secondary">
-              {zoom}%
-            </Typography>
-          </Stack>
-        ) : null}
-      </Stack>
-
-      {previewAvailable ? (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "72px minmax(0, 1fr)",
-            minHeight: 0,
-          }}
-        >
-          <Box sx={{ borderRight: (theme) => `1px solid ${theme.palette.divider}`, p: 0.75, backgroundColor: "background.default" }}>
-            <List disablePadding sx={{ display: "grid", gap: 0.5 }}>
-              <ListItemButton selected dense sx={{ borderRadius: 1, px: 1, py: 0.75 }}>
-                <ListItemText
-                  primary={<Typography variant="caption">1</Typography>}
-                  secondary={<Typography variant="caption" color="text.secondary">{item.itemType === "EMAIL" ? "Message" : "Page"}</Typography>}
-                />
-              </ListItemButton>
-            </List>
-          </Box>
-
-          <Box sx={{ minWidth: 0, minHeight: 0, overflow: "auto", backgroundColor: "background.default" }}>
-            <Box sx={{ p: 1.25 }}>
-              <Box
-                sx={{
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: "top center",
-                  transition: "transform 120ms ease",
-                }}
-              >
-                <Box
-                  component="iframe"
-                  title="Review document preview"
-                  src={previewHref!}
-                  sx={{
-                    display: "block",
-                    width: "100%",
-                    minHeight: 520,
-                    border: 0,
-                    backgroundColor: "common.white",
-                  }}
-                />
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      ) : (
-        <Box sx={{ px: 1.25, pb: 1.1 }}>
-          <Paper variant="outlined" sx={{ px: 1.25, py: 1 }}>
-            {item.itemType === "EMAIL" && email ? (
-              <Stack spacing={0.75}>
-                <Typography variant="body2" color="text.secondary">
-                  Inline email preview is not available in the current API.
-                </Typography>
-                <Stack spacing={0.5}>
-                  <MetadataReadout label="Sender" value={email.sender} />
-                  <MetadataReadout label="Received" value={formatDateTime(email.receivedAt)} />
-                </Stack>
-              </Stack>
-            ) : (
-              <Stack spacing={0.75}>
-                <Typography variant="body2" color="text.secondary">
-                  Inline preview is unavailable for this review item.
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Continue with metadata validation and linked business context.
-                </Typography>
-              </Stack>
-            )}
-          </Paper>
-        </Box>
-      )}
+      <EnterpriseDocumentViewer
+        document={viewerDocument}
+        state={viewerState}
+        evidenceSections={evidenceSections}
+        layers={documentViewerPlaceholderLayers()}
+        embedded
+        overflowActions={[
+        ]}
+      />
     </Paper>
   );
 }
@@ -789,6 +819,7 @@ function MetadataEditorPanel({
   item,
   metadataDraft,
   metadataGroups,
+  processingJob,
   documentTypes,
   editMode,
   onToggleEdit,
@@ -802,6 +833,7 @@ function MetadataEditorPanel({
   item: ReviewQueueItem;
   metadataDraft: MetadataDraft;
   metadataGroups: MetadataGroup[];
+  processingJob: ReviewQueueItem["processingJob"];
   documentTypes: Array<{ id: string; name: string }>;
   editMode: boolean;
   onToggleEdit: () => void;
@@ -833,6 +865,14 @@ function MetadataEditorPanel({
         <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
           Workflow status is {formatStatus(item.status).toLowerCase()}. Review reason is {formatReason(item.reason).toLowerCase()}.
         </Alert>
+
+        {processingJob ? (
+          <Alert severity={processingJob.findings.length > 0 ? "warning" : "info"} variant="outlined" sx={{ py: 0.25 }}>
+            Processing stage {humanizeProcessingValue(processingJob.currentStage).toLowerCase()} with overall confidence{" "}
+            {formatConfidenceValue(processingJob.overallConfidence).toLowerCase()}. {processingJob.findings.length} validation finding
+            {processingJob.findings.length === 1 ? "" : "s"} returned by the processing pipeline.
+          </Alert>
+        ) : null}
 
         <Stack spacing={1.25}>
           <Stack spacing={1}>
@@ -912,6 +952,64 @@ function MetadataEditorPanel({
               compact
             />
           ) : null}
+
+          {processingJob?.fields?.length ? (
+            <Box>
+              <Divider sx={{ mb: 1.1 }} />
+              <Stack spacing={1}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle2">Processing Evidence</Typography>
+                  <StatusBadge
+                    label={`${processingJob.fields.filter((field) => field.confidence != null).length}/${processingJob.fields.length} scored`}
+                    tone="neutral"
+                    variant="outlined"
+                  />
+                </Stack>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 1,
+                    gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+                  }}
+                >
+                  {processingJob.fields.slice(0, 8).map((field) => (
+                    <TextField
+                      key={field.fieldKey}
+                      size="small"
+                      label={field.fieldLabel}
+                      value={field.correctedValue ?? field.extractedValue ?? ""}
+                      disabled
+                      helperText={`${humanizeProcessingValue(field.validationState)} · Confidence ${formatConfidenceValue(field.confidence)}`}
+                    />
+                  ))}
+                </Box>
+              </Stack>
+            </Box>
+          ) : null}
+
+          {processingJob?.findings?.length ? (
+            <Box>
+              <Divider sx={{ mb: 1.1 }} />
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Validation Findings</Typography>
+                <Stack spacing={0.75}>
+                  {processingJob.findings.slice(0, 5).map((finding) => (
+                    <Alert
+                      key={`${finding.findingCode}-${finding.createdAt}`}
+                      severity={finding.severity === "ERROR" ? "error" : finding.severity === "WARNING" ? "warning" : "info"}
+                      variant="outlined"
+                    >
+                      <Typography variant="body2">{finding.message}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {humanizeProcessingValue(finding.stage)}{finding.fieldKey ? ` · ${humanizeFieldKey(finding.fieldKey)}` : ""}
+                        {finding.confidence != null ? ` · Confidence ${formatConfidenceValue(finding.confidence)}` : ""}
+                      </Typography>
+                    </Alert>
+                  ))}
+                </Stack>
+              </Stack>
+            </Box>
+          ) : null}
         </Stack>
 
         <Stack direction="row" spacing={0.75} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
@@ -929,17 +1027,6 @@ function MetadataEditorPanel({
         </Stack>
       </Stack>
     </Paper>
-  );
-}
-
-function MetadataReadout({ label, value }: { label: string; value: string }) {
-  return (
-    <Stack spacing={0.35}>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="body2">{value}</Typography>
-    </Stack>
   );
 }
 
@@ -1002,9 +1089,14 @@ function buildContextSections({
   document,
   email,
   workspace,
+  relatedLinks,
+  timelineEvents,
+  versions,
+  processingJob,
   onReject,
   onLinkCustomer,
   onEditMetadata,
+  onRetryProcessing,
   onOpenCustomer,
   onOpenOriginal,
 }: {
@@ -1013,9 +1105,14 @@ function buildContextSections({
   document: ClientDocumentSummary | null;
   email: ClientEmailSummary | null;
   workspace: DemoClientWorkspace | undefined;
+  relatedLinks: RelatedKnowledgeLink[];
+  timelineEvents: CustomerKnowledgeTimelineEvent[];
+  versions: DocumentVersionSummary[];
+  processingJob: ReviewQueueItem["processingJob"];
   onReject: () => void;
   onLinkCustomer: () => void;
   onEditMetadata: () => void;
+  onRetryProcessing?: () => void;
   onOpenCustomer?: () => void;
   onOpenOriginal?: () => void;
 }): ContextSection[] {
@@ -1023,9 +1120,8 @@ function buildContextSections({
     return [];
   }
 
-  const policy = workspace?.policyReferences[0];
-  const claim = workspace?.claimReferences[0];
   const aiSummary = workspace?.aiSummaries[0];
+  const businessReferences = collectKnowledgeBusinessReferenceFields(relatedLinks);
   const evidenceLines = Object.entries(item.metadataValues)
     .filter(([, value]) => value.trim())
     .slice(0, 4)
@@ -1064,33 +1160,71 @@ function buildContextSections({
         </Stack>
       ),
     },
-    ...(policy
+    ...(businessReferences.length > 0
       ? [
           {
-            key: "policy",
-            title: "Policy",
+            key: "business-references",
+            title: "Business Reference Fields",
             content: (
               <Stack spacing={0.5}>
-                <Typography variant="body2">{policy.policyNumber}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {policy.lineOfBusiness} · {policy.carrier}
-                </Typography>
+                {businessReferences.slice(0, 3).map((reference) => (
+                  <Typography key={`${reference.key}-${reference.value}`} variant="body2" color="text.secondary">
+                    {reference.label}: {reference.value}
+                  </Typography>
+                ))}
               </Stack>
             ),
           } satisfies ContextSection,
         ]
       : []),
-    ...(claim
+    ...(relatedLinks.length > 0 || versions.length > 0 || timelineEvents.length > 0
       ? [
           {
-            key: "claim",
-            title: "Claim",
+            key: "related-knowledge",
+            title: "Related Knowledge",
             content: (
               <Stack spacing={0.5}>
-                <Typography variant="body2">{claim.claimNumber}</Typography>
+                {relatedLinks.slice(0, 3).map((link) => (
+                  <Typography key={link.relationshipId} variant="body2" color="text.secondary">
+                    {link.inferred ? "Possible related source" : "Related source"}: {link.relatedTitle} · {humanizeKnowledgeRelationshipType(link.relationshipType)}
+                  </Typography>
+                ))}
+                {versions.length > 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Earlier versions: {summarizeKnowledgeVersions(versions)}
+                  </Typography>
+                ) : null}
+                {timelineEvents.slice(0, 2).map((event) => (
+                  <Typography key={event.eventId} variant="body2" color="text.secondary">
+                    Recent customer knowledge: {event.title}
+                  </Typography>
+                ))}
+              </Stack>
+            ),
+          } satisfies ContextSection,
+        ]
+      : []),
+    ...(processingJob
+      ? [
+          {
+            key: "processing-status",
+            title: "Processing Status",
+            content: (
+              <Stack spacing={0.5}>
                 <Typography variant="body2" color="text.secondary">
-                  {claim.status} · {claim.carrier}
+                  {humanizeProcessingValue(processingJob.status)} · {humanizeProcessingValue(processingJob.currentStage)}
                 </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Overall confidence: {formatConfidenceValue(processingJob.overallConfidence)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Findings: {processingJob.findings.length}
+                </Typography>
+                {processingJob.lastErrorMessage ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Last error: {processingJob.lastErrorMessage}
+                  </Typography>
+                ) : null}
               </Stack>
             ),
           } satisfies ContextSection,
@@ -1165,6 +1299,11 @@ function buildContextSections({
               Open original document
             </Button>
           ) : null}
+          {onRetryProcessing ? (
+            <Button size="small" variant="text" color="inherit" onClick={onRetryProcessing}>
+              Retry processing
+            </Button>
+          ) : null}
           <Button size="small" color="error" variant="text" onClick={onReject}>
             Reject
           </Button>
@@ -1172,6 +1311,61 @@ function buildContextSections({
       ),
     },
   ];
+}
+
+function buildReviewAssistantQuestions(
+  item: ReviewQueueItem,
+  setDraft: (value: string) => void,
+  relatedLinks: RelatedKnowledgeLink[],
+  versions: DocumentVersionSummary[],
+): SuggestedQuestion[] {
+  const labels = [
+    "Why is review required?",
+    relatedLinks.length > 0 ? "Show related knowledge" : "Show missing metadata",
+    versions.length > 1 ? "Find earlier versions" : item.itemType === "DOCUMENT" ? "Explain this document" : "Summarize this intake item",
+    "What should be verified before approval?",
+  ];
+
+  return labels.map((label) => ({
+    key: `${item.id}-${label}`,
+    label,
+    onSelect: () => setDraft(label),
+  }));
+}
+
+function buildReviewAssistantEvidenceReferences(
+  item: ReviewQueueItem,
+  document: ClientDocumentSummary | null,
+  email: ClientEmailSummary | null,
+  relatedLinks: RelatedKnowledgeLink[],
+  timelineEvents: CustomerKnowledgeTimelineEvent[],
+): AssistantEvidenceReference[] {
+  const title = document?.title ?? email?.subject ?? item.title ?? item.itemId;
+  return buildKnowledgeAssistantEvidenceReferences(relatedLinks, timelineEvents, {
+    key: `${item.id}-source`,
+    label: title,
+    target: document ? "page" : "metadata",
+    detail: item.reason,
+    disabled: true,
+  });
+}
+
+function buildReviewAssistantSourceReferences(
+  item: ReviewQueueItem,
+  client: Awaited<ReturnType<typeof getClient>> | null,
+  document: ClientDocumentSummary | null,
+  email: ClientEmailSummary | null,
+  relatedLinks: RelatedKnowledgeLink[],
+): AssistantSourceReference[] {
+  return buildKnowledgeAssistantSourceReferences({
+    customerLabel: client?.displayName,
+    primarySource: document
+      ? { key: `${item.id}-document`, label: document.title, sourceType: "DOCUMENT" }
+      : email
+        ? { key: `${item.id}-email`, label: email.subject, sourceType: "EMAIL" }
+        : { key: `${item.id}-review`, label: item.title ?? item.itemId, sourceType: "METADATA", detail: item.reason },
+    relatedLinks,
+  });
 }
 
 function buildDetailAlerts(
@@ -1262,6 +1456,366 @@ function trimMetadataValues(values: Record<string, string>) {
   );
 }
 
+function buildReviewViewerEvidenceSections({
+  item,
+  client,
+  document,
+  email,
+  workspace,
+  relatedLinks,
+  versions,
+  metadataGroups,
+  aiSummaryState,
+}: {
+  item: ReviewQueueItem | null;
+  client: Awaited<ReturnType<typeof getClient>> | null;
+  document: ClientDocumentSummary | null;
+  email: ClientEmailSummary | null;
+  workspace: DemoClientWorkspace | undefined;
+  relatedLinks: RelatedKnowledgeLink[];
+  versions: DocumentVersionSummary[];
+  metadataGroups: MetadataGroup[];
+  aiSummaryState: AiSummaryState;
+}): EvidenceWorkspaceSection[] {
+  if (!item) {
+    return [];
+  }
+
+  const sections: EvidenceWorkspaceSection[] = [];
+  const metadataLines = Object.entries(item.metadataValues).filter(([, value]) => value.trim());
+  const aiSummary = workspace?.aiSummaries[0];
+  const processingJob = item.processingJob ?? null;
+  const processingFields = processingJob?.fields ?? [];
+  const processingFindings = processingJob?.findings ?? [];
+  const evidenceConfidence = mapNumericConfidenceToLevel(processingJob?.metadataConfidence ?? processingJob?.overallConfidence);
+  const businessReferences = collectKnowledgeBusinessReferenceFields(relatedLinks);
+  const relatedDocuments = relatedLinks.filter((link) => link.relatedSourceType === "DOCUMENT" || link.relatedSourceType === "DOCUMENT_VERSION");
+  const relatedEmails = relatedLinks.filter((link) => link.relatedSourceType === "EMAIL" || link.sourceType === "EMAIL");
+
+  sections.push({
+    key: "ai-summary",
+    title: "AI Summary",
+    defaultExpanded: true,
+    summary: aiSummary ? "Operational AI summary available" : "No AI summary payload",
+    searchText: aiSummary?.summary,
+    content: (
+      <AISummary
+        state={aiSummaryState}
+        summary={aiSummary?.summary}
+        confidence={normalizeConfidence(aiSummary?.confidence)}
+        supportingNotes={aiSummary?.evidence ?? []}
+      />
+    ),
+  });
+
+  sections.push({
+    key: "evidence",
+    title: "Evidence",
+    defaultExpanded: true,
+    summary: processingFields.length > 0 ? "Processing citations, validations, and extracted values" : metadataLines.length > 0 ? "Extracted citations and supporting values" : "No evidence items available",
+    countLabel: processingFields.length > 0 ? `${processingFields.length} fields` : metadataLines.length > 0 ? `${metadataLines.length} items` : undefined,
+    searchText: [...metadataLines.map(([key, value]) => `${key} ${value}`), ...processingFields.map((field) => `${field.fieldKey} ${field.extractedValue ?? ""}`)].join(" "),
+    content: processingFields.length > 0 ? (
+      <Stack spacing={0.75}>
+        {processingFields.map((field) => (
+          <EvidenceCard
+            key={field.fieldKey}
+            title={field.fieldLabel}
+            excerpt={field.correctedValue ?? field.extractedValue ?? field.approvedValue ?? "No value extracted"}
+            citation={document?.title ? `${document.title}${field.sourcePage ? ` · Page ${field.sourcePage}` : ""}` : email?.subject}
+            source={field.sourceType}
+            type={field.businessReferenceType ? "Business reference field" : "Extracted evidence"}
+            confidence={mapNumericConfidenceToLevel(field.confidence)}
+            metadata={[
+              `Method: ${humanizeProcessingValue(field.extractionMethod)}`,
+              `Validation: ${humanizeProcessingValue(field.validationState)}`,
+            ]}
+            navigationActions={[
+              { key: `${field.fieldKey}-page`, label: "Jump to page", kind: "page", disabled: true },
+              { key: `${field.fieldKey}-ocr`, label: "Jump to OCR region", kind: "ocr-region", disabled: true },
+              { key: `${field.fieldKey}-highlight`, label: "Jump to highlight", kind: "highlight", disabled: true },
+            ]}
+          />
+        ))}
+      </Stack>
+    ) : metadataLines.length > 0 ? (
+      <Stack spacing={0.75}>
+        {metadataLines.map(([key, value]) => (
+          <EvidenceCard
+            key={key}
+            title={humanizeFieldKey(key)}
+            excerpt={value}
+            citation={document?.title ? `${document.title}${document.createdAt ? ` · ${formatDateTime(document.createdAt)}` : ""}` : email?.subject}
+            source={document?.source ?? email?.sender ?? formatReviewType(item.itemType)}
+            type="Extracted evidence"
+            confidence={evidenceConfidence}
+            metadata={[`Reason: ${formatReason(item.reason)}`, `Status: ${formatStatus(item.status)}`]}
+            navigationActions={[
+              { key: `${key}-page`, label: "Jump to page", kind: "page", disabled: true },
+              { key: `${key}-ocr`, label: "Jump to OCR region", kind: "ocr-region", disabled: true },
+              { key: `${key}-highlight`, label: "Jump to highlight", kind: "highlight", disabled: true },
+            ]}
+          />
+        ))}
+      </Stack>
+    ) : (
+      <Typography variant="body2" color="text.secondary">
+        No extracted evidence values are currently available.
+      </Typography>
+    ),
+  });
+
+  sections.push({
+    key: "fields",
+      title: "Extracted Fields",
+    summary: processingFields.length > 0 ? "Pipeline fields with extracted, corrected, and approved states" : metadataLines.length > 0 ? "Grouped fields require manual validation" : "No extracted fields captured",
+    searchText: [...metadataLines.map(([key, value]) => `${key} ${value}`), ...processingFields.map((field) => `${field.fieldLabel} ${field.extractedValue ?? ""} ${field.correctedValue ?? ""}`)].join(" "),
+    content: (
+      <Stack spacing={1}>
+        {processingFields.length > 0 ? (
+          <EvidenceMetadataGroup
+            title="Processing pipeline fields"
+            fields={processingFields.map((field) => ({
+              key: field.fieldKey,
+              label: field.fieldLabel,
+              value: field.correctedValue ?? field.extractedValue ?? field.approvedValue ?? "Missing value",
+              state: mapProcessingFieldState(field.validationState, field.correctedValue ?? field.extractedValue ?? field.approvedValue),
+              helperText: `${humanizeProcessingValue(field.extractionMethod)} · ${field.required ? "Required" : "Optional"}`,
+              confidence: mapNumericConfidenceToLevel(field.confidence),
+            }))}
+          />
+        ) : null}
+        {metadataGroups.map((group) => (
+          <EvidenceMetadataGroup
+            key={group.key}
+            title={group.title}
+            fields={group.fields.map((field) => ({
+              key: field.key,
+              label: field.label,
+              value: field.value,
+              state: field.value.trim() ? "NEEDS_REVIEW" : "MISSING",
+              helperText: field.value.trim() ? "Manual review required" : "Missing value",
+              confidence: field.value.trim() ? evidenceConfidence : "UNKNOWN",
+            }))}
+          />
+        ))}
+      </Stack>
+    ),
+  });
+
+  if (client) {
+    sections.push({
+      key: "business-context",
+      title: "Related Business Context",
+      summary: businessReferences.length > 0 ? "Linked customer and external reference fields" : "Linked customer context",
+      content: (
+        <Stack spacing={1}>
+          <EvidenceMetadataGroup
+            title="Customer"
+            fields={[
+              {
+                key: "customer-name",
+                label: "Customer",
+                value: client.displayName,
+                state: "VERIFIED",
+                helperText: "Linked customer record",
+                confidence: "HIGH",
+              },
+              {
+                key: "customer-id",
+                label: "Customer ID",
+                value: `${client.clientId} · ${client.clientType}`,
+                state: "READ_ONLY",
+                helperText: "Read-only linked record",
+              },
+            ]}
+          />
+          {businessReferences.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Business Reference Fields"
+              fields={businessReferences.map((reference, index) => ({
+                key: `review-reference-${index}`,
+                label: reference.label,
+                value: reference.value,
+                state: "VERIFIED" as const,
+                helperText: "Structured searchable metadata",
+                confidence: "HIGH" as const,
+              }))}
+            />
+          ) : null}
+          {relatedDocuments.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Related Documents"
+              fields={relatedDocuments.slice(0, 4).map((link, index) => ({
+                key: `related-document-${index}`,
+                label: humanizeKnowledgeRelationshipType(link.relationshipType),
+                value: `${link.relatedTitle} · ${link.explanation}`,
+                state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+              }))}
+            />
+          ) : null}
+          {relatedEmails.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Related Emails"
+              fields={relatedEmails.slice(0, 3).map((link, index) => ({
+                key: `related-email-${index}`,
+                label: humanizeKnowledgeRelationshipType(link.relationshipType),
+                value: link.sourceType === "EMAIL" ? link.sourceTitle : link.relatedTitle,
+                state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+              }))}
+            />
+          ) : null}
+          {(document || email) ? (
+            <EvidenceMetadataGroup
+              title="Related Documents"
+              fields={[
+                {
+                  key: "related-record",
+                  label: document ? "Document" : "Email",
+                  value: document?.title ?? email?.subject,
+                  state: "READ_ONLY",
+                  helperText: "Linked source record",
+                },
+              ]}
+            />
+          ) : null}
+        </Stack>
+      ),
+    });
+  }
+
+  sections.push({
+    key: "document-information",
+    title: "Document Information",
+    summary: "Version, dates, and source information",
+    content: (
+      <EvidenceMetadataGroup
+        title="Document information"
+        fields={[
+          {
+            key: "document-type",
+            label: "Document type",
+            value: item.documentTypeId || formatReviewType(item.itemType),
+            state: "READ_ONLY",
+          },
+          {
+            key: "version",
+            label: "Version",
+            value: document?.currentVersionId ?? "Current",
+            state: "READ_ONLY",
+          },
+          {
+            key: "created",
+            label: "Created",
+            value: document?.createdAt ? formatDateTime(document.createdAt) : email?.receivedAt ? formatDateTime(email.receivedAt) : undefined,
+            state: document?.createdAt || email?.receivedAt ? "READ_ONLY" : "MISSING",
+          },
+          {
+            key: "source",
+            label: "Source",
+            value: document?.source ?? email?.sender ?? formatReviewType(item.itemType),
+            state: "READ_ONLY",
+          },
+          {
+            key: "version-history",
+            label: "Version history",
+            value: summarizeKnowledgeVersions(versions),
+            state: "READ_ONLY",
+          },
+        ]}
+      />
+    ),
+  });
+
+  sections.push({
+    key: "activity",
+    title: "Activity",
+    summary: "Review actions, history, and comments",
+    content: (
+      <Stack spacing={1}>
+        <EvidenceMetadataGroup
+          title="Review actions"
+          fields={[
+            {
+              key: "status",
+              label: "Workflow status",
+              value: formatStatus(item.status),
+              state: "READ_ONLY",
+            },
+            {
+              key: "reason",
+              label: "Review reason",
+              value: formatReason(item.reason),
+              state: item.reason === "LOW_EXTRACTION_CONFIDENCE" ? "NEEDS_REVIEW" : "READ_ONLY",
+              helperText: item.reason === "LOW_EXTRACTION_CONFIDENCE" ? "Low-confidence extraction requires manual review" : "Operational review context",
+              confidence: evidenceConfidence,
+            },
+            ...(processingJob
+              ? [
+                  {
+                    key: "processing-stage",
+                    label: "Processing stage",
+                    value: humanizeProcessingValue(processingJob.currentStage),
+                    state: "READ_ONLY" as const,
+                    helperText: `Retry count ${processingJob.retryCount}`,
+                    confidence: mapNumericConfidenceToLevel(processingJob.overallConfidence),
+                  },
+                ]
+              : []),
+            {
+              key: "assigned",
+              label: "Assigned to",
+              value: item.assignedTo ?? "Unassigned",
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+        <EvidenceMetadataGroup
+          title="History and comments"
+          fields={[
+            {
+              key: "history",
+              label: "Latest source event",
+              value: document?.createdAt
+                ? `Document received ${formatDateTime(document.createdAt)}`
+                : email?.receivedAt
+                  ? `Email received ${formatDateTime(email.receivedAt)}`
+                  : "No source history available",
+              state: "READ_ONLY",
+            },
+            {
+              key: "comments",
+              label: "Reviewer comments",
+              value: processingJob?.reviewerComment ?? "No read-only comments are available from the current API.",
+              state: "READ_ONLY",
+            },
+            {
+              key: "related-knowledge",
+              label: "Related knowledge",
+              value: relatedLinks.length > 0 ? `${relatedLinks.length} related sources available` : "No related sources returned by the current API.",
+              state: "READ_ONLY",
+            },
+            ...(processingFindings.length > 0
+              ? [
+                  {
+                    key: "validation-findings",
+                    label: "Validation findings",
+                    value: processingFindings.map((finding) => finding.message).join(" · "),
+                    state: "NEEDS_REVIEW" as const,
+                    helperText: "Processing findings require explicit reviewer confirmation",
+                    confidence: mapNumericConfidenceToLevel(processingJob?.validationConfidence),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </Stack>
+    ),
+  });
+
+  return sections;
+}
+
 function setScopedSearchParams(
   setSearchParams: ReturnType<typeof useSearchParams>[1],
   currentParams: URLSearchParams,
@@ -1308,6 +1862,43 @@ function formatReason(value: ReviewQueueReason) {
     .split("_")
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
+}
+
+function humanizeProcessingValue(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatConfidenceValue(value: number | null | undefined) {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "Unavailable";
+}
+
+function mapProcessingFieldState(validationState: string, value: string | null | undefined) {
+  switch (validationState) {
+    case "VERIFIED":
+      return "VERIFIED" as const;
+    case "READ_ONLY":
+      return "READ_ONLY" as const;
+    case "MISSING":
+      return "MISSING" as const;
+    default:
+      return value ? "NEEDS_REVIEW" as const : "MISSING" as const;
+  }
+}
+
+function mapNumericConfidenceToLevel(value: number | null | undefined) {
+  if (typeof value !== "number") {
+    return "UNKNOWN" as const;
+  }
+  if (value >= 0.85) {
+    return "HIGH" as const;
+  }
+  if (value >= 0.6) {
+    return "MEDIUM" as const;
+  }
+  return "LOW" as const;
 }
 
 function mapStatusTone(value: ReviewQueueStatus): StatusTone {

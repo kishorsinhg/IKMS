@@ -3,6 +3,8 @@ package com.ikms.ai;
 import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
+import com.ikms.governance.GovernancePolicyService;
+import com.ikms.observability.RequestContextHolder;
 import com.ikms.search.SearchContracts;
 import com.ikms.security.domain.Permission;
 import java.time.Instant;
@@ -27,6 +29,7 @@ public class ClientQuestionAnsweringService {
   private final PromptInjectionDetectionService promptInjectionDetectionService;
   private final AiProviderSettingsService aiProviderSettingsService;
   private final AiProviderClient aiProviderClient;
+  private final GovernancePolicyService governancePolicyService;
 
   public ClientQuestionAnsweringService(
       RagContextService ragContextService,
@@ -34,16 +37,27 @@ public class ClientQuestionAnsweringService {
       AuditService auditService,
       PromptInjectionDetectionService promptInjectionDetectionService,
       AiProviderSettingsService aiProviderSettingsService,
-      AiProviderClient aiProviderClient) {
+      AiProviderClient aiProviderClient,
+      GovernancePolicyService governancePolicyService) {
     this.ragContextService = ragContextService;
     this.aiInteractionRepository = aiInteractionRepository;
     this.auditService = auditService;
     this.promptInjectionDetectionService = promptInjectionDetectionService;
     this.aiProviderSettingsService = aiProviderSettingsService;
     this.aiProviderClient = aiProviderClient;
+    this.governancePolicyService = governancePolicyService;
   }
 
   public AiContracts.AskClientResponse ask(UUID clientId, String question, Set<Permission> permissions, UUID actorUserId) {
+    return ask(clientId, question, permissions, actorUserId, java.util.Map.of());
+  }
+
+  public AiContracts.AskClientResponse ask(
+      UUID clientId,
+      String question,
+      Set<Permission> permissions,
+      UUID actorUserId,
+      java.util.Map<String, String> actorAttributes) {
     String normalizedQuestion = question == null ? "" : question.trim();
     if (normalizedQuestion.isBlank()) {
       throw new IllegalArgumentException("Question is required.");
@@ -53,7 +67,9 @@ public class ClientQuestionAnsweringService {
       return saveInteraction(clientId, normalizedQuestion, "Refused", "I cannot make claim, policy, underwriting, or fraud decisions.", List.of(), "GUARDRAIL", List.of(), actorUserId);
     }
 
-    var contextOutcome = ragContextService.buildContextDetailed(clientId, normalizedQuestion, permissions);
+    var contextOutcome = actorAttributes == null || actorAttributes.isEmpty()
+        ? ragContextService.buildContextDetailed(clientId, normalizedQuestion, permissions)
+        : ragContextService.buildContextDetailed(clientId, normalizedQuestion, permissions, actorAttributes);
     List<SearchContracts.SearchResultResponse> safeContext = contextOutcome.results().stream()
         .filter(result -> allowContext(clientId, result, actorUserId))
         .toList();
@@ -104,23 +120,24 @@ public class ClientQuestionAnsweringService {
     interaction.setAnswer(answer);
     interaction.setCitedSources(citations.stream().map(citation -> citation.title() + " [" + citation.sourceType() + "]").reduce((a, b) -> a + "; " + b).orElse(""));
     AiInteraction saved = aiInteractionRepository.save(interaction);
+    try (RequestContextHolder.Scope ignored = RequestContextHolder.with(RequestContextHolder.AI_INTERACTION_ID, saved.getId().toString())) {
+      auditService.write(new AuditEvent(
+          Instant.now(),
+          "AI",
+          "CLIENT_QUESTION_ASKED",
+          "Answered".equals(status) ? AuditOutcome.SUCCESS : AuditOutcome.DENIED,
+          actorUserId,
+          clientId,
+          "AiInteraction",
+          saved.getId().toString(),
+          false,
+          java.util.Map.of(
+              "status", status,
+              "retrievalMode", retrievalMode == null ? "" : retrievalMode,
+              "warnings", warnings == null || warnings.isEmpty() ? "" : String.join(" | ", warnings))));
 
-    auditService.write(new AuditEvent(
-        Instant.now(),
-        "AI",
-        "CLIENT_QUESTION_ASKED",
-        "Answered".equals(status) ? AuditOutcome.SUCCESS : AuditOutcome.DENIED,
-        actorUserId,
-        clientId,
-        "AiInteraction",
-        saved.getId().toString(),
-        false,
-        java.util.Map.of(
-            "status", status,
-            "retrievalMode", retrievalMode == null ? "" : retrievalMode,
-            "warnings", warnings == null || warnings.isEmpty() ? "" : String.join(" | ", warnings))));
-
-    return new AiContracts.AskClientResponse(saved.getId(), status, answer, citations, retrievalMode, warnings == null ? List.of() : List.copyOf(warnings), saved.getCreatedAt());
+      return new AiContracts.AskClientResponse(saved.getId(), status, answer, citations, retrievalMode, warnings == null ? List.of() : List.copyOf(warnings), saved.getCreatedAt());
+    }
   }
 
   private static boolean isRefused(String question) {
@@ -157,6 +174,9 @@ public class ClientQuestionAnsweringService {
       List<SearchContracts.SearchResultResponse> context,
       boolean conflictingEvidence) {
     var providerSettings = aiProviderSettingsService.current();
+    if (!governancePolicyService.isApprovedModel(providerSettings.providerName(), providerSettings.modelName())) {
+      return Optional.empty();
+    }
     return aiProviderClient.answerWithEvidence(
         providerSettings,
         question,

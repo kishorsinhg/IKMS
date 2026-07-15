@@ -169,6 +169,7 @@ Right Context Panel
 - Customer context remains visible.
 - Every operational tab uses a grid.
 - Policy and claim references remain read-only links to the system of record.
+- Policy and Claim are external references or metadata within IKMS. The broker management system remains the system of record.
 - Do not convert customer summary into dashboard cards.
 
 ---
@@ -210,7 +211,69 @@ Action Bar
 
 ---
 
-# 7. Administration Workspace
+# 7. Knowledge Quality Workspace
+
+## Purpose
+
+Guide data stewards through customer-centric knowledge quality issues.
+
+## Structure
+
+---
+
+# 8. Administration Workspace
+
+## Purpose
+
+Manage configuration, governance, and enterprise operations without redesigning the shared workspace model.
+
+## Structure
+
+```text
+Configuration Explorer
+Workspace Toolbar
+Administration Grid
+Right Context Panel
+Editor / Detail Drawer
+```
+
+## Operational Modules
+
+- Background Jobs
+- Queues
+- Scheduler
+- Embeddings
+- OCR
+- AI Operations
+- Cache
+- Health
+- Diagnostics
+
+## Rules
+
+- Reuse `EntityGrid`, `WorkspaceToolbar`, `RightContextPanel`, `StatusBadge`, and responsive drawer behavior.
+- Operational controls are administrative actions, not policy or claim workflows.
+- Customer remains the primary business context even when running platform operations.
+
+```text
+Workspace Header
+Quality Toolbar
+Customer Quality Grid
+Selected Steward Queue
+Quality Score Breakdown
+Right Context Panel
+```
+
+## Rules
+
+- Customer remains the primary business context.
+- Policy Number and Claim Number remain Business Reference Fields and may explain quality issues, but they do not create Policy or Claim workspaces.
+- Steward actions are corrective and auditable.
+- Revalidation and reindex actions must remain explicit.
+
+---
+
+# 8. Administration Workspace
 
 ## Purpose
 

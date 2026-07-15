@@ -23,6 +23,65 @@ export type ReviewQueueReason =
   | "PROCESSING_FAILED";
 export type ReviewQueueStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "REJECTED";
 
+export interface ReviewProcessingField {
+  fieldKey: string;
+  fieldLabel: string;
+  fieldType: string;
+  businessReferenceType: string | null;
+  extractedValue: string | null;
+  correctedValue: string | null;
+  approvedValue: string | null;
+  confidence: number | null;
+  sourceType: string;
+  extractionMethod: string;
+  sourcePage: number | null;
+  required: boolean;
+  validationState: string;
+}
+
+export interface ReviewProcessingFinding {
+  findingCode: string;
+  severity: string;
+  stage: string;
+  fieldKey: string | null;
+  message: string;
+  evidenceText: string | null;
+  sourcePage: number | null;
+  confidence: number | null;
+  status: string;
+  resolutionComment: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface ReviewProcessingJob {
+  id: string;
+  status: string;
+  currentStage: string;
+  retryCount: number;
+  overallConfidence: number | null;
+  ocrConfidence: number | null;
+  classificationConfidence: number | null;
+  metadataConfidence: number | null;
+  businessReferenceConfidence: number | null;
+  validationConfidence: number | null;
+  duplicateConfidence: number | null;
+  language: string | null;
+  ocrProvider: string | null;
+  classificationProvider: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  reviewerComment: string | null;
+  startedAt: string | null;
+  reviewRequestedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  publishedAt: string | null;
+  completedAt: string | null;
+  fields: ReviewProcessingField[];
+  findings: ReviewProcessingFinding[];
+}
+
 export interface UploadDocumentResult {
   documentId: string | null;
   versionId: string | null;
@@ -67,6 +126,7 @@ export interface ReviewQueueItem {
   clientId: string | null;
   documentTypeId: string | null;
   metadataValues: Record<string, string>;
+  processingJob?: ReviewProcessingJob | null;
 }
 
 export function uploadDocument(file: File, clientId?: string) {
@@ -123,7 +183,7 @@ export function linkReviewItemClient(itemId: string, clientId: string) {
 
 export function correctReviewItemMetadata(
   itemId: string,
-  request: { title: string; documentTypeId?: string; metadataValues?: Record<string, string> },
+  request: { title: string; documentTypeId?: string; metadataValues?: Record<string, string>; reviewerComment?: string },
 ) {
   if (isDemoDataEnabled) {
     return demoCorrectReviewItemMetadata(itemId, request);
@@ -143,4 +203,8 @@ export function rejectReviewItem(itemId: string, reason: string) {
     return demoRejectReviewItem(itemId, reason);
   }
   return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/reject`, { reason });
+}
+
+export function retryReviewItem(itemId: string, reviewerComment?: string) {
+  return apiClient.post<ReviewQueueItem>(`/api/review-queue/${itemId}/retry`, { reviewerComment });
 }

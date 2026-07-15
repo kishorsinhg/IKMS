@@ -19,7 +19,7 @@ describe("SearchLandingPage", () => {
       setWorkspaceChrome,
     });
 
-    expect(await screen.findByPlaceholderText("Search by customer, policy, claim, email, metadata, or note")).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("Search by customer, policy reference, claim reference, email, metadata, or note")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
     expect(screen.getByRole("grid")).toBeInTheDocument();
     expect(screen.getByText("Search results")).toBeInTheDocument();

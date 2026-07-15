@@ -1,5 +1,6 @@
 package com.ikms.security.domain;
 
+import com.ikms.governance.InformationClassification;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -44,6 +45,28 @@ public class AppUser {
 
   @Column(name = "last_login_at")
   private Instant lastLoginAt;
+
+  @Column(name = "business_unit", length = 120)
+  private String businessUnit;
+
+  @Column(length = 120)
+  private String department;
+
+  @Column(length = 120)
+  private String region;
+
+  @Column(length = 120)
+  private String country;
+
+  @Column(name = "broker_office", length = 120)
+  private String brokerOffice;
+
+  @Column(name = "employment_role", length = 120)
+  private String employmentRole;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "security_clearance", nullable = false, length = 64)
+  private InformationClassification securityClearance = InformationClassification.INTERNAL;
 
   @ElementCollection(fetch = FetchType.EAGER)
   @CollectionTable(name = "app_user_role", joinColumns = @JoinColumn(name = "user_id"))
@@ -120,6 +143,62 @@ public class AppUser {
 
   public void setLastLoginAt(Instant lastLoginAt) {
     this.lastLoginAt = lastLoginAt;
+  }
+
+  public String getBusinessUnit() {
+    return businessUnit;
+  }
+
+  public void setBusinessUnit(String businessUnit) {
+    this.businessUnit = businessUnit;
+  }
+
+  public String getDepartment() {
+    return department;
+  }
+
+  public void setDepartment(String department) {
+    this.department = department;
+  }
+
+  public String getRegion() {
+    return region;
+  }
+
+  public void setRegion(String region) {
+    this.region = region;
+  }
+
+  public String getCountry() {
+    return country;
+  }
+
+  public void setCountry(String country) {
+    this.country = country;
+  }
+
+  public String getBrokerOffice() {
+    return brokerOffice;
+  }
+
+  public void setBrokerOffice(String brokerOffice) {
+    this.brokerOffice = brokerOffice;
+  }
+
+  public String getEmploymentRole() {
+    return employmentRole;
+  }
+
+  public void setEmploymentRole(String employmentRole) {
+    this.employmentRole = employmentRole;
+  }
+
+  public InformationClassification getSecurityClearance() {
+    return securityClearance;
+  }
+
+  public void setSecurityClearance(InformationClassification securityClearance) {
+    this.securityClearance = securityClearance;
   }
 
   public Set<UserRole> getRoles() {

@@ -3,6 +3,7 @@ package com.ikms.common.api;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import com.ikms.observability.RequestContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -118,6 +119,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         code,
         message,
         path,
+        RequestContextHolder.requestId(),
+        RequestContextHolder.correlationId(),
         violations);
   }
 }

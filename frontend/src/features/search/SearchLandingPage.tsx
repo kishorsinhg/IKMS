@@ -31,6 +31,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Tooltip,
   Typography,
   Checkbox,
@@ -55,11 +56,47 @@ import {
   isDemoDataEnabled,
   searchDemoWorkspace,
 } from "../../api/demo";
-import { listReviewQueue } from "../../api/intake";
+import {
+  getClientKnowledgeTimeline,
+  getClientRelatedKnowledge,
+  getDocumentVersions,
+  getSourceRelatedKnowledge,
+  knowledgeQueryKeys,
+  type CustomerKnowledgeTimelineEvent,
+  type DocumentVersionSummary,
+  type RelatedKnowledgeLink,
+} from "../../api/knowledge";
+import {
+  ClientDocumentSummary,
+  ClientEmailSummary,
+  listClientDocuments,
+  listClientEmails,
+  listReviewQueue,
+} from "../../api/intake";
 import { useCurrentUser } from "../../app/auth/useCurrentUser";
+import { AssistantPanel } from "../../app/components/assistant-panel/AssistantPanel";
+import type {
+  AssistantEvidenceReference,
+  AssistantSourceReference,
+  SuggestedQuestion,
+} from "../../app/components/assistant-panel/assistantTypes";
+import { AISummary } from "../../app/components/document-viewer/AISummary";
+import { DocumentViewerDialog } from "../../app/components/document-viewer/DocumentViewerDialog";
+import { EvidenceCard } from "../../app/components/document-viewer/EvidenceCard";
+import { type EnterpriseDocumentViewerProps } from "../../app/components/document-viewer/EnterpriseDocumentViewer";
+import { MetadataGroup as EvidenceMetadataGroup } from "../../app/components/document-viewer/MetadataGroup";
+import { documentViewerPlaceholderLayers } from "../../app/components/document-viewer/documentViewerLayers";
+import { type EvidenceWorkspaceSection, normalizeConfidence } from "../../app/components/document-viewer/evidenceWorkspaceTypes";
 import { EntityGrid } from "../../app/components/EntityGrid";
 import { StatusBadge, StatusTone } from "../../app/components/StatusBadge";
 import { WorkspaceToolbar } from "../../app/components/WorkspaceToolbar";
+import {
+  buildKnowledgeAssistantEvidenceReferences,
+  buildKnowledgeAssistantSourceReferences,
+  collectKnowledgeBusinessReferenceFields,
+  humanizeKnowledgeRelationshipType,
+  summarizeKnowledgeVersions,
+} from "../../app/knowledge/knowledgeContext";
 import {
   EmptyState,
   ErrorState,
@@ -68,6 +105,7 @@ import {
   RetryAction,
 } from "../../app/WorkspaceStates";
 import type { ShellWorkspaceChrome, IkmsShellOutletContext } from "../../app/shell/IkmsAppShell";
+import type { ContextSection } from "../../app/components/RightContextPanel";
 
 type ResultTypeFilter = "ALL" | DemoSearchGroup;
 type SortableField = "title" | "customer" | "resultType" | "reference" | "status";
@@ -116,6 +154,9 @@ export function SearchLandingPage() {
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLElement | null>(null);
   const [actionMenuRowId, setActionMenuRowId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [viewerTargetId, setViewerTargetId] = useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantDraft, setAssistantDraft] = useState("");
 
   const query = searchParams.get("q") ?? "";
   const selectedType = (searchParams.get("type") as ResultTypeFilter | null) ?? "ALL";
@@ -212,6 +253,125 @@ export function SearchLandingPage() {
     queryFn: () => getDemoClientWorkspace(activeRow!.clientId),
     enabled: isDemoDataEnabled && Boolean(activeRow?.clientId),
   });
+  const activeRowSourceType = useMemo(
+    () => (activeRow ? mapSearchRowSourceType(activeRow) : null),
+    [activeRow],
+  );
+  const activeRowSourceId = useMemo(
+    () => (activeRow ? resolveSearchSourceId(activeRow) : null),
+    [activeRow],
+  );
+  const selectedTimelineQuery = useQuery({
+    queryKey: activeRow?.clientId
+      ? knowledgeQueryKeys.clientTimeline(activeRow.clientId, { limit: 5 })
+      : ["search", "selected-timeline", "empty"],
+    queryFn: ({ signal }) => getClientKnowledgeTimeline(activeRow!.clientId, { limit: 5 }, signal),
+    enabled: Boolean(activeRow?.clientId),
+  });
+  const selectedRelatedQuery = useQuery({
+    queryKey: activeRow?.clientId
+      ? knowledgeQueryKeys.clientRelated(activeRow.clientId, 8)
+      : ["search", "selected-related", "empty"],
+    queryFn: ({ signal }) => getClientRelatedKnowledge(activeRow!.clientId, 8, signal),
+    enabled: Boolean(activeRow?.clientId),
+  });
+  const selectedSourceRelatedQuery = useQuery({
+    queryKey: activeRowSourceType && activeRowSourceId
+      ? knowledgeQueryKeys.sourceRelated(activeRowSourceType, activeRowSourceId, 8)
+      : ["search", "selected-source-related", "empty"],
+    queryFn: ({ signal }) => getSourceRelatedKnowledge(activeRowSourceType!, activeRowSourceId!, 8, signal),
+    enabled: Boolean(activeRowSourceType && activeRowSourceId && activeRowSourceType !== "CUSTOMER"),
+  });
+  const selectedVersionsQuery = useQuery({
+    queryKey: activeRowSourceType === "DOCUMENT" && activeRowSourceId
+      ? knowledgeQueryKeys.documentVersions(activeRowSourceId)
+      : ["search", "selected-versions", "empty"],
+    queryFn: ({ signal }) => getDocumentVersions(activeRowSourceId!, signal),
+    enabled: Boolean(activeRowSourceType === "DOCUMENT" && activeRowSourceId),
+  });
+  const selectedRelatedLinks = useMemo(
+    () =>
+      selectedSourceRelatedQuery.data?.links?.length
+        ? selectedSourceRelatedQuery.data.links
+        : selectedRelatedQuery.data?.links ?? [],
+    [selectedRelatedQuery.data?.links, selectedSourceRelatedQuery.data?.links],
+  );
+  const viewerTargetRow = useMemo(
+    () => sortedRows.find((row) => row.id === viewerTargetId) ?? null,
+    [sortedRows, viewerTargetId],
+  );
+  const viewerWorkspaceQuery = useQuery({
+    queryKey: ["search", "viewer-workspace", viewerTargetRow?.clientId],
+    queryFn: () => getDemoClientWorkspace(viewerTargetRow!.clientId),
+    enabled: isDemoDataEnabled && Boolean(viewerTargetRow?.clientId),
+  });
+  const viewerSourceType = useMemo(
+    () => (viewerTargetRow ? mapSearchRowSourceType(viewerTargetRow) : null),
+    [viewerTargetRow],
+  );
+  const viewerSourceId = useMemo(
+    () => (viewerTargetRow ? resolveSearchSourceId(viewerTargetRow) : null),
+    [viewerTargetRow],
+  );
+  const viewerDocumentsQuery = useQuery({
+    queryKey: ["search", "viewer-documents", viewerTargetRow?.clientId],
+    queryFn: () => listClientDocuments(viewerTargetRow!.clientId),
+    enabled: Boolean(viewerTargetRow?.clientId) && viewerTargetRow?.resultType === "Documents",
+  });
+  const viewerEmailsQuery = useQuery({
+    queryKey: ["search", "viewer-emails", viewerTargetRow?.clientId],
+    queryFn: () => listClientEmails(viewerTargetRow!.clientId),
+    enabled: Boolean(viewerTargetRow?.clientId) && viewerTargetRow?.resultType === "Emails",
+  });
+  const viewerSourceRelatedQuery = useQuery({
+    queryKey: viewerSourceType && viewerSourceId
+      ? knowledgeQueryKeys.sourceRelated(viewerSourceType, viewerSourceId, 12)
+      : ["search", "viewer-source-related", "empty"],
+    queryFn: ({ signal }) => getSourceRelatedKnowledge(viewerSourceType!, viewerSourceId!, 12, signal),
+    enabled: Boolean(viewerSourceType && viewerSourceId && viewerSourceType !== "CUSTOMER"),
+  });
+  const viewerVersionsQuery = useQuery({
+    queryKey: viewerSourceType === "DOCUMENT" && viewerSourceId
+      ? knowledgeQueryKeys.documentVersions(viewerSourceId)
+      : ["search", "viewer-versions", "empty"],
+    queryFn: ({ signal }) => getDocumentVersions(viewerSourceId!, signal),
+    enabled: Boolean(viewerSourceType === "DOCUMENT" && viewerSourceId),
+  });
+  const viewerDocumentRecord = useMemo(
+    () =>
+      viewerTargetRow?.resultType === "Documents"
+        ? matchSearchDocument(viewerTargetRow, viewerDocumentsQuery.data ?? [])
+        : null,
+    [viewerDocumentsQuery.data, viewerTargetRow],
+  );
+  const viewerEmailRecord = useMemo(
+    () =>
+      viewerTargetRow?.resultType === "Emails"
+        ? matchSearchEmail(viewerTargetRow, viewerEmailsQuery.data ?? [])
+        : null,
+    [viewerEmailsQuery.data, viewerTargetRow],
+  );
+  const viewerDocumentConfig = useMemo(
+    () =>
+      viewerTargetRow
+        ? buildSearchViewerDocument(viewerTargetRow, viewerDocumentRecord, viewerEmailRecord)
+        : null,
+    [viewerDocumentRecord, viewerEmailRecord, viewerTargetRow],
+  );
+  const viewerEvidenceSections = useMemo<EnterpriseDocumentViewerProps["evidenceSections"]>(
+    () =>
+      viewerTargetRow
+        ? buildSearchViewerEvidenceSections(
+            viewerTargetRow,
+            viewerDocumentRecord,
+            viewerEmailRecord,
+            viewerWorkspaceQuery.data,
+            viewerSourceRelatedQuery.data?.links ?? [],
+            viewerVersionsQuery.data ?? [],
+          )
+        : [],
+    [viewerDocumentRecord, viewerEmailRecord, viewerTargetRow, viewerVersionsQuery.data, viewerWorkspaceQuery.data, viewerSourceRelatedQuery.data?.links],
+  );
 
   const resultCountLabel = queryActive ? `${sortedRows.length} matching results` : `${sortedRows.length} recent customer records`;
   const reviewQueueCount = reviewQueueQuery.data?.length ?? 0;
@@ -274,7 +434,64 @@ export function SearchLandingPage() {
 
   const chrome = useMemo<ShellWorkspaceChrome>(() => {
     const contextSections = activeRow
-      ? buildSelectedContextSections(activeRow, selectedWorkspaceContextQuery.data, () => openCustomer(activeRow.clientId, navigate))
+      ? [
+          ...buildSelectedContextSections(
+            activeRow,
+            selectedWorkspaceContextQuery.data,
+            () => openCustomer(activeRow.clientId, navigate),
+            canOpenSearchViewer(activeRow) ? () => setViewerTargetId(activeRow.id) : undefined,
+            () => setAssistantOpen(true),
+          ),
+          ...buildSearchKnowledgeContextSections(
+            activeRow,
+            selectedRelatedLinks,
+            selectedTimelineQuery.data?.events ?? [],
+            selectedVersionsQuery.data ?? [],
+          ),
+          {
+            key: "assistant",
+            title: "Assistant",
+            content: (
+              <AssistantPanel
+                title="Enterprise AI Assistant"
+                subtitle="Search context only. Conversation placeholders are shown where no assistant API is currently available."
+                conversationState="empty"
+                messages={[]}
+                suggestedQuestions={buildSearchAssistantQuestions(activeRow, setAssistantDraft, selectedRelatedLinks, selectedVersionsQuery.data ?? [])}
+                evidenceReferences={buildSearchAssistantEvidenceReferences(activeRow, selectedRelatedLinks, selectedTimelineQuery.data?.events ?? [])}
+                sourceReferences={buildSearchAssistantSourceReferences(activeRow, selectedRelatedLinks)}
+                emptyTitle="Conversation unavailable"
+                emptyMessage="Search does not expose an assistant conversation endpoint in the current frontend contract."
+                composerContent={(
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Suggested questions are based on the selected result and available timeline or related-knowledge context. Submission remains unavailable until a Search assistant API is exposed.
+                    </Typography>
+                    <Select
+                      size="small"
+                      displayEmpty
+                      value={assistantDraft}
+                      onChange={(event) => setAssistantDraft(String(event.target.value))}
+                      inputProps={{ "aria-label": "Assistant question draft" }}
+                    >
+                      <MenuItem value="">
+                        <em>Select or type a question</em>
+                      </MenuItem>
+                      {buildSearchAssistantQuestions(activeRow, setAssistantDraft, selectedRelatedLinks, selectedVersionsQuery.data ?? []).map((question) => (
+                        <MenuItem key={question.key} value={question.label}>
+                          {question.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <Button variant="contained" disabled>
+                      AI unavailable in Search
+                    </Button>
+                  </Stack>
+                )}
+              />
+            ),
+          },
+        ]
       : buildSearchContextSections({
           query,
           selectedType,
@@ -294,7 +511,19 @@ export function SearchLandingPage() {
       contextTitle: activeRow ? "Selected Result" : "Search Context",
       contextSections,
     };
-  }, [activeRow, navigate, query, reviewQueueCount, selectedType, selectedWorkspaceContextQuery.data, sortedRows.length]);
+  }, [
+    activeRow,
+    assistantDraft,
+    navigate,
+    query,
+    reviewQueueCount,
+    selectedRelatedLinks,
+    selectedTimelineQuery.data?.events,
+    selectedType,
+    selectedVersionsQuery.data,
+    selectedWorkspaceContextQuery.data,
+    sortedRows.length,
+  ]);
 
   useEffect(() => {
     setWorkspaceChrome(chrome);
@@ -549,7 +778,7 @@ export function SearchLandingPage() {
   return (
     <Stack spacing={1.5}>
       <WorkspaceToolbar
-        searchPlaceholder="Search by customer, policy, claim, email, metadata, or note"
+        searchPlaceholder="Search by customer, policy reference, claim reference, email, metadata, or note"
         searchValue={localQuery}
         onSearchChange={setLocalQuery}
         onSearchKeyDown={handleToolbarKeyDown}
@@ -664,7 +893,7 @@ export function SearchLandingPage() {
             queryActive ? (
               <NoResultsState
                 title="No results for this search"
-                message="Try a broader customer, policy, claim, email, or note query."
+                message="Try a broader customer, policy reference, claim reference, email, or note query."
                 action={<RetryAction label="Clear filters" onClick={clearSearch} />}
               />
             ) : (
@@ -770,6 +999,17 @@ export function SearchLandingPage() {
         >
           Open customer
         </MenuItem>
+        {actionRow && canOpenSearchViewer(actionRow) ? (
+          <MenuItem
+            onClick={() => {
+              setViewerTargetId(actionRow.id);
+              setActionMenuAnchor(null);
+              setActionMenuRowId(null);
+            }}
+          >
+            Open evidence workspace
+          </MenuItem>
+        ) : null}
       </Menu>
 
       <Dialog open={columnDialogOpen} onClose={() => setColumnDialogOpen(false)} fullWidth maxWidth="xs">
@@ -821,11 +1061,57 @@ export function SearchLandingPage() {
                 row={activeRow}
                 workspace={selectedWorkspaceContextQuery.data}
                 onOpen={() => openCustomer(activeRow.clientId, navigate)}
+                onOpenEvidenceWorkspace={canOpenSearchViewer(activeRow) ? () => setViewerTargetId(activeRow.id) : undefined}
+                onOpenAssistant={() => setAssistantOpen(true)}
               />
             ) : null}
           </Box>
         </Stack>
       </Drawer>
+
+      {viewerDocumentConfig ? (
+        <DocumentViewerDialog
+          open={Boolean(viewerDocumentConfig)}
+          onClose={() => setViewerTargetId(null)}
+          document={viewerDocumentConfig}
+          state={viewerDocumentsQuery.isLoading || viewerEmailsQuery.isLoading ? "loading" : viewerDocumentConfig.fileKind === "email" || viewerDocumentConfig.previewUrl ? "ready" : "unsupported"}
+          evidenceSections={viewerEvidenceSections}
+          layers={documentViewerPlaceholderLayers()}
+        />
+      ) : null}
+
+      {activeRow ? (
+        <AssistantPanel
+          title="Enterprise AI Assistant"
+          subtitle="Search context only. Conversation placeholders are shown where no assistant API is currently available."
+          variant={isMobile ? "sheet" : "drawer"}
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+          conversationState="empty"
+          messages={[]}
+          suggestedQuestions={buildSearchAssistantQuestions(activeRow, setAssistantDraft, selectedRelatedLinks, selectedVersionsQuery.data ?? [])}
+          evidenceReferences={buildSearchAssistantEvidenceReferences(activeRow, selectedRelatedLinks, selectedTimelineQuery.data?.events ?? [])}
+          sourceReferences={buildSearchAssistantSourceReferences(activeRow, selectedRelatedLinks)}
+          emptyTitle="Conversation unavailable"
+          emptyMessage="Search does not expose an assistant conversation endpoint in the current frontend contract."
+          composerContent={(
+            <Stack spacing={1}>
+              <TextField
+                size="small"
+                multiline
+                minRows={2}
+                value={assistantDraft}
+                onChange={(event) => setAssistantDraft(event.target.value)}
+                placeholder="Capture a Search-specific assistant prompt"
+                aria-label="Search assistant prompt"
+              />
+              <Button variant="contained" disabled>
+                AI unavailable in Search
+              </Button>
+            </Stack>
+          )}
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -898,10 +1184,14 @@ function ResultDetailContent({
   row,
   workspace,
   onOpen,
+  onOpenEvidenceWorkspace,
+  onOpenAssistant,
 }: {
   row: SearchRow;
   workspace?: Awaited<ReturnType<typeof getDemoClientWorkspace>>;
   onOpen: () => void;
+  onOpenEvidenceWorkspace?: () => void;
+  onOpenAssistant?: () => void;
 }) {
   return (
     <Stack spacing={1.5}>
@@ -937,22 +1227,22 @@ function ResultDetailContent({
       {workspace ? (
         <Box>
           <Typography variant="subtitle2" gutterBottom>
-            Related records
+            External references
           </Typography>
           <Stack spacing={0.75}>
             {workspace.policyReferences.slice(0, 2).map((policy) => (
               <Typography key={policy.id} variant="body2" color="text.secondary">
-                Policy {policy.policyNumber} · {policy.carrier}
+                Policy reference {policy.policyNumber} · {policy.carrier}
               </Typography>
             ))}
             {workspace.claimReferences.slice(0, 2).map((claim) => (
               <Typography key={claim.id} variant="body2" color="text.secondary">
-                Claim {claim.claimNumber} · {claim.status}
+                Claim reference {claim.claimNumber} · {claim.status}
               </Typography>
             ))}
             {workspace.policyReferences.length === 0 && workspace.claimReferences.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No related policy or claim references are available for this result.
+                No related external policy or claim references are available for this result.
               </Typography>
             ) : null}
           </Stack>
@@ -960,9 +1250,21 @@ function ResultDetailContent({
       ) : null}
 
       <Box>
-        <Button variant="contained" startIcon={<OpenInNewOutlinedIcon fontSize="small" />} onClick={onOpen}>
-          Open customer
-        </Button>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button variant="contained" startIcon={<OpenInNewOutlinedIcon fontSize="small" />} onClick={onOpen}>
+            Open customer
+          </Button>
+          {onOpenEvidenceWorkspace ? (
+            <Button variant="outlined" color="inherit" onClick={onOpenEvidenceWorkspace}>
+              Open evidence workspace
+            </Button>
+          ) : null}
+          {onOpenAssistant ? (
+            <Button variant="outlined" color="inherit" onClick={onOpenAssistant}>
+              Open assistant
+            </Button>
+          ) : null}
+        </Stack>
       </Box>
     </Stack>
   );
@@ -1010,14 +1312,100 @@ function buildSelectedContextSections(
   row: SearchRow,
   workspace: Awaited<ReturnType<typeof getDemoClientWorkspace>> | undefined,
   onOpen: () => void,
+  onOpenEvidenceWorkspace?: () => void,
+  onOpenAssistant?: () => void,
 ) {
   return [
     {
       key: "selected-summary",
       title: "Selected Result",
-      content: <ResultDetailContent row={row} workspace={workspace} onOpen={onOpen} />,
+      content: <ResultDetailContent row={row} workspace={workspace} onOpen={onOpen} onOpenEvidenceWorkspace={onOpenEvidenceWorkspace} onOpenAssistant={onOpenAssistant} />,
     },
   ];
+}
+
+function buildSearchAssistantQuestions(
+  row: SearchRow,
+  setDraft: (value: string) => void,
+  relatedLinks: RelatedKnowledgeLink[],
+  versions: DocumentVersionSummary[],
+): SuggestedQuestion[] {
+  const labels = [
+    `Explain ${row.resultType.toLowerCase()} relevance`,
+    relatedLinks.length > 0 ? "Show related documents" : "Summarize customer context",
+    versions.length > 1 ? "Find earlier versions" : "What other sources mention this reference?",
+    "Why did this result match?",
+  ];
+
+  return labels.map((label) => ({
+    key: `${row.id}-${label}`,
+    label,
+    onSelect: () => setDraft(label),
+  }));
+}
+
+function buildSearchAssistantEvidenceReferences(
+  row: SearchRow,
+  relatedLinks: RelatedKnowledgeLink[],
+  timelineEvents: CustomerKnowledgeTimelineEvent[],
+): AssistantEvidenceReference[] {
+  return buildKnowledgeAssistantEvidenceReferences(relatedLinks, timelineEvents, {
+    key: `${row.id}-match`,
+    label: row.title,
+    target: row.resultType === "Documents" ? "page" : "metadata",
+    detail: row.reference,
+    disabled: true,
+  });
+}
+
+function buildSearchAssistantSourceReferences(
+  row: SearchRow,
+  relatedLinks: RelatedKnowledgeLink[],
+): AssistantSourceReference[] {
+  return buildKnowledgeAssistantSourceReferences({
+    customerLabel: row.customer,
+    primarySource: {
+      key: `${row.id}-result`,
+      label: row.title,
+      sourceType: mapSearchRowSourceType(row) ?? "METADATA",
+      detail: row.reference,
+    },
+    relatedLinks,
+  }).map((source) =>
+    source.kind === normalizeSearchSourceKind(row.resultType)
+      ? { ...source, referenceType: source.referenceType ?? normalizeSearchReferenceType(row.resultType) }
+      : source,
+  );
+}
+
+function normalizeSearchSourceKind(resultType: DemoSearchGroup): AssistantSourceReference["kind"] {
+  switch (resultType) {
+    case "Documents":
+      return "DOCUMENT";
+    case "Emails":
+      return "EMAIL";
+    case "Notes":
+      return "NOTE";
+    case "Policy References":
+      return "METADATA";
+    case "Claim References":
+      return "METADATA";
+    case "Customers":
+      return "CUSTOMER";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function normalizeSearchReferenceType(resultType: DemoSearchGroup): AssistantSourceReference["referenceType"] | undefined {
+  switch (resultType) {
+    case "Policy References":
+      return "policy";
+    case "Claim References":
+      return "claim";
+    default:
+      return undefined;
+  }
 }
 
 function mapClientRow(client: ClientSummary): SearchRow {
@@ -1042,7 +1430,7 @@ function mapDemoSearchRow(item: DemoWorkspaceSearchItem, lookup: Map<string, Cli
 
   return {
     id: item.id,
-    sourceId: item.clientId,
+    sourceId: extractDemoSearchSourceId(item),
     title: item.title,
     customer,
     resultType: item.group,
@@ -1113,6 +1501,350 @@ function parsePositiveNumber(value: string | null, fallback: number) {
 
 function openCustomer(clientId: string, navigate: ReturnType<typeof useNavigate>) {
   navigate(`/clients/${clientId}`);
+}
+
+function canOpenSearchViewer(row: SearchRow | null) {
+  return row?.resultType === "Documents" || row?.resultType === "Emails";
+}
+
+function matchSearchDocument(row: SearchRow, documents: ClientDocumentSummary[]) {
+  return documents.find((document) => document.id === row.sourceId || document.title === row.title) ?? null;
+}
+
+function matchSearchEmail(row: SearchRow, emails: ClientEmailSummary[]) {
+  return emails.find((email) => email.id === row.sourceId || email.subject === row.title) ?? null;
+}
+
+function buildSearchViewerDocument(
+  row: SearchRow,
+  document: ClientDocumentSummary | null,
+  email: ClientEmailSummary | null,
+) {
+  if (row.resultType === "Emails") {
+    return {
+      id: email?.id ?? row.id,
+      title: email?.subject ?? row.title,
+      subtitle: row.customer,
+      fileKind: "email" as const,
+      previewUrl: null,
+      downloadUrl: null,
+      originalUrl: null,
+      unsupportedReason: "Inline email preview is not available in the current API.",
+      pages: [{ id: `${row.id}-message`, label: "Message 1", pageNumber: 1 }],
+    };
+  }
+
+  return {
+    id: document?.id ?? row.id,
+    title: document?.title ?? row.title,
+    subtitle: `${row.customer} · ${row.reference}`,
+    fileKind: "pdf" as const,
+    previewUrl: document ? `/api/documents/${document.id}/preview` : null,
+    downloadUrl: document ? `/api/documents/${document.id}/download` : null,
+    originalUrl: document ? `/api/documents/${document.id}/preview` : null,
+    originalActionLabel: "Open document",
+    pages: [{ id: `${row.id}-page-1`, label: "Page 1", pageNumber: 1 }],
+    unsupportedReason: "A document result was found, but the preview asset is not available from the current API response.",
+  };
+}
+
+function buildSearchViewerEvidenceSections(
+  row: SearchRow,
+  document: ClientDocumentSummary | null,
+  email: ClientEmailSummary | null,
+  workspace: Awaited<ReturnType<typeof getDemoClientWorkspace>> | undefined,
+  relatedLinks: RelatedKnowledgeLink[],
+  versions: DocumentVersionSummary[],
+): EvidenceWorkspaceSection[] {
+  const businessReferences = collectKnowledgeBusinessReferenceFields(relatedLinks);
+  const relatedDocuments = relatedLinks.filter((link) => link.relatedSourceType === "DOCUMENT" || link.relatedSourceType === "DOCUMENT_VERSION");
+  const relatedEmails = relatedLinks.filter((link) => link.relatedSourceType === "EMAIL" || link.sourceType === "EMAIL");
+
+  return [
+    {
+      key: "ai-summary",
+      title: "AI Summary",
+      defaultExpanded: true,
+      summary: workspace?.aiSummaries[0] ? "Search AI summary available" : "No AI summary payload",
+      searchText: workspace?.aiSummaries[0]?.summary,
+      content: (
+        <AISummary
+          state={workspace?.aiSummaries[0] ? "ready" : "unavailable"}
+          summary={workspace?.aiSummaries[0]?.summary}
+          confidence={normalizeConfidence(workspace?.aiSummaries[0]?.confidence)}
+          supportingNotes={workspace?.aiSummaries[0]?.evidence ?? []}
+        />
+      ),
+    },
+    {
+      key: "evidence",
+      title: "Evidence",
+      defaultExpanded: true,
+      summary: "Matched search evidence",
+      countLabel: "1 item",
+      searchText: `${row.title} ${row.detail} ${row.reference}`,
+      content: (
+        <EvidenceCard
+          title={row.title}
+          excerpt={row.detail}
+          citation={row.reference}
+          source={document?.source ?? email?.sender ?? row.resultType}
+          type={row.resultType}
+          confidence={row.status === "Matched" ? "MEDIUM" : "HIGH"}
+          metadata={[
+            `Status: ${row.status}`,
+            document ? `Processing: ${document.processingStatus}` : email ? `Sender: ${email.sender}` : `Customer: ${row.customer}`,
+          ]}
+          navigationActions={[
+            { key: "search-page", label: "Jump to page", kind: "page", disabled: true },
+            { key: "search-region", label: "Jump to OCR region", kind: "ocr-region", disabled: true },
+            { key: "search-highlight", label: "Jump to highlight", kind: "highlight", disabled: true },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "fields",
+      title: "Extracted Fields",
+      summary: "Search results do not expose extracted field payloads",
+      content: (
+        <EvidenceMetadataGroup
+          title="Field availability"
+          fields={[
+            {
+              key: "search-fields",
+              label: "Extracted fields",
+              value: "Not exposed by the current Search API result payload.",
+              state: "READ_ONLY",
+            },
+            {
+              key: "search-review",
+              label: "Manual review",
+              value: "Open Review or Customer360 for deeper document context.",
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "business-context",
+      title: "Related Business Context",
+      summary: businessReferences.length > 0 ? "Customer context and related business reference fields" : "Customer and related knowledge context",
+      content: (
+        <Stack spacing={1}>
+          <EvidenceMetadataGroup
+            title="Customer"
+            fields={[
+              {
+                key: "search-customer",
+                label: "Customer",
+                value: row.customer,
+                state: "VERIFIED",
+                confidence: "HIGH",
+              },
+            ]}
+          />
+          {businessReferences.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Business Reference Fields"
+              fields={businessReferences.map((reference, index) => ({
+                key: `search-reference-${index}`,
+                label: reference.label,
+                value: reference.value,
+                state: "VERIFIED" as const,
+                confidence: "HIGH" as const,
+              }))}
+            />
+          ) : null}
+          {relatedDocuments.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Related documents"
+              fields={relatedDocuments.slice(0, 4).map((link, index) => ({
+                key: `search-related-document-${index}`,
+                label: humanizeKnowledgeRelationshipType(link.relationshipType),
+                value: `${link.relatedTitle} · ${link.explanation}`,
+                state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+              }))}
+            />
+          ) : null}
+          {relatedEmails.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Related emails"
+              fields={relatedEmails.slice(0, 3).map((link, index) => ({
+                key: `search-related-email-${index}`,
+                label: humanizeKnowledgeRelationshipType(link.relationshipType),
+                value: link.sourceType === "EMAIL" ? link.sourceTitle : link.relatedTitle,
+                state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+              }))}
+            />
+          ) : (
+            <EvidenceMetadataGroup
+              title="Related knowledge"
+              fields={[
+                {
+                  key: "search-related",
+                  label: "Result record",
+                  value: row.title,
+                  state: "READ_ONLY",
+                },
+              ]}
+            />
+          )}
+        </Stack>
+      ),
+    },
+    {
+      key: "document-information",
+      title: "Document Information",
+      summary: "Result metadata and timing",
+      content: (
+        <EvidenceMetadataGroup
+          title="Document information"
+          fields={[
+            {
+              key: "result-type",
+              label: "Result type",
+              value: row.resultType,
+              state: "READ_ONLY",
+            },
+            {
+              key: "result-reference",
+              label: "Reference",
+              value: row.reference,
+              state: "READ_ONLY",
+            },
+            {
+              key: "result-status",
+              label: "Status",
+              value: row.status,
+              state: "READ_ONLY",
+            },
+            {
+              key: "source-info",
+              label: "Source",
+              value: document?.source ?? email?.sender ?? "Not available",
+              state: "READ_ONLY",
+            },
+            {
+              key: "version-history",
+              label: "Version history",
+              value: summarizeKnowledgeVersions(versions),
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "activity",
+      title: "Activity",
+      summary: "Available history and comments",
+      content: (
+        <EvidenceMetadataGroup
+          title="Activity"
+          fields={[
+            {
+              key: "occurred-at",
+              label: "Occurred",
+              value: row.updatedAt ? formatDate(String(row.updatedAt)) : "Not available",
+              state: row.updatedAt ? "READ_ONLY" : "MISSING",
+            },
+            {
+              key: "comments",
+              label: "Comments",
+              value: "No read-only comments are available from the current API.",
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+}
+
+function buildSearchKnowledgeContextSections(
+  _row: SearchRow,
+  relatedLinks: RelatedKnowledgeLink[],
+  timelineEvents: CustomerKnowledgeTimelineEvent[],
+  versions: DocumentVersionSummary[],
+): ContextSection[] {
+  const businessReferences = collectKnowledgeBusinessReferenceFields(relatedLinks);
+
+  if (relatedLinks.length === 0 && timelineEvents.length === 0 && versions.length === 0 && businessReferences.length === 0) {
+    return [];
+  }
+
+  return [
+    {
+      key: "knowledge-context",
+      title: "Related Knowledge",
+      content: (
+        <Stack spacing={0.75}>
+          {relatedLinks.slice(0, 3).map((link) => (
+            <Typography key={link.relationshipId} variant="body2" color="text.secondary">
+              {link.inferred ? "Possible related source" : "Related source"}: {link.relatedTitle} · {humanizeKnowledgeRelationshipType(link.relationshipType)}
+            </Typography>
+          ))}
+          {versions.length > 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Version history: {summarizeKnowledgeVersions(versions)}
+            </Typography>
+          ) : null}
+          {timelineEvents.slice(0, 2).map((event) => (
+            <Typography key={event.eventId} variant="body2" color="text.secondary">
+              Recent customer knowledge: {event.title}
+            </Typography>
+          ))}
+          {businessReferences.slice(0, 3).map((reference) => (
+            <Typography key={`${reference.key}-${reference.value}`} variant="body2" color="text.secondary">
+              {reference.label}: {reference.value}
+            </Typography>
+          ))}
+        </Stack>
+      ),
+    },
+  ];
+}
+
+function mapSearchRowSourceType(row: SearchRow) {
+  switch (row.resultType) {
+    case "Customers":
+      return "CUSTOMER";
+    case "Documents":
+      return "DOCUMENT";
+    case "Emails":
+      return "EMAIL";
+    case "Notes":
+      return "NOTE";
+    default:
+      return null;
+  }
+}
+
+function resolveSearchSourceId(row: SearchRow) {
+  return row.sourceId ?? row.clientId;
+}
+
+function extractDemoSearchSourceId(item: DemoWorkspaceSearchItem) {
+  switch (item.group) {
+    case "Customers":
+      return item.clientId;
+    case "Documents":
+      return item.id.replace(/^document-/, "");
+    case "Emails":
+      return item.id.replace(/^email-/, "");
+    case "Notes":
+      return item.id.replace(/^note-/, "");
+    case "Knowledge":
+      return item.id.replace(/^knowledge-/, "");
+    case "Policy References":
+      return item.id.replace(/^policy-/, "");
+    case "Claim References":
+      return item.id.replace(/^claim-/, "");
+    default:
+      return item.id;
+  }
 }
 
 function formatDate(value: string) {

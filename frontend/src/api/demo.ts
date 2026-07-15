@@ -139,6 +139,7 @@ interface DemoReviewQueueItem {
   clientId: string | null;
   documentTypeId: string | null;
   metadataValues: Record<string, string>;
+  processingJob?: null;
 }
 
 interface DemoAuditLogEntry {
@@ -175,6 +176,8 @@ interface DemoMetadataFieldConfig {
 }
 
 export interface DemoPolicyReference {
+  // Compatibility note: this demo shape represents external policy-reference metadata,
+  // not an IKMS-owned policy aggregate.
   id: string;
   policyNumber: string;
   lineOfBusiness: string;
@@ -189,6 +192,8 @@ export interface DemoPolicyReference {
 }
 
 export interface DemoClaimReference {
+  // Compatibility note: this demo shape represents external claim-reference metadata,
+  // not an IKMS-owned claim aggregate.
   id: string;
   claimNumber: string;
   carrier: string;
@@ -1390,7 +1395,7 @@ export async function searchDemoClientKnowledge(clientId: string, query: string)
   policies.forEach((policy) => {
     if (matches(normalized, [policy.policyNumber, policy.summary, policy.carrier])) {
       results.push({
-        sourceType: "POLICY_REFERENCE",
+        sourceType: "METADATA",
         sourceId: policy.id,
         title: policy.policyNumber,
         excerpt: policy.summary,
@@ -1407,7 +1412,7 @@ export async function searchDemoClientKnowledge(clientId: string, query: string)
   claims.forEach((claim) => {
     if (matches(normalized, [claim.claimNumber, claim.summary, claim.carrier])) {
       results.push({
-        sourceType: "CLAIM_REFERENCE",
+        sourceType: "METADATA",
         sourceId: claim.id,
         title: claim.claimNumber,
         excerpt: claim.summary,
@@ -1440,7 +1445,7 @@ export async function askDemoClientQuestion(clientId: string, question: string):
         : "No renewal policy reference is available for this client.",
       citations: compact([
         policy && {
-          sourceType: "POLICY_REFERENCE",
+          sourceType: "METADATA",
           sourceId: policy.id,
           title: policy.policyNumber,
           excerpt: policy.summary,
@@ -1469,7 +1474,7 @@ export async function askDemoClientQuestion(clientId: string, question: string):
         answer: `${claim.claimNumber} is ${claim.status.toLowerCase()} with incurred value of ${claim.amountIncurred}. Current direction: ${claim.summary}`,
         citations: [
           {
-            sourceType: "CLAIM_REFERENCE",
+            sourceType: "METADATA",
             sourceId: claim.id,
             title: claim.claimNumber,
             excerpt: claim.summary,

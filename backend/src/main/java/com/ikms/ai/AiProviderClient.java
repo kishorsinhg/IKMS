@@ -219,6 +219,56 @@ public class AiProviderClient {
     }
   }
 
+  public Optional<ChatCompletionResult> completeChat(
+      AiProviderSettingsService.ProviderSettings settings,
+      List<ChatMessage> messages,
+      String modelName,
+      int maxTokens,
+      double temperature) {
+    if (!configured(settings) || messages == null || messages.isEmpty()) {
+      return Optional.empty();
+    }
+
+    String resolvedModelName = modelName == null || modelName.isBlank() ? settings.modelName() : modelName.trim();
+
+    try {
+      ChatCompletionResponse response = restClient.post()
+          .uri(normalizeBaseUrl(settings.apiBaseUrl()) + "/chat/completions")
+          .contentType(MediaType.APPLICATION_JSON)
+          .headers(headers -> headers.setBearerAuth(settings.apiKey()))
+          .body(Map.of(
+              "model", resolvedModelName,
+              "temperature", temperature,
+              "max_tokens", maxTokens,
+              "messages", messages.stream()
+                  .map(message -> Map.of(
+                      "role", message.role(),
+                      "content", message.content()))
+                  .toList()))
+          .retrieve()
+          .body(ChatCompletionResponse.class);
+      if (response == null || response.choices == null || response.choices.isEmpty()) {
+        return Optional.empty();
+      }
+      String content = response.choices.getFirst().message == null ? null : response.choices.getFirst().message.content;
+      if (content == null || content.isBlank()) {
+        return Optional.empty();
+      }
+      int completionTokens = truncate(content, Math.max(maxTokens * 4, 1)).length() / 4;
+      int promptTokens = messages.stream()
+          .mapToInt(message -> truncate(message.content(), 4000).length() / 4)
+          .sum();
+      return Optional.of(new ChatCompletionResult(
+          content.trim(),
+          resolvedModelName,
+          promptTokens,
+          completionTokens,
+          promptTokens + completionTokens));
+    } catch (Exception ignored) {
+      return Optional.empty();
+    }
+  }
+
   public boolean configured(AiProviderSettingsService.ProviderSettings settings) {
     return settings != null
         && settings.active()
@@ -338,6 +388,19 @@ public class AiProviderClient {
       String title,
       String location,
       String excerpt) {
+  }
+
+  public record ChatMessage(
+      String role,
+      String content) {
+  }
+
+  public record ChatCompletionResult(
+      String content,
+      String model,
+      int promptTokens,
+      int completionTokens,
+      int totalTokens) {
   }
 
   public record OcrResult(

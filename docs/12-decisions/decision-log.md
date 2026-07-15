@@ -16,3 +16,4 @@
 | DEC-012 | 2026-07-07 | Exact duplicate hashes are blocked/skipped. | Prevents clutter while preserving versions. | Accepted |
 | DEC-013 | 2026-07-09 | Implementation work uses small task-slice branches and pull requests instead of direct `main` development. | Keeps human and LLM review narrow, auditable, and resilient across interrupted sessions. | Superseded |
 | DEC-014 | 2026-07-09 | Implementation work proceeds directly on `main` by default; PR review is optional and not part of the required workflow. | Reduces process overhead and keeps delivery moving faster for this repository. | Accepted |
+| DEC-015 | 2026-07-15 | PostgreSQL plus pgvector is the current enterprise retrieval implementation. | Reuses existing infrastructure, lowers operational complexity, simplifies deployment, supports current document volume and hybrid retrieval, and preserves a future migration path to OpenSearch / Elasticsearch. | Accepted |

@@ -13,6 +13,7 @@ import com.ikms.client.Client;
 import com.ikms.common.api.GlobalExceptionHandler;
 import com.ikms.security.AppUserPrincipal;
 import com.ikms.security.ContentSensitivityService;
+import com.ikms.security.GovernanceAccessService;
 import com.ikms.security.PiiMaskingService;
 import com.ikms.security.SecurityTrimService;
 import com.ikms.security.domain.Permission;
@@ -58,6 +59,7 @@ class RedactedDocumentAccessTest {
         fileStorageService,
         contentSensitivityService,
         new SecurityTrimService(new PiiMaskingService()),
+        new GovernanceAccessService(),
         auditService);
     mockMvc = MockMvcBuilders.standaloneSetup(controller)
         .setControllerAdvice(new GlobalExceptionHandler())

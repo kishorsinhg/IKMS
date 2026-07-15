@@ -218,6 +218,48 @@ Trace of client-level AI Q&A.
 
 Fields:
 
+## Knowledge Quality Snapshot
+
+Customer-level stewardship projection used to summarize knowledge quality.
+
+Fields:
+
+- `id`, `clientId`
+- `overallScore`
+- dimension scores for completeness, Business Reference quality, linkage, duplicates, timeline, versions, retrieval readiness, and AI quality
+- `issueCount`, `openIssueCount`
+- `readinessState`
+- `summaryText`
+- `evaluatedAt`, `updatedAt`
+
+Rules:
+
+- This is a rebuildable projection derived from canonical customer knowledge.
+- It must not become a Policy or Claim aggregate.
+- Customer remains the primary business context.
+
+## Knowledge Quality Issue
+
+Stewardship issue derived from customer knowledge quality evaluation.
+
+Fields:
+
+- `id`, `clientId`
+- `snapshotId`
+- `sourceType`, `sourceId`
+- `category`, `issueType`
+- `severity`, `status`
+- `title`, `detailText`
+- `recommendationType`, `recommendationDetail`
+- `businessReferenceKey`
+- `scoreImpact`
+- `createdAt`, `updatedAt`
+
+Rules:
+
+- Issues may reference Business Reference Fields such as Policy Number or Claim Number, but those remain metadata only.
+- Issues are auditable stewardship records and do not imply policy or claim ownership.
+
 - `id`, `clientId`, `userId`
 - `question`, `answer`
 - `answerStatus`: Answered, NoEvidence, Refused, Failed
@@ -251,3 +293,54 @@ Rules:
 
 - Chunks inherit access rules from their source.
 - Unauthorized or unredacted PII chunks must not enter Processor retrieval context.
+
+## Customer Knowledge Timeline Event
+
+Derived chronological event over customer knowledge.
+
+Fields:
+
+- `eventId`
+- `customerId`
+- `eventType`
+- `sourceType`, `sourceId`, optional `sourceVersionId`
+- `title`, `summary`
+- `occurredAt`, `recordedAt`
+- `actor`
+- `documentType`
+- `businessReferenceFields`
+- `status`
+- `evidenceReferences`
+- `availableActions`
+- `permissionState`
+- `correlationId`
+
+Rules:
+
+- Timeline events are derived from customer knowledge artifacts and review activity, not from policy or claim lifecycle ownership.
+- Policy Number, Claim Number, Insurer, and similar insurance values remain Business Reference Fields attached to the event as supporting metadata.
+
+## Related Knowledge Link
+
+Explainable relationship between two customer knowledge sources.
+
+Fields:
+
+- `relationshipId`
+- `customerId`
+- `sourceType`, `sourceId`, `sourceTitle`
+- `relatedSourceType`, `relatedSourceId`, `relatedTitle`
+- `relationshipType`
+- `score`
+- `explanation`
+- `supportingFields`
+- `evidenceReferences`
+- `derivationType`
+- `createdAt`
+- `inferred`
+
+Rules:
+
+- Deterministic relationships are preferred over inferred relationships.
+- `CONTENT_SIMILARITY` remains inferred and must be presented as unconfirmed.
+- Shared Policy Number or Claim Number values indicate common Business Reference Fields only; they do not create Policy or Claim entities inside IKMS.

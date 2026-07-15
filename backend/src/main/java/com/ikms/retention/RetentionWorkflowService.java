@@ -61,6 +61,11 @@ public class RetentionWorkflowService {
     if (request.minimumRetentionUntil() != null) {
       record.setMinimumRetentionUntil(request.minimumRetentionUntil());
     }
+    record.setHoldType(request.holdType());
+    record.setRetentionPolicyKey(request.retentionPolicyKey());
+    record.setReviewAt(request.reviewAt());
+    record.setArchivalEligibleAt(request.archivalEligibleAt());
+    record.setDisposalEligibleAt(request.disposalEligibleAt());
     if (request.action() == RetentionAction.APPLY_LEGAL_HOLD) {
       record.setLegalHold(true);
     } else if (request.action() == RetentionAction.RELEASE_LEGAL_HOLD) {
@@ -184,7 +189,37 @@ public class RetentionWorkflowService {
       RetentionAction action,
       boolean legalHold,
       Instant minimumRetentionUntil,
-      String reason) {
+      String reason,
+      String holdType,
+      String retentionPolicyKey,
+      Instant reviewAt,
+      Instant archivalEligibleAt,
+      Instant disposalEligibleAt) {
+
+    public RetentionRequest(
+        String targetType,
+        String targetId,
+        UUID clientId,
+        UUID requestedBy,
+        RetentionAction action,
+        boolean legalHold,
+        Instant minimumRetentionUntil,
+        String reason) {
+      this(
+          targetType,
+          targetId,
+          clientId,
+          requestedBy,
+          action,
+          legalHold,
+          minimumRetentionUntil,
+          reason,
+          null,
+          null,
+          null,
+          null,
+          null);
+    }
   }
 
   public record RetentionDecision(boolean approved, String reason) {

@@ -21,3 +21,35 @@ This file remains as the stable `docs/` navigation point for data design.
 - `specs/001-insurance-broker-ikms/contracts/api.md`
 - `docs/10-operations/file-storage.md`
 - `docs/08-security/security-baseline.md`
+
+## Phase 10 Governance Additions
+
+- `app_user`
+  - `business_unit`
+  - `department`
+  - `region`
+  - `country`
+  - `broker_office`
+  - `employment_role`
+  - `security_clearance`
+- `document`
+  - `classification`
+  - `sensitivity_level`
+  - `confidentiality`
+  - `data_residency`
+  - `lifecycle_state`
+  - `export_restricted`
+  - `watermark_required`
+  - `business_unit`
+  - `department`
+  - `region`
+  - `country`
+  - `broker_office`
+- `retention_record`
+  - `hold_type`
+  - `retention_policy_key`
+  - `review_at`
+  - `archival_eligible_at`
+  - `disposal_eligible_at`
+
+These additions preserve the customer-centric IKMS data model and do not introduce Policy entities, Claim entities, or broker-management workflows.

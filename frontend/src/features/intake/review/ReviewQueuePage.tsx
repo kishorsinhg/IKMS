@@ -37,17 +37,31 @@ import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom
 import { listDocumentTypes, listMetadataFields } from "../../../api/admin";
 import { ClientSummary, listClients } from "../../../api/clients";
 import {
+  getClientRelatedKnowledge,
+  getDocumentVersions,
+  getSourceRelatedKnowledge,
+  knowledgeQueryKeys,
+  type DocumentVersionSummary,
+  type RelatedKnowledgeLink,
+} from "../../../api/knowledge";
+import {
   approveReviewItem,
   correctReviewItemMetadata,
   getReviewQueueItem,
   linkReviewItemClient,
   listReviewQueue,
   rejectReviewItem,
+  retryReviewItem,
   ReviewQueueItem,
   ReviewQueueReason,
   ReviewQueueStatus,
 } from "../../../api/intake";
 import { EntityGrid } from "../../../app/components/EntityGrid";
+import {
+  collectKnowledgeBusinessReferenceFields,
+  humanizeKnowledgeRelationshipType,
+  summarizeKnowledgeVersions,
+} from "../../../app/knowledge/knowledgeContext";
 import type { ContextSection } from "../../../app/components/RightContextPanel";
 import { StatusBadge, StatusTone } from "../../../app/components/StatusBadge";
 import { WorkspaceToolbar } from "../../../app/components/WorkspaceToolbar";
@@ -210,6 +224,38 @@ export function ReviewQueuePage() {
   );
   const selectedItem = detailQuery.data ?? selectedRow;
   const selectedClient = selectedItem?.clientId ? clientLookup.get(selectedItem.clientId) ?? null : null;
+  const selectedSourceType = selectedItem?.itemType === "DOCUMENT" || selectedItem?.itemType === "DOCUMENT_VERSION"
+    ? "DOCUMENT"
+    : selectedItem?.itemType === "EMAIL"
+      ? "EMAIL"
+      : null;
+  const selectedSourceId = selectedItem?.itemType === "DOCUMENT_VERSION" ? null : selectedItem?.itemId ?? null;
+  const selectedRelatedQuery = useQuery({
+    queryKey: selectedItem?.clientId ? knowledgeQueryKeys.clientRelated(selectedItem.clientId, 6) : ["review-queue", "related", "empty"],
+    queryFn: ({ signal }) => getClientRelatedKnowledge(selectedItem!.clientId!, 6, signal),
+    enabled: Boolean(selectedItem?.clientId),
+  });
+  const selectedSourceRelatedQuery = useQuery({
+    queryKey: selectedSourceType && selectedSourceId
+      ? knowledgeQueryKeys.sourceRelated(selectedSourceType, selectedSourceId, 6)
+      : ["review-queue", "source-related", "empty"],
+    queryFn: ({ signal }) => getSourceRelatedKnowledge(selectedSourceType!, selectedSourceId!, 6, signal),
+    enabled: Boolean(selectedSourceType && selectedSourceId),
+  });
+  const selectedVersionsQuery = useQuery({
+    queryKey: selectedItem?.itemType === "DOCUMENT" && selectedItem.itemId
+      ? knowledgeQueryKeys.documentVersions(selectedItem.itemId)
+      : ["review-queue", "versions", "empty"],
+    queryFn: ({ signal }) => getDocumentVersions(selectedItem!.itemId, signal),
+    enabled: Boolean(selectedItem?.itemType === "DOCUMENT" && selectedItem.itemId),
+  });
+  const selectedRelatedLinks = useMemo(
+    () =>
+      selectedSourceRelatedQuery.data?.links?.length
+        ? selectedSourceRelatedQuery.data.links
+        : selectedRelatedQuery.data?.links ?? [],
+    [selectedRelatedQuery.data?.links, selectedSourceRelatedQuery.data?.links],
+  );
 
   useEffect(() => {
     if (!selectedId && sortedRows[0]) {
@@ -334,6 +380,17 @@ export function ReviewQueuePage() {
     },
   });
 
+  const retryMutation = useMutation({
+    mutationFn: () => retryReviewItem(selectedItem!.id, "Retry requested from Review Queue"),
+    onSuccess: async () => {
+      notify({ severity: "info", message: "Document processing retry requested." });
+      await refreshQueue();
+    },
+    onError: () => {
+      notify({ severity: "error", message: "Unable to retry document processing." });
+    },
+  });
+
   function applySearch() {
     setScopedSearchParams(setSearchParams, searchParams, {
       q: localQuery.trim() || null,
@@ -417,6 +474,7 @@ export function ReviewQueuePage() {
         { key: "link-customer", label: "Link customer", onClick: () => setLinkDialogOpen(true) },
         { key: "edit-metadata", label: "Edit metadata", onClick: () => setMetadataDialogOpen(true) },
         { key: "reject-item", label: "Reject item", onClick: () => setRejectDialogOpen(true) },
+        ...(selectedItem.processingJob ? [{ key: "retry-processing", label: "Retry processing", onClick: () => retryMutation.mutate() }] : []),
         { key: "keyboard-shortcuts", label: "Keyboard shortcuts", onClick: () => setShortcutsDialogOpen(true) },
       ]
     : [
@@ -467,6 +525,8 @@ export function ReviewQueuePage() {
     contextSections: buildContextSections({
       selectedItem,
       selectedClient,
+      relatedLinks: selectedRelatedLinks,
+      versions: selectedVersionsQuery.data ?? [],
       metadataFields: metadataFieldsQuery.data ?? [],
       onLink: () => setLinkDialogOpen(true),
       onEditMetadata: () => setMetadataDialogOpen(true),
@@ -477,6 +537,7 @@ export function ReviewQueuePage() {
       },
       onApprove: () => setApproveDialogOpen(true),
       onReject: () => setRejectDialogOpen(true),
+      onRetry: selectedItem?.processingJob ? () => retryMutation.mutate() : undefined,
       totalVisible: sortedRows.length,
       query,
       selectedStatus,
@@ -488,9 +549,12 @@ export function ReviewQueuePage() {
     query,
     selectedClient,
     selectedItem,
+    selectedRelatedLinks,
     selectedReason,
     selectedStatus,
+    selectedVersionsQuery.data,
     sortedRows.length,
+    retryMutation,
   ]);
 
   useEffect(() => {
@@ -1057,12 +1121,15 @@ function SelectedReviewDetail({
 function buildContextSections({
   selectedItem,
   selectedClient,
+  relatedLinks,
+  versions,
   metadataFields,
   onLink,
   onEditMetadata,
   onOpen,
   onApprove,
   onReject,
+  onRetry,
   totalVisible,
   query,
   selectedStatus,
@@ -1070,12 +1137,15 @@ function buildContextSections({
 }: {
   selectedItem: ReviewQueueItem | null;
   selectedClient: ClientSummary | null;
+  relatedLinks: RelatedKnowledgeLink[];
+  versions: DocumentVersionSummary[];
   metadataFields: Array<{ fieldKey: string; label: string }>;
   onLink: () => void;
   onEditMetadata: () => void;
   onOpen: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onRetry?: () => void;
   totalVisible: number;
   query: string;
   selectedStatus: ReviewQueueStatus | "ALL";
@@ -1125,6 +1195,8 @@ function buildContextSections({
   const metadataSummary = metadataFields
     .filter((field) => selectedItem.metadataValues[field.fieldKey])
     .map((field) => `${field.label}: ${selectedItem.metadataValues[field.fieldKey]}`);
+  const businessReferences = collectKnowledgeBusinessReferenceFields(relatedLinks);
+  const processingJob = selectedItem.processingJob ?? null;
 
   return [
     {
@@ -1170,6 +1242,54 @@ function buildContextSections({
         </Stack>
       ),
     },
+    ...(relatedLinks.length > 0 || versions.length > 0 || businessReferences.length > 0
+      ? [
+          {
+            key: "related-knowledge",
+            title: "Related Knowledge",
+            content: (
+              <Stack spacing={0.5}>
+                {relatedLinks.slice(0, 2).map((link) => (
+                  <Typography key={link.relationshipId} variant="body2" color="text.secondary">
+                    {link.inferred ? "Possible related source" : "Related source"}: {link.relatedTitle} · {humanizeKnowledgeRelationshipType(link.relationshipType)}
+                  </Typography>
+                ))}
+                {versions.length > 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Earlier versions: {summarizeKnowledgeVersions(versions)}
+                  </Typography>
+                ) : null}
+                {businessReferences.slice(0, 2).map((reference) => (
+                  <Typography key={`${reference.key}-${reference.value}`} variant="body2" color="text.secondary">
+                    {reference.label}: {reference.value}
+                  </Typography>
+                ))}
+              </Stack>
+            ),
+          } satisfies ContextSection,
+        ]
+      : []),
+    ...(processingJob
+      ? [
+          {
+            key: "processing-status",
+            title: "Processing Status",
+            content: (
+              <Stack spacing={0.5}>
+                <Typography variant="body2" color="text.secondary">
+                  {humanizeProcessingValue(processingJob.status)} · {humanizeProcessingValue(processingJob.currentStage)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Overall confidence: {formatConfidenceValue(processingJob.overallConfidence)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Validation findings: {processingJob.findings.length}
+                </Typography>
+              </Stack>
+            ),
+          } satisfies ContextSection,
+        ]
+      : []),
     {
       key: "quick-actions",
       title: "Quick Actions",
@@ -1187,6 +1307,11 @@ function buildContextSections({
           <Button size="small" variant="text" color="inherit" startIcon={<EditOutlinedIcon fontSize="small" />} onClick={onEditMetadata}>
             Edit metadata
           </Button>
+          {onRetry ? (
+            <Button size="small" variant="text" color="inherit" onClick={onRetry}>
+              Retry processing
+            </Button>
+          ) : null}
           <Button size="small" color="error" variant="text" onClick={onReject}>
             Reject item
           </Button>
@@ -1194,6 +1319,17 @@ function buildContextSections({
       ),
     },
   ];
+}
+
+function humanizeProcessingValue(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatConfidenceValue(value: number | null | undefined) {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "Unavailable";
 }
 
 function buildActiveFilters({

@@ -122,7 +122,7 @@ describe("ClientSearchAsk", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Evidence Assistant/i })).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Evidence Assistant/i }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "AI Q&A" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "Evidence Assistant" }).length).toBeGreaterThan(0));
     await user.type(screen.getByPlaceholderText("Search documents, emails, and notes"), "renewal");
     await waitFor(() => expect(screen.getByText("Policy Schedule")).toBeInTheDocument());
 

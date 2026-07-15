@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RetentionRecordRepository extends JpaRepository<RetentionRecord, UUID> {
 
   Optional<RetentionRecord> findByTargetTypeAndTargetId(String targetType, String targetId);
+
+  java.util.List<RetentionRecord> findByLegalHoldTrueOrderByUpdatedAtDesc();
 }

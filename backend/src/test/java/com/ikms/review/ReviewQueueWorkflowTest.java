@@ -51,7 +51,8 @@ class ReviewQueueWorkflowTest {
           "Inbound renewal",
           null,
           null,
-          java.util.Map.of("carrier", "Carrier A")));
+          java.util.Map.of("carrier", "Carrier A"),
+          null));
     }
   }
 }

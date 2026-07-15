@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
+  List<AuditLog> findByClientIdOrderByOccurredAtDesc(UUID clientId);
+
   @Query("""
       select auditLog
       from AuditLog auditLog

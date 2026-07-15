@@ -3,6 +3,7 @@ import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
@@ -91,6 +92,12 @@ const shellNavItems: NavItem[] = [
     icon: <FactCheckOutlinedIcon fontSize="small" />,
   },
   {
+    to: "/knowledge-quality",
+    label: "Knowledge Quality",
+    permission: "MANAGE_CONFIGURATION",
+    icon: <VerifiedOutlinedIcon fontSize="small" />,
+  },
+  {
     to: "/administration",
     label: "Administration",
     permission: "MANAGE_CONFIGURATION",
@@ -146,6 +153,12 @@ const routeMeta = [
     title: "Intake",
     subtitle: "Manual upload and intake monitoring stay available inside the shared operational shell.",
     breadcrumbs: ["IKMS", "Intake"],
+  },
+  {
+    matches: (pathname: string) => pathname === "/knowledge-quality",
+    title: "Knowledge Quality",
+    subtitle: "Evaluate customer knowledge quality, guide steward corrections, and trigger controlled revalidation.",
+    breadcrumbs: ["IKMS", "Knowledge Quality"],
   },
   {
     matches: (pathname: string) => pathname === "/administration",

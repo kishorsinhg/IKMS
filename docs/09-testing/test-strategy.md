@@ -21,6 +21,7 @@
 - Shared folder intake.
 - IMAP email intake.
 - Unlinked review queue.
+- Processing-job state rendering, retry controls, validation findings, reviewer corrections, and approval-time publication refresh.
 - OCR/classification/extraction workflow.
 - Metadata correction.
 - Processor redaction behavior.
@@ -30,6 +31,8 @@
 - Decision boundary refusal.
 - Prompt injection detection.
 - Audit export.
+- Enterprise orchestration latency, grounding, citation coverage, fallback behavior, and evaluation thresholds.
+- Enterprise operations job lifecycle, queue pause or resume, scheduler enable or disable, cache actions, health endpoints, diagnostics endpoints, and operations authorization.
 
 ## Traceability
 
@@ -39,3 +42,15 @@ Each test case should reference at least one requirement ID from `01-requirement
 
 Use `docs/09-testing/code-review-strategy.md` and
 `docs/templates/code-review-template.md` for slice review gates.
+
+## Enterprise AI Evaluation
+
+Use `docs/09-testing/enterprise-ai-evaluation.md` for the orchestration-specific benchmark and review procedure covering:
+
+- latency thresholds
+- grounding score expectations
+- citation coverage expectations
+- fallback and degradation handling
+- telemetry inspection points
+
+Use `docs/09-testing/phase-5c-enterprise-retrieval-validation.md` for the current Phase 5C conformance, retrieval-quality, Business Reference accuracy, performance, and release-readiness validation summary.

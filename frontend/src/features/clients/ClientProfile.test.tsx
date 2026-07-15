@@ -8,6 +8,7 @@ import { ClientProfilePage } from "./ClientProfilePage";
 
 describe("ClientProfilePage", () => {
   it("renders Customer360 sections, preserves tab behavior, and supports note editing", async () => {
+    mockViewport(1440);
     const setWorkspaceChrome = vi.fn();
     const user = userEvent.setup();
     stubClientProfileFetch();
@@ -16,7 +17,19 @@ describe("ClientProfilePage", () => {
 
     expect(await screen.findByText("Customer Summary")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Documents" })).toBeInTheDocument();
-    expect(screen.getByText("Policy Schedule")).toBeInTheDocument();
+    expect(screen.getAllByText("Policy Schedule").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("tab", { name: "Relationships" }));
+    expect((await screen.findAllByText("Policy Schedule")).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    expect((await screen.findAllByText("Manual upload document recorded in customer knowledge.")).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("tab", { name: "Documents" }));
+    await user.click(screen.getByLabelText("Preview Policy Schedule"));
+    expect(await screen.findByText("Evidence Workspace")).toBeInTheDocument();
+    expect(await screen.findByText("Business Reference Fields")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back" }));
 
     await user.click(screen.getByRole("tab", { name: "Notes" }));
     expect(await screen.findByText("Initial broker note")).toBeInTheDocument();
@@ -136,6 +149,115 @@ function stubClientProfileFetch() {
       },
     ]), { status: 200, headers: { "content-type": "application/json" } }))
     .mockResolvedValueOnce(new Response(JSON.stringify({
+      events: [
+        {
+          eventId: "timeline-1",
+          customerId: "client-1",
+          eventType: "DOCUMENT_CREATED",
+          sourceType: "DOCUMENT",
+          sourceId: "doc-1",
+          sourceVersionId: "ver-1",
+          title: "Policy Schedule",
+          summary: "Manual upload document recorded in customer knowledge.",
+          occurredAt: "2026-07-10T10:00:00Z",
+          recordedAt: "2026-07-10T10:00:00Z",
+          actor: "System",
+          documentType: "MANUAL_UPLOAD",
+          businessReferenceFields: [
+            { key: "policy_number", label: "Policy Number", value: "POL-12345" },
+          ],
+          status: "APPROVED",
+          evidenceReferences: [],
+          availableActions: ["OPEN_SOURCE"],
+          permissionState: "AVAILABLE",
+          correlationId: "doc-1",
+        },
+      ],
+      nextCursor: null,
+      hasMore: false,
+      appliedFilters: {
+        query: null,
+        from: null,
+        to: null,
+        sourceType: null,
+        eventType: null,
+        documentType: null,
+        reviewStatus: null,
+        policyNumber: null,
+        claimNumber: null,
+        insurer: null,
+        actor: null,
+        sortDirection: "DESC",
+        limit: 50,
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({
+      customerId: "client-1",
+      sourceType: "CUSTOMER",
+      sourceId: "client-1",
+      links: [
+        {
+          relationshipId: "rel-1",
+          customerId: "client-1",
+          sourceType: "EMAIL",
+          sourceId: "email-1",
+          sourceTitle: "Renewal reminder",
+          relatedSourceType: "DOCUMENT",
+          relatedSourceId: "doc-1",
+          relatedTitle: "Policy Schedule",
+          relationshipType: "EMAIL_ATTACHMENT",
+          score: 0.99,
+          explanation: "Email includes this document as related knowledge.",
+          supportingFields: { policy_number: "POL-12345" },
+          evidenceReferences: [],
+          derivationType: "EMAIL_ATTACHMENT",
+          createdAt: "2026-07-10T10:00:00Z",
+          inferred: false,
+        },
+      ],
+      restrictedContentNotice: null,
+    }), { status: 200, headers: { "content-type": "application/json" } }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({
+      customerId: "client-1",
+      sourceType: "DOCUMENT",
+      sourceId: "doc-1",
+      links: [
+        {
+          relationshipId: "rel-doc-1",
+          customerId: "client-1",
+          sourceType: "DOCUMENT",
+          sourceId: "doc-1",
+          sourceTitle: "Policy Schedule",
+          relatedSourceType: "EMAIL",
+          relatedSourceId: "email-1",
+          relatedTitle: "Renewal reminder",
+          relationshipType: "EMAIL_ATTACHMENT",
+          score: 0.99,
+          explanation: "Email includes this document as related knowledge.",
+          supportingFields: { policy_number: "POL-12345" },
+          evidenceReferences: [],
+          derivationType: "EMAIL_ATTACHMENT",
+          createdAt: "2026-07-10T10:00:00Z",
+          inferred: false,
+        },
+      ],
+      restrictedContentNotice: null,
+    }), { status: 200, headers: { "content-type": "application/json" } }))
+    .mockResolvedValueOnce(new Response(JSON.stringify([
+      {
+        id: "ver-1",
+        documentId: "doc-1",
+        versionNumber: 1,
+        fileName: "policy-schedule.pdf",
+        mimeType: "application/pdf",
+        redactionStatus: "AVAILABLE",
+        current: true,
+        fileHash: "abc123",
+        createdAt: "2026-07-10T10:00:00Z",
+        createdBy: null,
+      },
+    ]), { status: 200, headers: { "content-type": "application/json" } }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({
       id: "note-1",
       clientId: "client-1",
       noteText: "Updated broker note",
@@ -155,4 +277,28 @@ function stubClientProfileFetch() {
     ]), { status: 200, headers: { "content-type": "application/json" } }));
 
   vi.stubGlobal("fetch", fetchMock);
+}
+
+function mockViewport(width: number) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: matchesMediaQuery(query, width),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+function matchesMediaQuery(query: string, width: number) {
+  const min = query.match(/min-width:\s*([0-9.]+)px/);
+  const max = query.match(/max-width:\s*([0-9.]+)px/);
+  const minMatches = min ? width >= Number(min[1]) : true;
+  const maxMatches = max ? width <= Number(max[1]) : true;
+  return minMatches && maxMatches;
 }

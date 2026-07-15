@@ -189,6 +189,8 @@ Knowledge
 
 Each result should display enough context for users to decide whether to open it.
 
+Policy and Claim are external references or metadata within IKMS. The broker management system remains the system of record.
+
 ---
 
 # Selecting a Customer

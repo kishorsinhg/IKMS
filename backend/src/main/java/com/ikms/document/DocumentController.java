@@ -25,21 +25,27 @@ public class DocumentController {
 
   private final DocumentRepository documentRepository;
   private final DocumentVersionRepository documentVersionRepository;
+  private final com.ikms.client.ClientKnowledgeService clientKnowledgeService;
   private final DocumentUploadService documentUploadService;
   private final DocumentIntakeProcessingService documentIntakeProcessingService;
   private final com.ikms.security.ContentSensitivityService contentSensitivityService;
+  private final com.ikms.storage.FileStorageService fileStorageService;
 
   public DocumentController(
       DocumentRepository documentRepository,
       DocumentVersionRepository documentVersionRepository,
+      com.ikms.client.ClientKnowledgeService clientKnowledgeService,
       DocumentUploadService documentUploadService,
       DocumentIntakeProcessingService documentIntakeProcessingService,
-      com.ikms.security.ContentSensitivityService contentSensitivityService) {
+      com.ikms.security.ContentSensitivityService contentSensitivityService,
+      com.ikms.storage.FileStorageService fileStorageService) {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
+    this.clientKnowledgeService = clientKnowledgeService;
     this.documentUploadService = documentUploadService;
     this.documentIntakeProcessingService = documentIntakeProcessingService;
     this.contentSensitivityService = contentSensitivityService;
+    this.fileStorageService = fileStorageService;
   }
 
   @PostMapping(path = "/api/documents/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -103,6 +109,34 @@ public class DocumentController {
               document.getCreatedAt());
         })
         .toList();
+  }
+
+  @GetMapping("/api/documents/{documentId}/versions")
+  public List<com.ikms.client.ClientContracts.DocumentVersionSummaryResponse> listDocumentVersions(
+      @PathVariable UUID documentId) {
+    return clientKnowledgeService.listDocumentVersions(documentId);
+  }
+
+  @PostMapping("/api/documents/process")
+  public DocumentContracts.UploadDocumentResponse reprocessDocument(
+      @RequestParam("documentId") UUID documentId,
+      @RequestParam(name = "clientId", required = false) UUID clientId) throws IOException {
+    Document document = documentRepository.findById(documentId)
+        .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+    DocumentVersion version = documentVersionRepository.findByDocument_IdAndCurrentTrue(documentId)
+        .orElseThrow(() -> new IllegalArgumentException("Current document version not found: " + documentId));
+    byte[] fileBytes = fileStorageService.load(version.getOriginalStoragePath()).getInputStream().readAllBytes();
+    documentIntakeProcessingService.process(
+        document,
+        version,
+        clientId == null && document.getClient() != null ? document.getClient().getId() : clientId,
+        fileBytes);
+    return new DocumentContracts.UploadDocumentResponse(
+        document.getId(),
+        version.getId(),
+        DocumentUploadService.UploadOutcome.CREATED.name(),
+        document.getReviewStatus().name(),
+        null);
   }
 
   private static void validateSupportedFile(String filename, String mimeType) {

@@ -31,6 +31,21 @@ public class RetentionRecord {
   @Column(name = "minimum_retention_until")
   private Instant minimumRetentionUntil;
 
+  @Column(name = "hold_type", length = 64)
+  private String holdType;
+
+  @Column(name = "retention_policy_key", length = 120)
+  private String retentionPolicyKey;
+
+  @Column(name = "review_at")
+  private Instant reviewAt;
+
+  @Column(name = "archival_eligible_at")
+  private Instant archivalEligibleAt;
+
+  @Column(name = "disposal_eligible_at")
+  private Instant disposalEligibleAt;
+
   @Column(name = "last_action", length = 32)
   private String lastAction;
 
@@ -110,6 +125,46 @@ public class RetentionRecord {
 
   public void setMinimumRetentionUntil(Instant minimumRetentionUntil) {
     this.minimumRetentionUntil = minimumRetentionUntil;
+  }
+
+  public String getHoldType() {
+    return holdType;
+  }
+
+  public void setHoldType(String holdType) {
+    this.holdType = holdType;
+  }
+
+  public String getRetentionPolicyKey() {
+    return retentionPolicyKey;
+  }
+
+  public void setRetentionPolicyKey(String retentionPolicyKey) {
+    this.retentionPolicyKey = retentionPolicyKey;
+  }
+
+  public Instant getReviewAt() {
+    return reviewAt;
+  }
+
+  public void setReviewAt(Instant reviewAt) {
+    this.reviewAt = reviewAt;
+  }
+
+  public Instant getArchivalEligibleAt() {
+    return archivalEligibleAt;
+  }
+
+  public void setArchivalEligibleAt(Instant archivalEligibleAt) {
+    this.archivalEligibleAt = archivalEligibleAt;
+  }
+
+  public Instant getDisposalEligibleAt() {
+    return disposalEligibleAt;
+  }
+
+  public void setDisposalEligibleAt(Instant disposalEligibleAt) {
+    this.disposalEligibleAt = disposalEligibleAt;
   }
 
   public String getLastAction() {

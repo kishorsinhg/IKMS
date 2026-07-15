@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ikms.audit.AuditService;
+import com.ikms.governance.GovernancePolicyService;
 import com.ikms.search.SearchContracts;
 import com.ikms.security.domain.Permission;
 import java.time.Instant;
@@ -26,6 +27,7 @@ class ClientQuestionAnsweringTest {
   private PromptInjectionDetectionService promptInjectionDetectionService;
   private AiProviderSettingsService aiProviderSettingsService;
   private AiProviderClient aiProviderClient;
+  private GovernancePolicyService governancePolicyService;
   private ClientQuestionAnsweringService service;
 
   @BeforeEach
@@ -36,6 +38,7 @@ class ClientQuestionAnsweringTest {
     promptInjectionDetectionService = new PromptInjectionDetectionService();
     aiProviderSettingsService = mock(AiProviderSettingsService.class);
     aiProviderClient = mock(AiProviderClient.class);
+    governancePolicyService = mock(GovernancePolicyService.class);
     when(aiProviderSettingsService.current()).thenReturn(new AiProviderSettingsService.ProviderSettings(
         "mistral",
         "mistral-small-latest",
@@ -45,13 +48,15 @@ class ClientQuestionAnsweringTest {
         "mistral-ocr-latest",
         true));
     when(aiProviderClient.answerWithEvidence(any(), any(), any(), anyBoolean())).thenReturn(java.util.Optional.empty());
+    when(governancePolicyService.isApprovedModel(any(), any())).thenReturn(true);
     service = new ClientQuestionAnsweringService(
         ragContextService,
         aiInteractionRepository,
         auditService,
         promptInjectionDetectionService,
         aiProviderSettingsService,
-        aiProviderClient);
+        aiProviderClient,
+        governancePolicyService);
 
     when(aiInteractionRepository.save(any())).thenAnswer(invocation -> {
       AiInteraction interaction = invocation.getArgument(0);

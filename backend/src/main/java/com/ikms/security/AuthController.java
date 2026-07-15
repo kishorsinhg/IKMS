@@ -1,5 +1,6 @@
 package com.ikms.security;
 
+import com.ikms.governance.InformationClassification;
 import com.ikms.security.domain.Permission;
 import com.ikms.security.domain.UserRole;
 import com.ikms.security.domain.UserStatus;
@@ -89,6 +90,13 @@ public class AuthController {
       String displayName,
       String email,
       UserStatus status,
+      String businessUnit,
+      String department,
+      String region,
+      String country,
+      String brokerOffice,
+      String employmentRole,
+      InformationClassification securityClearance,
       Set<UserRole> roles,
       Set<Permission> permissions) {
 
@@ -99,6 +107,13 @@ public class AuthController {
           principal.displayName(),
           principal.email(),
           principal.status(),
+          principal.businessUnit(),
+          principal.department(),
+          principal.region(),
+          principal.country(),
+          principal.brokerOffice(),
+          principal.employmentRole(),
+          principal.securityClearance(),
           principal.roles(),
           principal.permissions());
     }

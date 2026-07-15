@@ -117,7 +117,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Search" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Focus Search workspace input" })).toBeInTheDocument();
     expect(
-      await screen.findByPlaceholderText("Search by customer, policy, claim, email, metadata, or note"),
+      await screen.findByPlaceholderText("Search by customer, policy reference, claim reference, email, metadata, or note"),
     ).toBeInTheDocument();
   });
 

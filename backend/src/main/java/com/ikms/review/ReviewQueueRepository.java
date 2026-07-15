@@ -24,4 +24,6 @@ public interface ReviewQueueRepository extends JpaRepository<ReviewQueueItem, UU
       ReviewQueueItemType itemType,
       String itemId,
       List<ReviewQueueStatus> statuses);
+
+  long countByStatusIn(List<ReviewQueueStatus> statuses);
 }

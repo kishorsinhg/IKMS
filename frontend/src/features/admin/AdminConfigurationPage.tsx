@@ -67,6 +67,46 @@ import {
   updateReviewSetting,
   validateAiSetting,
 } from "../../api/admin";
+import {
+  AiGovernancePolicyConfig,
+  ClassificationPolicyConfig,
+  ComplianceReport,
+  getAiGovernancePolicy,
+  getClassificationPolicy,
+  getComplianceReport,
+  getRetentionPolicy,
+  getSecurityPolicy,
+  LegalHoldConfig,
+  listLegalHolds,
+  RetentionPolicyConfig,
+  SecurityPolicyConfig,
+  updateAiGovernancePolicy,
+  updateSecurityPolicy,
+} from "../../api/governance";
+import {
+  cancelOperationsJob,
+  clearOperationsCache,
+  disableOperationsScheduler,
+  enableOperationsScheduler,
+  getOperationsDiagnostics,
+  getOperationsHealth,
+  listOperationsCaches,
+  listOperationsJobs,
+  listOperationsQueues,
+  listOperationsSchedulers,
+  OperationsCache,
+  OperationsDiagnostics,
+  OperationsHealthComponent,
+  OperationsJob,
+  OperationsQueue,
+  OperationsScheduler,
+  refreshOperationsCache,
+  resumeOperationsQueue,
+  retryOperationsJob,
+  pauseOperationsQueue,
+  runOperationsScheduler,
+  invalidateOperationsCache,
+} from "../../api/operations";
 import { EntityGrid } from "../../app/components/EntityGrid";
 import type { ContextSection } from "../../app/components/RightContextPanel";
 import { StatusBadge, StatusTone } from "../../app/components/StatusBadge";
@@ -82,7 +122,21 @@ type AdminModuleKey =
   | "shared-folders"
   | "mailboxes"
   | "review-settings"
-  | "ai-settings";
+  | "ai-settings"
+  | "background-jobs"
+  | "queues"
+  | "scheduler"
+  | "embeddings"
+  | "ocr"
+  | "ai-operations"
+  | "cache"
+  | "health"
+  | "diagnostics"
+  | "classification-policies"
+  | "retention-policies"
+  | "legal-holds"
+  | "ai-governance"
+  | "security-policies";
 
 type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "DISABLED" | "ARCHIVED" | "CONFIGURED";
 type AdminSortField = "configuration" | "type" | "status" | "lastUpdated" | "updatedBy";
@@ -109,7 +163,19 @@ interface AdminGridRow extends Record<string, unknown> {
     | SharedFolderConfig
     | MailboxConfig
     | ReviewSettingConfig
-    | AiProviderSettingConfig;
+    | AiProviderSettingConfig
+    | OperationsJob
+    | OperationsQueue
+    | OperationsScheduler
+    | OperationsCache
+    | OperationsHealthComponent
+    | OperationsDiagnostics
+    | ClassificationPolicyConfig
+    | RetentionPolicyConfig
+    | LegalHoldConfig
+    | AiGovernancePolicyConfig
+    | SecurityPolicyConfig
+    | ComplianceReport;
 }
 
 interface AdminEditorState {
@@ -189,6 +255,104 @@ const moduleOptions: ModuleOption[] = [
     editable: true,
     creatable: false,
   },
+  {
+    key: "background-jobs",
+    label: "Background Jobs",
+    description: "Operational jobs with progress, retry, cancellation, and failure visibility.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "queues",
+    label: "Queues",
+    description: "Operational queue depth, pause state, and queue-level controls.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "scheduler",
+    label: "Scheduler",
+    description: "Scheduled operational jobs, enablement state, and execution history.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "embeddings",
+    label: "Embeddings",
+    description: "Embedding rebuild and vector-maintenance operations.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "ocr",
+    label: "OCR",
+    description: "OCR retries, OCR-backed failures, and document-processing visibility.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "ai-operations",
+    label: "AI Operations",
+    description: "AI retries, provider-backed operational jobs, and degraded-request visibility.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "cache",
+    label: "Cache",
+    description: "Cache clear, invalidate, and refresh actions across operational caches.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "health",
+    label: "Health",
+    description: "Platform health status by dependency and subsystem.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "diagnostics",
+    label: "Diagnostics",
+    description: "System information, bottlenecks, queue depth, failed jobs, and validation notes.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "classification-policies",
+    label: "Classification Policies",
+    description: "Information-classification levels and governance thresholds.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "retention-policies",
+    label: "Retention Policies",
+    description: "Retention, review, archive, and disposal eligibility windows.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "legal-holds",
+    label: "Legal Hold",
+    description: "Active legal hold records and protected retention states.",
+    editable: false,
+    creatable: false,
+  },
+  {
+    key: "ai-governance",
+    label: "AI Governance",
+    description: "Approved models, prompt policy, response policy, and grounding controls.",
+    editable: true,
+    creatable: false,
+  },
+  {
+    key: "security-policies",
+    label: "Security Policies",
+    description: "Encryption posture, secret handling, and export governance defaults.",
+    editable: true,
+    creatable: false,
+  },
 ];
 
 const statusOptions: Array<{ value: StatusFilter; label: string }> = [
@@ -229,6 +393,18 @@ export function AdminConfigurationPage() {
   const mailboxesQuery = useQuery({ queryKey: [...adminQueryKey, "mailboxes"], queryFn: listMailboxes });
   const reviewSettingQuery = useQuery({ queryKey: [...adminQueryKey, "review-setting"], queryFn: getReviewSetting });
   const aiSettingQuery = useQuery({ queryKey: [...adminQueryKey, "ai-setting"], queryFn: getAiSetting });
+  const classificationPolicyQuery = useQuery({ queryKey: [...adminQueryKey, "classification-policy"], queryFn: getClassificationPolicy });
+  const retentionPolicyQuery = useQuery({ queryKey: [...adminQueryKey, "retention-policy"], queryFn: getRetentionPolicy });
+  const legalHoldsQuery = useQuery({ queryKey: [...adminQueryKey, "legal-holds"], queryFn: listLegalHolds });
+  const aiGovernanceQuery = useQuery({ queryKey: [...adminQueryKey, "ai-governance"], queryFn: getAiGovernancePolicy });
+  const securityPolicyQuery = useQuery({ queryKey: [...adminQueryKey, "security-policy"], queryFn: getSecurityPolicy });
+  const complianceReportQuery = useQuery({ queryKey: [...adminQueryKey, "compliance-report"], queryFn: getComplianceReport });
+  const operationsJobsQuery = useQuery({ queryKey: [...adminQueryKey, "operations-jobs"], queryFn: listOperationsJobs });
+  const operationsQueuesQuery = useQuery({ queryKey: [...adminQueryKey, "operations-queues"], queryFn: listOperationsQueues });
+  const operationsSchedulersQuery = useQuery({ queryKey: [...adminQueryKey, "operations-schedulers"], queryFn: listOperationsSchedulers });
+  const operationsCachesQuery = useQuery({ queryKey: [...adminQueryKey, "operations-caches"], queryFn: listOperationsCaches });
+  const operationsHealthQuery = useQuery({ queryKey: [...adminQueryKey, "operations-health"], queryFn: getOperationsHealth });
+  const operationsDiagnosticsQuery = useQuery({ queryKey: [...adminQueryKey, "operations-diagnostics"], queryFn: getOperationsDiagnostics });
 
   useEffect(() => {
     setLocalQuery(query);
@@ -299,6 +475,114 @@ export function AdminConfigurationPage() {
     onError: () => notify({ severity: "error", message: "Unable to validate AI configuration." }),
   });
 
+  const updateAiGovernanceMutation = useMutation({
+    mutationFn: updateAiGovernancePolicy,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "AI governance updated." });
+      await queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "ai-governance"] });
+    },
+    onError: () => notify({ severity: "error", message: "Unable to update AI governance." }),
+  });
+
+  const updateSecurityPolicyMutation = useMutation({
+    mutationFn: updateSecurityPolicy,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Security policy updated." });
+      await queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "security-policy"] });
+    },
+    onError: () => notify({ severity: "error", message: "Unable to update security policy." }),
+  });
+
+  const retryOperationsJobMutation = useMutation({
+    mutationFn: retryOperationsJob,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Background job retried." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to retry background job." }),
+  });
+
+  const cancelOperationsJobMutation = useMutation({
+    mutationFn: cancelOperationsJob,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Background job cancelled." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to cancel background job." }),
+  });
+
+  const pauseQueueMutation = useMutation({
+    mutationFn: pauseOperationsQueue,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Queue paused." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to pause queue." }),
+  });
+
+  const resumeQueueMutation = useMutation({
+    mutationFn: resumeOperationsQueue,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Queue resumed." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to resume queue." }),
+  });
+
+  const runSchedulerMutation = useMutation({
+    mutationFn: runOperationsScheduler,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Scheduler run requested." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to run scheduler." }),
+  });
+
+  const enableSchedulerMutation = useMutation({
+    mutationFn: enableOperationsScheduler,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Scheduler enabled." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to enable scheduler." }),
+  });
+
+  const disableSchedulerMutation = useMutation({
+    mutationFn: disableOperationsScheduler,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Scheduler disabled." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to disable scheduler." }),
+  });
+
+  const clearCacheMutation = useMutation({
+    mutationFn: clearOperationsCache,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Cache cleared." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to clear cache." }),
+  });
+
+  const invalidateCacheMutation = useMutation({
+    mutationFn: invalidateOperationsCache,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Cache invalidated." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to invalidate cache." }),
+  });
+
+  const refreshCacheMutation = useMutation({
+    mutationFn: refreshOperationsCache,
+    onSuccess: async () => {
+      notify({ severity: "success", message: "Cache refreshed." });
+      await invalidateOperationsQueries(queryClient);
+    },
+    onError: () => notify({ severity: "error", message: "Unable to refresh cache." }),
+  });
+
   const rows = useMemo<AdminGridRow[]>(() => {
     const nextRows: AdminGridRow[] = [];
 
@@ -323,14 +607,68 @@ export function AdminConfigurationPage() {
     if (aiSettingQuery.data) {
       nextRows.push(mapAiSettingRow(aiSettingQuery.data));
     }
+    for (const item of operationsJobsQuery.data ?? []) {
+      nextRows.push(mapOperationsJobRow(item, "background-jobs"));
+      if (isEmbeddingJob(item)) {
+        nextRows.push(mapOperationsJobRow(item, "embeddings"));
+      }
+      if (isOcrJob(item)) {
+        nextRows.push(mapOperationsJobRow(item, "ocr"));
+      }
+      if (isAiOperationsJob(item)) {
+        nextRows.push(mapOperationsJobRow(item, "ai-operations"));
+      }
+    }
+    for (const item of operationsQueuesQuery.data ?? []) {
+      nextRows.push(mapOperationsQueueRow(item));
+    }
+    for (const item of operationsSchedulersQuery.data ?? []) {
+      nextRows.push(mapOperationsSchedulerRow(item));
+    }
+    for (const item of operationsCachesQuery.data ?? []) {
+      nextRows.push(mapOperationsCacheRow(item));
+    }
+    for (const item of operationsHealthQuery.data?.components ?? []) {
+      nextRows.push(mapOperationsHealthRow(item));
+    }
+    if (operationsDiagnosticsQuery.data) {
+      nextRows.push(...mapOperationsDiagnosticsRows(operationsDiagnosticsQuery.data));
+    }
+    if (classificationPolicyQuery.data) {
+      nextRows.push(mapClassificationPolicyRow(classificationPolicyQuery.data, complianceReportQuery.data ?? null));
+    }
+    if (retentionPolicyQuery.data) {
+      nextRows.push(mapRetentionPolicyRow(retentionPolicyQuery.data));
+    }
+    for (const item of legalHoldsQuery.data ?? []) {
+      nextRows.push(mapLegalHoldRow(item));
+    }
+    if (aiGovernanceQuery.data) {
+      nextRows.push(mapAiGovernanceRow(aiGovernanceQuery.data));
+    }
+    if (securityPolicyQuery.data) {
+      nextRows.push(mapSecurityPolicyRow(securityPolicyQuery.data));
+    }
 
     return nextRows;
   }, [
     aiSettingQuery.data,
+    aiGovernanceQuery.data,
+    classificationPolicyQuery.data,
+    complianceReportQuery.data,
     documentTypesQuery.data,
+    legalHoldsQuery.data,
     mailboxesQuery.data,
     metadataFieldsQuery.data,
+    operationsCachesQuery.data,
+    operationsDiagnosticsQuery.data,
+    operationsHealthQuery.data,
+    operationsJobsQuery.data,
+    operationsQueuesQuery.data,
+    operationsSchedulersQuery.data,
     reviewSettingQuery.data,
+    retentionPolicyQuery.data,
+    securityPolicyQuery.data,
     sharedFoldersQuery.data,
     usersQuery.data,
   ]);
@@ -572,6 +910,25 @@ export function AdminConfigurationPage() {
           active: values.active,
         });
         break;
+      case "ai-governance":
+        await updateAiGovernanceMutation.mutateAsync({
+          approvedModels: values.approvedModels.split(",").map((value) => value.trim()).filter(Boolean),
+          promptPolicyVersion: values.promptPolicyVersion.trim(),
+          responsePolicyVersion: values.responsePolicyVersion.trim(),
+          citationRequired: values.citationRequired,
+          groundingValidationRequired: values.groundingValidationRequired,
+        });
+        break;
+      case "security-policies":
+        await updateSecurityPolicyMutation.mutateAsync({
+          encryptionAtRest: values.encryptionAtRest.trim(),
+          encryptionInTransit: values.encryptionInTransit.trim(),
+          keyManagement: values.keyManagement.trim(),
+          secretManagement: values.secretManagement.trim(),
+          exportApprovalRequired: values.exportApprovalRequired,
+          watermarkByDefault: values.watermarkByDefault,
+        });
+        break;
       default:
         return;
     }
@@ -594,6 +951,61 @@ export function AdminConfigurationPage() {
       ocrProvider: values.ocrProvider.trim(),
       active: values.active,
     });
+  }
+
+  async function handleOperationsAction(row: AdminGridRow, action: "retry" | "cancel" | "pause" | "resume" | "run" | "enable" | "disable" | "clear" | "invalidate" | "refresh") {
+    switch (action) {
+      case "retry":
+        if ("jobId" in row.raw) {
+          await retryOperationsJobMutation.mutateAsync(row.raw.jobId);
+        }
+        break;
+      case "cancel":
+        if ("jobId" in row.raw) {
+          await cancelOperationsJobMutation.mutateAsync(row.raw.jobId);
+        }
+        break;
+      case "pause":
+        if ("queueKey" in row.raw && "queueName" in row.raw) {
+          await pauseQueueMutation.mutateAsync(row.raw.queueKey);
+        }
+        break;
+      case "resume":
+        if ("queueKey" in row.raw && "queueName" in row.raw) {
+          await resumeQueueMutation.mutateAsync(row.raw.queueKey);
+        }
+        break;
+      case "run":
+        if ("schedulerKey" in row.raw) {
+          await runSchedulerMutation.mutateAsync(row.raw.schedulerKey);
+        }
+        break;
+      case "enable":
+        if ("schedulerKey" in row.raw) {
+          await enableSchedulerMutation.mutateAsync(row.raw.schedulerKey);
+        }
+        break;
+      case "disable":
+        if ("schedulerKey" in row.raw) {
+          await disableSchedulerMutation.mutateAsync(row.raw.schedulerKey);
+        }
+        break;
+      case "clear":
+        if ("cacheKey" in row.raw) {
+          await clearCacheMutation.mutateAsync(row.raw.cacheKey);
+        }
+        break;
+      case "invalidate":
+        if ("cacheKey" in row.raw) {
+          await invalidateCacheMutation.mutateAsync(row.raw.cacheKey);
+        }
+        break;
+      case "refresh":
+        if ("cacheKey" in row.raw) {
+          await refreshCacheMutation.mutateAsync(row.raw.cacheKey);
+        }
+        break;
+    }
   }
 
   const columns = useMemo<GridColDef<AdminGridRow>[]>(() => {
@@ -685,7 +1097,19 @@ export function AdminConfigurationPage() {
     sharedFoldersQuery.isLoading ||
     mailboxesQuery.isLoading ||
     reviewSettingQuery.isLoading ||
-    aiSettingQuery.isLoading
+    aiSettingQuery.isLoading ||
+    classificationPolicyQuery.isLoading ||
+    retentionPolicyQuery.isLoading ||
+    legalHoldsQuery.isLoading ||
+    aiGovernanceQuery.isLoading ||
+    securityPolicyQuery.isLoading ||
+    complianceReportQuery.isLoading ||
+    operationsJobsQuery.isLoading ||
+    operationsQueuesQuery.isLoading ||
+    operationsSchedulersQuery.isLoading ||
+    operationsCachesQuery.isLoading ||
+    operationsHealthQuery.isLoading ||
+    operationsDiagnosticsQuery.isLoading
   ) {
     return (
       <LoadingState
@@ -702,7 +1126,19 @@ export function AdminConfigurationPage() {
     sharedFoldersQuery.isError ||
     mailboxesQuery.isError ||
     reviewSettingQuery.isError ||
-    aiSettingQuery.isError
+    aiSettingQuery.isError ||
+    classificationPolicyQuery.isError ||
+    retentionPolicyQuery.isError ||
+    legalHoldsQuery.isError ||
+    aiGovernanceQuery.isError ||
+    securityPolicyQuery.isError ||
+    complianceReportQuery.isError ||
+    operationsJobsQuery.isError ||
+    operationsQueuesQuery.isError ||
+    operationsSchedulersQuery.isError ||
+    operationsCachesQuery.isError ||
+    operationsHealthQuery.isError ||
+    operationsDiagnosticsQuery.isError
   ) {
     return (
       <ErrorState
@@ -718,6 +1154,18 @@ export function AdminConfigurationPage() {
               void mailboxesQuery.refetch();
               void reviewSettingQuery.refetch();
               void aiSettingQuery.refetch();
+              void classificationPolicyQuery.refetch();
+              void retentionPolicyQuery.refetch();
+              void legalHoldsQuery.refetch();
+              void aiGovernanceQuery.refetch();
+              void securityPolicyQuery.refetch();
+              void complianceReportQuery.refetch();
+              void operationsJobsQuery.refetch();
+              void operationsQueuesQuery.refetch();
+              void operationsSchedulersQuery.refetch();
+              void operationsCachesQuery.refetch();
+              void operationsHealthQuery.refetch();
+              void operationsDiagnosticsQuery.refetch();
             }}
           />
         )}
@@ -797,6 +1245,12 @@ export function AdminConfigurationPage() {
           void mailboxesQuery.refetch();
           void reviewSettingQuery.refetch();
           void aiSettingQuery.refetch();
+          void operationsJobsQuery.refetch();
+          void operationsQueuesQuery.refetch();
+          void operationsSchedulersQuery.refetch();
+          void operationsCachesQuery.refetch();
+          void operationsHealthQuery.refetch();
+          void operationsDiagnosticsQuery.refetch();
         }}
         secondaryActions={[
           ...(selectedRow
@@ -895,10 +1349,24 @@ export function AdminConfigurationPage() {
             <TreeItem itemId="operations" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "Operations")}>
               <TreeItem itemId="shared-folders" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "System Settings")} />
               <TreeItem itemId="mailboxes" label={explorerLabel(<MailOutlineOutlinedIcon fontSize="small" />, "Notification Rules")} />
+              <TreeItem itemId="background-jobs" label={explorerLabel(<ViewListOutlinedIcon fontSize="small" />, "Background Jobs")} />
+              <TreeItem itemId="queues" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "Queues")} />
+              <TreeItem itemId="scheduler" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Scheduler")} />
+              <TreeItem itemId="embeddings" label={explorerLabel(<AutoAwesomeOutlinedIcon fontSize="small" />, "Embeddings")} />
+              <TreeItem itemId="ocr" label={explorerLabel(<DescriptionOutlinedIcon fontSize="small" />, "OCR")} />
+              <TreeItem itemId="ai-operations" label={explorerLabel(<AutoAwesomeOutlinedIcon fontSize="small" />, "AI Operations")} />
+              <TreeItem itemId="cache" label={explorerLabel(<ContentCopyOutlinedIcon fontSize="small" />, "Cache")} />
+              <TreeItem itemId="health" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Health")} />
+              <TreeItem itemId="diagnostics" label={explorerLabel(<DescriptionOutlinedIcon fontSize="small" />, "Diagnostics")} />
             </TreeItem>
             <TreeItem itemId="governance" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Governance")}>
               <TreeItem itemId="review-settings" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Permission Groups")} />
               <TreeItem itemId="ai-settings" label={explorerLabel(<AutoAwesomeOutlinedIcon fontSize="small" />, "AI Configuration")} />
+              <TreeItem itemId="classification-policies" label={explorerLabel(<DescriptionOutlinedIcon fontSize="small" />, "Classification Policies")} />
+              <TreeItem itemId="retention-policies" label={explorerLabel(<FolderOutlinedIcon fontSize="small" />, "Retention Policies")} />
+              <TreeItem itemId="legal-holds" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Legal Hold")} />
+              <TreeItem itemId="ai-governance" label={explorerLabel(<AutoAwesomeOutlinedIcon fontSize="small" />, "AI Governance")} />
+              <TreeItem itemId="security-policies" label={explorerLabel(<AdminPanelSettingsOutlinedIcon fontSize="small" />, "Security Policies")} />
             </TreeItem>
           </SimpleTreeView>
         </Box>
@@ -1014,6 +1482,7 @@ export function AdminConfigurationPage() {
         onDirtyChange={setHasUnsavedChanges}
         onSave={handleSaveEditor}
         onValidateAi={handleValidateAi}
+        onOperationsAction={handleOperationsAction}
       />
 
       <Dialog open={discardDialogOpen} onClose={() => setDiscardDialogOpen(false)}>
@@ -1053,6 +1522,17 @@ interface EditorFormValues {
   apiKey: string;
   ocrProvider: string;
   active: boolean;
+  approvedModels: string;
+  promptPolicyVersion: string;
+  responsePolicyVersion: string;
+  citationRequired: boolean;
+  groundingValidationRequired: boolean;
+  encryptionAtRest: string;
+  encryptionInTransit: string;
+  keyManagement: string;
+  secretManagement: string;
+  exportApprovalRequired: boolean;
+  watermarkByDefault: boolean;
 }
 
 function AdministrationEditorDrawer({
@@ -1066,6 +1546,7 @@ function AdministrationEditorDrawer({
   onDirtyChange,
   onSave,
   onValidateAi,
+  onOperationsAction,
 }: {
   open: boolean;
   state: AdminEditorState | null;
@@ -1077,6 +1558,7 @@ function AdministrationEditorDrawer({
   onDirtyChange: (dirty: boolean) => void;
   onSave: (values: EditorFormValues) => Promise<void>;
   onValidateAi: (values: EditorFormValues) => Promise<void>;
+  onOperationsAction: (row: AdminGridRow, action: "retry" | "cancel" | "pause" | "resume" | "run" | "enable" | "disable" | "clear" | "invalidate" | "refresh") => Promise<void>;
 }) {
   const isMobile = useMediaQuery(useTheme().breakpoints.down("md"));
   const [values, setValues] = useState<EditorFormValues>(defaultEditorValues("users"));
@@ -1113,6 +1595,7 @@ function AdministrationEditorDrawer({
       : row?.configuration ?? "Configuration";
 
   const canSave = state.mode !== "view" && isSaveSupported(state.module);
+  const operationsActions = row ? buildOperationsActions(row) : [];
 
   return (
     <Drawer
@@ -1170,6 +1653,18 @@ function AdministrationEditorDrawer({
           {dirty ? "Unsaved changes" : isMobile ? "Ready" : "No pending changes"}
         </Typography>
         <Stack direction="row" spacing={1}>
+          {state.mode === "view" && row
+            ? operationsActions.map((action) => (
+                <Button
+                  key={action.key}
+                  variant="text"
+                  color="inherit"
+                  onClick={() => void onOperationsAction(row, action.key)}
+                >
+                  {action.label}
+                </Button>
+              ))
+            : null}
           <Button variant="text" color="inherit" onClick={onClose}>
             Cancel
           </Button>
@@ -1180,7 +1675,15 @@ function AdministrationEditorDrawer({
               onClick={() => void onSave(values)}
               disabled={saving || !isEditorValid(values)}
             >
-              {state.module === "review-settings" ? "Save review settings" : state.module === "ai-settings" ? "Save AI settings" : "Save"}
+              {state.module === "review-settings"
+                ? "Save review settings"
+                : state.module === "ai-settings"
+                  ? "Save AI settings"
+                  : state.module === "ai-governance"
+                    ? "Save AI governance"
+                    : state.module === "security-policies"
+                      ? "Save security policy"
+                      : "Save"}
             </Button>
           ) : null}
         </Stack>
@@ -1417,6 +1920,64 @@ function EditableConfigurationView({
                 {`${validationResult.status}: ${validationResult.message}`}
               </Alert>
             ) : null}
+          </FormSection>
+        </Stack>
+      );
+    case "ai-governance":
+      return (
+        <Stack spacing={1.5}>
+          <FormSection title="Approved Models">
+            <TextField
+              label="Approved Models"
+              value={values.approvedModels}
+              onChange={(event) => onChange({ approvedModels: event.target.value })}
+              helperText="Comma-separated `provider:model` entries allowed for provider-generated responses."
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+            />
+            <TextField
+              label="Prompt Policy Version"
+              value={values.promptPolicyVersion}
+              onChange={(event) => onChange({ promptPolicyVersion: event.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Response Policy Version"
+              value={values.responsePolicyVersion}
+              onChange={(event) => onChange({ responsePolicyVersion: event.target.value })}
+              fullWidth
+              size="small"
+            />
+            <FormControlLabel
+              control={<Switch checked={values.citationRequired} onChange={(event) => onChange({ citationRequired: event.target.checked })} />}
+              label="Citation required"
+            />
+            <FormControlLabel
+              control={<Switch checked={values.groundingValidationRequired} onChange={(event) => onChange({ groundingValidationRequired: event.target.checked })} />}
+              label="Grounding validation required"
+            />
+          </FormSection>
+        </Stack>
+      );
+    case "security-policies":
+      return (
+        <Stack spacing={1.5}>
+          <FormSection title="Encryption">
+            <TextField label="Encryption At Rest" value={values.encryptionAtRest} onChange={(event) => onChange({ encryptionAtRest: event.target.value })} fullWidth size="small" multiline minRows={2} />
+            <TextField label="Encryption In Transit" value={values.encryptionInTransit} onChange={(event) => onChange({ encryptionInTransit: event.target.value })} fullWidth size="small" multiline minRows={2} />
+            <TextField label="Key Management" value={values.keyManagement} onChange={(event) => onChange({ keyManagement: event.target.value })} fullWidth size="small" multiline minRows={2} />
+            <TextField label="Secret Management" value={values.secretManagement} onChange={(event) => onChange({ secretManagement: event.target.value })} fullWidth size="small" multiline minRows={2} />
+            <FormControlLabel
+              control={<Switch checked={values.exportApprovalRequired} onChange={(event) => onChange({ exportApprovalRequired: event.target.checked })} />}
+              label="Export approval required"
+            />
+            <FormControlLabel
+              control={<Switch checked={values.watermarkByDefault} onChange={(event) => onChange({ watermarkByDefault: event.target.checked })} />}
+              label="Watermark by default"
+            />
           </FormSection>
         </Stack>
       );
@@ -1711,6 +2272,29 @@ function buildEditorValues(state: AdminEditorState, row: AdminGridRow | null): E
         active: item.active,
       };
     }
+    case "ai-governance": {
+      const item = row.raw as AiGovernancePolicyConfig;
+      return {
+        ...defaults,
+        approvedModels: item.approvedModels.join(", "),
+        promptPolicyVersion: item.promptPolicyVersion,
+        responsePolicyVersion: item.responsePolicyVersion,
+        citationRequired: item.citationRequired,
+        groundingValidationRequired: item.groundingValidationRequired,
+      };
+    }
+    case "security-policies": {
+      const item = row.raw as SecurityPolicyConfig;
+      return {
+        ...defaults,
+        encryptionAtRest: item.encryptionAtRest,
+        encryptionInTransit: item.encryptionInTransit,
+        keyManagement: item.keyManagement,
+        secretManagement: item.secretManagement,
+        exportApprovalRequired: item.exportApprovalRequired,
+        watermarkByDefault: item.watermarkByDefault,
+      };
+    }
     default:
       return defaults;
   }
@@ -1736,6 +2320,17 @@ function defaultEditorValues(module: AdminModuleKey): EditorFormValues {
     apiKey: "",
     ocrProvider: "tesseract",
     active: true,
+    approvedModels: "mistral:mistral-small, openai:gpt-5-mini",
+    promptPolicyVersion: "prompt-policy-v1",
+    responsePolicyVersion: "response-policy-v1",
+    citationRequired: true,
+    groundingValidationRequired: true,
+    encryptionAtRest: "",
+    encryptionInTransit: "",
+    keyManagement: "",
+    secretManagement: "",
+    exportApprovalRequired: true,
+    watermarkByDefault: true,
   };
 }
 
@@ -1759,17 +2354,35 @@ function isEditorValid(values: EditorFormValues) {
         values.apiBaseUrl.trim().length > 0 &&
         values.ocrProvider.trim().length > 0
       );
+    case "ai-governance":
+      return values.approvedModels.trim().length > 0 && values.promptPolicyVersion.trim().length > 0 && values.responsePolicyVersion.trim().length > 0;
+    case "security-policies":
+      return values.encryptionAtRest.trim().length > 0
+        && values.encryptionInTransit.trim().length > 0
+        && values.keyManagement.trim().length > 0
+        && values.secretManagement.trim().length > 0;
     default:
       return true;
   }
 }
 
 function isSaveSupported(module: AdminModuleKey) {
-  return module !== "users";
+  return ![
+    "users",
+    "background-jobs",
+    "queues",
+    "scheduler",
+    "embeddings",
+    "ocr",
+    "ai-operations",
+    "cache",
+    "health",
+    "diagnostics",
+  ].includes(module);
 }
 
 function isEditableModule(module: AdminModuleKey) {
-  return module === "review-settings" || module === "ai-settings";
+  return module === "review-settings" || module === "ai-settings" || module === "ai-governance" || module === "security-policies";
 }
 
 function parseModule(value: string | null): AdminModuleKey {
@@ -1969,6 +2582,314 @@ function mapAiSettingRow(item: AiProviderSettingConfig): AdminGridRow {
     updatedBy: "Unavailable",
     description: `${item.apiKeyConfigured ? "API key configured." : "API key not configured."} OCR provider: ${item.ocrProvider}.`,
     relatedDependencies: [item.apiBaseUrl ?? "No API base URL", item.ocrProvider],
+    raw: item,
+  };
+}
+
+function mapOperationsJobRow(item: OperationsJob, module: AdminModuleKey): AdminGridRow {
+  return {
+    id: `${module}:${item.jobId}`,
+    configuration: readableJobType(item.jobType),
+    configurationDetail: `${item.status} · ${item.progress}%`,
+    type: module,
+    typeLabel: titleForOperationsModule(module),
+    status: normalizeOperationsStatus(item.status),
+    statusLabel: titleCase(item.status),
+    statusTone: mapStatusTone(normalizeOperationsStatus(item.status)),
+    lastUpdated: item.submittedAt,
+    lastUpdatedLabel: formatDateTime(item.submittedAt),
+    updatedBy: item.submittedBy ?? "System",
+    description: item.errorSummary ?? `${item.targetType ?? "Operation"} ${item.targetId ?? ""}`.trim(),
+    relatedDependencies: [item.queueKey ?? "No queue", `Retry count: ${item.retryCount}`],
+    raw: item,
+  };
+}
+
+function mapOperationsQueueRow(item: OperationsQueue): AdminGridRow {
+  return {
+    id: item.queueKey,
+    configuration: item.queueName,
+    configurationDetail: `${item.depth} items · ${item.runningItems} running · ${item.failedItems} failed`,
+    type: "queues",
+    typeLabel: "Queues",
+    status: item.paused ? "DISABLED" : "ACTIVE",
+    statusLabel: item.paused ? "Paused" : "Running",
+    statusTone: item.paused ? "warning" : "success",
+    lastUpdated: item.updatedAt,
+    lastUpdatedLabel: formatDateTime(item.updatedAt),
+    updatedBy: "Operations",
+    description: item.explanation,
+    relatedDependencies: [`Depth: ${item.depth}`, `Running: ${item.runningItems}`, `Failed: ${item.failedItems}`],
+    raw: item,
+  };
+}
+
+function mapOperationsSchedulerRow(item: OperationsScheduler): AdminGridRow {
+  return {
+    id: item.schedulerKey,
+    configuration: item.displayName,
+    configurationDetail: item.nextExecution ? `Next ${formatDateTime(item.nextExecution)}` : "Next execution unavailable",
+    type: "scheduler",
+    typeLabel: "Scheduler",
+    status: item.enabled ? "ACTIVE" : "DISABLED",
+    statusLabel: item.enabled ? "Enabled" : "Disabled",
+    statusTone: item.enabled ? "success" : "neutral",
+    lastUpdated: item.lastExecution ?? item.nextExecution ?? "",
+    lastUpdatedLabel: item.lastExecution ? formatDateTime(item.lastExecution) : "Not yet executed",
+    updatedBy: "Operations",
+    description: item.description,
+    relatedDependencies: item.history.slice(0, 2).map((history) => `${history.status} via ${history.triggerSource}`),
+    raw: item,
+  };
+}
+
+function mapOperationsCacheRow(item: OperationsCache): AdminGridRow {
+  return {
+    id: item.cacheKey,
+    configuration: item.displayName,
+    configurationDetail: `${item.entryCount} entries · ${titleCase(item.lastAction)}`,
+    type: "cache",
+    typeLabel: "Cache",
+    status: "CONFIGURED",
+    statusLabel: titleCase(item.lastAction),
+    statusTone: "info",
+    lastUpdated: item.lastActionAt,
+    lastUpdatedLabel: formatDateTime(item.lastActionAt),
+    updatedBy: "Operations",
+    description: "Administrative cache action surface for operational recovery and refresh flows.",
+    relatedDependencies: [item.cacheKey, `Entries: ${item.entryCount}`],
+    raw: item,
+  };
+}
+
+function mapOperationsHealthRow(item: OperationsHealthComponent): AdminGridRow {
+  return {
+    id: item.component,
+    configuration: item.component,
+    configurationDetail: item.explanation,
+    type: "health",
+    typeLabel: "Health",
+    status: normalizeOperationsStatus(item.status),
+    statusLabel: titleCase(item.status),
+    statusTone: mapStatusTone(normalizeOperationsStatus(item.status)),
+    lastUpdated: "",
+    lastUpdatedLabel: "Live status",
+    updatedBy: "Health service",
+    description: item.explanation,
+    relatedDependencies: [item.status],
+    raw: item,
+  };
+}
+
+function mapOperationsDiagnosticsRows(item: OperationsDiagnostics): AdminGridRow[] {
+  const rows: AdminGridRow[] = [
+    {
+      id: "diagnostics-summary",
+      configuration: "System Diagnostics",
+      configurationDetail: `${item.failedJobs} failed jobs · ${item.bottlenecks.length} bottlenecks`,
+      type: "diagnostics",
+      typeLabel: "Diagnostics",
+      status: item.failedJobs > 0 ? "INACTIVE" : "CONFIGURED",
+      statusLabel: item.failedJobs > 0 ? "Attention Needed" : "Ready",
+      statusTone: item.failedJobs > 0 ? "warning" : "success",
+      lastUpdated: item.metrics[0]?.recordedAt ?? "",
+      lastUpdatedLabel: item.metrics[0]?.recordedAt ? formatDateTime(item.metrics[0].recordedAt) : "No metrics yet",
+      updatedBy: "Diagnostics",
+      description: item.bottlenecks[0] ?? "No active bottlenecks reported.",
+      relatedDependencies: [...item.configurationValidation, ...item.dependencyValidation].slice(0, 4),
+      raw: item,
+    },
+  ];
+
+  for (const failure of item.recentFailures) {
+    rows.push({
+      ...mapOperationsJobRow(failure, "diagnostics"),
+      id: `diagnostics:${failure.jobId}`,
+      typeLabel: "Diagnostics",
+    });
+  }
+  return rows;
+}
+
+function buildOperationsActions(row: AdminGridRow) {
+  if ("jobId" in row.raw) {
+    return [
+      { key: "retry" as const, label: "Retry job" },
+      { key: "cancel" as const, label: "Cancel job" },
+    ];
+  }
+  if ("queueKey" in row.raw && "queueName" in row.raw) {
+    return row.raw.paused
+      ? [{ key: "resume" as const, label: "Resume queue" }]
+      : [{ key: "pause" as const, label: "Pause queue" }];
+  }
+  if ("schedulerKey" in row.raw) {
+    return [
+      { key: "run" as const, label: "Run now" },
+      ...(row.raw.enabled
+        ? [{ key: "disable" as const, label: "Disable" }]
+        : [{ key: "enable" as const, label: "Enable" }]),
+    ];
+  }
+  if ("cacheKey" in row.raw) {
+    return [
+      { key: "clear" as const, label: "Clear" },
+      { key: "invalidate" as const, label: "Invalidate" },
+      { key: "refresh" as const, label: "Refresh" },
+    ];
+  }
+  return [];
+}
+
+function normalizeOperationsStatus(value: string): StatusFilter {
+  const normalized = value.toUpperCase();
+  if (normalized === "HEALTHY" || normalized === "RUNNING" || normalized === "COMPLETED" || normalized === "READY" || normalized === "ENABLED") {
+    return "ACTIVE";
+  }
+  if (normalized === "WARNING" || normalized === "PAUSED" || normalized === "RETRYING") {
+    return "INACTIVE";
+  }
+  if (normalized === "FAILED" || normalized === "CRITICAL" || normalized === "CANCELLED" || normalized === "DISABLED") {
+    return "DISABLED";
+  }
+  return "CONFIGURED";
+}
+
+function isEmbeddingJob(item: OperationsJob) {
+  return item.jobType.includes("EMBEDDING") || item.jobType.includes("VECTOR");
+}
+
+function isOcrJob(item: OperationsJob) {
+  return item.jobType.includes("OCR");
+}
+
+function isAiOperationsJob(item: OperationsJob) {
+  return item.jobType.includes("AI");
+}
+
+function titleForOperationsModule(module: AdminModuleKey) {
+  switch (module) {
+    case "background-jobs":
+      return "Background Jobs";
+    case "embeddings":
+      return "Embeddings";
+    case "ocr":
+      return "OCR";
+    case "ai-operations":
+      return "AI Operations";
+    case "diagnostics":
+      return "Diagnostics";
+    default:
+      return "Operations";
+  }
+}
+
+function readableJobType(jobType: string) {
+  return titleCase(jobType.replace(/_/g, " "));
+}
+
+async function invalidateOperationsQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-jobs"] }),
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-queues"] }),
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-schedulers"] }),
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-caches"] }),
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-health"] }),
+    queryClient.invalidateQueries({ queryKey: [...adminQueryKey, "operations-diagnostics"] }),
+  ]);
+}
+
+function mapClassificationPolicyRow(item: ClassificationPolicyConfig, report: ComplianceReport | null): AdminGridRow {
+  return {
+    id: "classification-policy",
+    configuration: "Enterprise Classification Policy",
+    configurationDetail: `${item.defaultClassification} default · AI restricted from ${item.aiRestrictionThreshold}`,
+    type: "classification-policies",
+    typeLabel: "Classification Policies",
+    status: "CONFIGURED",
+    statusLabel: "Configured",
+    statusTone: "info",
+    lastUpdated: item.updatedAt,
+    lastUpdatedLabel: formatDateTime(item.updatedAt),
+    updatedBy: "Unavailable",
+    description: `${item.levels.join(", ")}. Restricted documents: ${report?.restrictedDocuments ?? 0}.`,
+    relatedDependencies: [item.exportRestrictionThreshold, item.aiRestrictionThreshold],
+    raw: item,
+  };
+}
+
+function mapRetentionPolicyRow(item: RetentionPolicyConfig): AdminGridRow {
+  return {
+    id: "retention-policy",
+    configuration: "Enterprise Retention Policy",
+    configurationDetail: `${item.policies.length} retention classes configured`,
+    type: "retention-policies",
+    typeLabel: "Retention Policies",
+    status: "CONFIGURED",
+    statusLabel: "Configured",
+    statusTone: "info",
+    lastUpdated: item.updatedAt,
+    lastUpdatedLabel: formatDateTime(item.updatedAt),
+    updatedBy: "Unavailable",
+    description: "Retention windows for documents, emails, notes, AI conversations, review records, and audit events.",
+    relatedDependencies: item.policies.map((policy) => `${policy.contentType}: ${policy.retentionDays} days`),
+    raw: item,
+  };
+}
+
+function mapLegalHoldRow(item: LegalHoldConfig): AdminGridRow {
+  return {
+    id: item.id,
+    configuration: `${titleCase(item.holdType)} Hold`,
+    configurationDetail: `${item.targetType} · ${item.targetId}`,
+    type: "legal-holds",
+    typeLabel: "Legal Hold",
+    status: item.legalHold ? "ACTIVE" : "ARCHIVED",
+    statusLabel: item.legalHold ? "Active" : "Archived",
+    statusTone: item.legalHold ? "warning" : "neutral",
+    lastUpdated: item.executedAt ?? item.reviewAt ?? new Date(0).toISOString(),
+    lastUpdatedLabel: formatDateTime(item.executedAt ?? item.reviewAt ?? new Date(0).toISOString()),
+    updatedBy: "Unavailable",
+    description: item.reason ?? "Legal hold applied.",
+    relatedDependencies: [item.retentionPolicyKey ?? "legal-hold", item.clientId ?? "No client scope"],
+    raw: item,
+  };
+}
+
+function mapAiGovernanceRow(item: AiGovernancePolicyConfig): AdminGridRow {
+  return {
+    id: "ai-governance",
+    configuration: "Approved Model Registry",
+    configurationDetail: `${item.approvedModels.length} approved models · ${item.promptPolicyVersion}`,
+    type: "ai-governance",
+    typeLabel: "AI Governance",
+    status: "CONFIGURED",
+    statusLabel: "Configured",
+    statusTone: "info",
+    lastUpdated: item.updatedAt,
+    lastUpdatedLabel: formatDateTime(item.updatedAt),
+    updatedBy: "Unavailable",
+    description: `${item.citationRequired ? "Citations required." : "Citations optional."} ${item.groundingValidationRequired ? "Grounding validation required." : "Grounding validation optional."}`,
+    relatedDependencies: item.approvedModels,
+    raw: item,
+  };
+}
+
+function mapSecurityPolicyRow(item: SecurityPolicyConfig): AdminGridRow {
+  return {
+    id: "security-policy",
+    configuration: "Enterprise Security Policy",
+    configurationDetail: `${item.exportApprovalRequired ? "Approval required" : "Approval optional"} · ${item.watermarkByDefault ? "Watermarked" : "No default watermark"}`,
+    type: "security-policies",
+    typeLabel: "Security Policies",
+    status: "CONFIGURED",
+    statusLabel: "Configured",
+    statusTone: "info",
+    lastUpdated: item.updatedAt,
+    lastUpdatedLabel: formatDateTime(item.updatedAt),
+    updatedBy: "Unavailable",
+    description: item.encryptionAtRest,
+    relatedDependencies: [item.encryptionInTransit, item.keyManagement],
     raw: item,
   };
 }

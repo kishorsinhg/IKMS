@@ -8,7 +8,11 @@ public interface EmbeddingChunkRepository extends JpaRepository<EmbeddingChunk, 
 
   List<EmbeddingChunk> findByClientIdOrderByCreatedAtDesc(UUID clientId);
 
+  List<EmbeddingChunk> findByClientIdAndSourceTypeAndSourceIdOrderByChunkIndexAsc(UUID clientId, String sourceType, UUID sourceId);
+
   void deleteBySourceTypeAndSourceId(String sourceType, UUID sourceId);
 
   List<EmbeddingChunk> findBySourceTypeAndSourceIdOrderByChunkIndexAsc(String sourceType, UUID sourceId);
+
+  long countByEmbeddingVectorIsNull();
 }

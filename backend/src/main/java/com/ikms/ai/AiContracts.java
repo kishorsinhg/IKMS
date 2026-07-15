@@ -3,6 +3,7 @@ package com.ikms.ai;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class AiContracts {
@@ -30,6 +31,40 @@ public final class AiContracts {
       String retrievalMode,
       List<String> warnings,
       Instant createdAt) {
+  }
+
+  public record EnterprisePromptRequest(
+      @NotBlank(message = "Prompt is required.") String prompt,
+      UUID conversationId,
+      List<UUID> sourceIds,
+      Map<String, Object> parameters) {
+  }
+
+  public record GlobalAskRequest(
+      @NotBlank(message = "Question is required.") String question,
+      UUID customerId,
+      Map<String, Object> parameters) {
+  }
+
+  public record ConversationContinueRequest(
+      @NotBlank(message = "Prompt is required.") String prompt,
+      List<UUID> sourceIds,
+      Map<String, Object> parameters) {
+  }
+
+  public record StreamRequest(
+      @NotBlank(message = "Prompt is required.") String prompt,
+      UUID customerId,
+      UUID conversationId,
+      List<UUID> sourceIds,
+      Map<String, Object> parameters) {
+  }
+
+  public record CompareRequest(
+      @NotBlank(message = "Prompt is required.") String prompt,
+      List<UUID> sourceIds,
+      UUID conversationId,
+      Map<String, Object> parameters) {
   }
 
   public record AiFeedbackRequest(

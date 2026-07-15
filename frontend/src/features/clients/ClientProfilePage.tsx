@@ -38,10 +38,31 @@ import { GridColDef, GridSortModel } from "@mui/x-data-grid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyboardEvent, ReactElement, useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
-import { createNote, deleteNote, getClient, listNotes, Note, updateNote } from "../../api/clients";
+import {
+  createNote,
+  deleteNote,
+  getClient,
+  listDocumentVersions,
+  listKnowledgeTimeline,
+  listNotes,
+  listRelatedKnowledge,
+  listSourceRelatedKnowledge,
+  type DocumentVersionSummary,
+  type CustomerKnowledgeTimelineEvent,
+  type RelatedKnowledgeLink,
+  Note,
+  updateNote,
+} from "../../api/clients";
 import { DemoClientWorkspace, getDemoClientWorkspace, isDemoDataEnabled } from "../../api/demo";
 import { ClientDocumentSummary, ClientEmailSummary, listClientDocuments, listClientEmails } from "../../api/intake";
 import { useCurrentUser } from "../../app/auth/useCurrentUser";
+import { AISummary } from "../../app/components/document-viewer/AISummary";
+import { DocumentViewerDialog } from "../../app/components/document-viewer/DocumentViewerDialog";
+import { EvidenceCard } from "../../app/components/document-viewer/EvidenceCard";
+import { type EnterpriseDocumentViewerProps } from "../../app/components/document-viewer/EnterpriseDocumentViewer";
+import { MetadataGroup as EvidenceMetadataGroup } from "../../app/components/document-viewer/MetadataGroup";
+import { documentViewerPlaceholderLayers } from "../../app/components/document-viewer/documentViewerLayers";
+import { type EvidenceWorkspaceSection, normalizeConfidence } from "../../app/components/document-viewer/evidenceWorkspaceTypes";
 import { EntityGrid } from "../../app/components/EntityGrid";
 import { StatusBadge, StatusTone } from "../../app/components/StatusBadge";
 import { WorkspaceToolbar } from "../../app/components/WorkspaceToolbar";
@@ -98,9 +119,12 @@ interface RelationshipRow extends Record<string, unknown> {
   relationship: string;
   source: string;
   status: string;
+  explanation: string;
+  score: string;
+  derivationType: string;
 }
 
-interface PolicyRow extends Record<string, unknown> {
+interface PolicyReferenceRow extends Record<string, unknown> {
   id: string;
   policyNumber: string;
   product: string;
@@ -110,10 +134,10 @@ interface PolicyRow extends Record<string, unknown> {
   summary: string;
 }
 
-interface ClaimRow extends Record<string, unknown> {
+interface ClaimReferenceRow extends Record<string, unknown> {
   id: string;
   claimNumber: string;
-  policy: string;
+  carrier: string;
   status: string;
   opened: string;
   updated: string;
@@ -129,6 +153,8 @@ interface TimelineRow extends Record<string, unknown> {
   detail: string;
   status: string;
   statusTone: StatusTone;
+  sourceType?: string;
+  businessReferences?: string;
 }
 
 interface MobileListItem {
@@ -160,6 +186,11 @@ const clientQueryKey = (clientId: string) => ["clients", "profile", clientId] as
 const notesQueryKey = (clientId: string) => ["clients", clientId, "notes"] as const;
 const documentsQueryKey = (clientId: string) => ["clients", clientId, "documents"] as const;
 const emailsQueryKey = (clientId: string) => ["clients", clientId, "emails"] as const;
+const timelineQueryKey = (clientId: string) => ["clients", clientId, "knowledge", "timeline"] as const;
+const relatedKnowledgeQueryKey = (clientId: string) => ["clients", clientId, "knowledge", "related"] as const;
+const sourceRelatedKnowledgeQueryKey = (sourceType: string, sourceId: string) =>
+  ["knowledge", "sources", sourceType, sourceId, "related"] as const;
+const documentVersionsQueryKey = (documentId: string) => ["documents", documentId, "versions"] as const;
 const workspaceQueryKey = (clientId: string) => ["clients", clientId, "demo-workspace"] as const;
 
 export function ClientProfilePage() {
@@ -176,6 +207,7 @@ export function ClientProfilePage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteDrawerOpen, setNoteDrawerOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [viewerDocumentId, setViewerDocumentId] = useState<string | null>(null);
   const currentUserQuery = useCurrentUser();
 
   const activeTab = parseTab(searchParams.get("tab"));
@@ -204,6 +236,16 @@ export function ClientProfilePage() {
     queryKey: clientId ? emailsQueryKey(clientId) : ["clients", "emails", "empty"],
     queryFn: () => listClientEmails(clientId!),
     enabled: Boolean(clientId),
+  });
+  const timelineQuery = useQuery({
+    queryKey: clientId ? timelineQueryKey(clientId) : ["clients", "timeline", "empty"],
+    queryFn: () => listKnowledgeTimeline(clientId!, { limit: 50 }),
+    enabled: Boolean(clientId) && !isDemoDataEnabled,
+  });
+  const relatedKnowledgeQuery = useQuery({
+    queryKey: clientId ? relatedKnowledgeQueryKey(clientId) : ["clients", "related-knowledge", "empty"],
+    queryFn: () => listRelatedKnowledge(clientId!, 20),
+    enabled: Boolean(clientId) && !isDemoDataEnabled,
   });
   const workspaceQuery = useQuery({
     queryKey: clientId ? workspaceQueryKey(clientId) : ["clients", "workspace", "empty"],
@@ -274,12 +316,23 @@ export function ClientProfilePage() {
   );
   const emailRows = useMemo(() => mapEmailRows(emailsQuery.data ?? []), [emailsQuery.data]);
   const noteRows = useMemo(() => mapNoteRows(notesQuery.data ?? [], currentUser?.displayName ?? "Current user"), [notesQuery.data, currentUser?.displayName]);
-  const relationshipRows = useMemo<RelationshipRow[]>(() => [], []);
+  const relationshipRows = useMemo(
+    () => mapRelationshipRows(relatedKnowledgeQuery.data?.links ?? []),
+    [relatedKnowledgeQuery.data?.links],
+  );
   const policyRows = useMemo(() => mapPolicyRows(workspace), [workspace]);
   const claimRows = useMemo(() => mapClaimRows(workspace), [workspace]);
   const timelineRows = useMemo(
-    () => mapTimelineRows({ notes: notesQuery.data ?? [], documents: documentsQuery.data ?? [], emails: emailsQuery.data ?? [], workspace }),
-    [documentsQuery.data, emailsQuery.data, notesQuery.data, workspace],
+    () =>
+      isDemoDataEnabled
+        ? mapTimelineRows({
+            notes: notesQuery.data ?? [],
+            documents: documentsQuery.data ?? [],
+            emails: emailsQuery.data ?? [],
+            workspace,
+          })
+        : mapKnowledgeTimelineRows(timelineQuery.data?.events ?? []),
+    [documentsQuery.data, emailsQuery.data, notesQuery.data, timelineQuery.data?.events, workspace],
   );
 
   const tabRows = useMemo(() => {
@@ -312,6 +365,45 @@ export function ClientProfilePage() {
     () => sortedRows.find((row) => String(row.id) === selectedRowId) ?? null,
     [selectedRowId, sortedRows],
   );
+  const viewerDocument = useMemo(
+    () => (viewerDocumentId ? (documentsQuery.data ?? []).find((document) => document.id === viewerDocumentId) ?? null : null),
+    [documentsQuery.data, viewerDocumentId],
+  );
+  const viewerRelatedKnowledgeQuery = useQuery({
+    queryKey: viewerDocumentId ? sourceRelatedKnowledgeQueryKey("DOCUMENT", viewerDocumentId) : ["knowledge", "source-related", "empty"],
+    queryFn: () => listSourceRelatedKnowledge("DOCUMENT", viewerDocumentId!, 12),
+    enabled: Boolean(viewerDocumentId) && !isDemoDataEnabled,
+  });
+  const documentVersionsQuery = useQuery({
+    queryKey: viewerDocumentId ? documentVersionsQueryKey(viewerDocumentId) : ["documents", "versions", "empty"],
+    queryFn: () => listDocumentVersions(viewerDocumentId!),
+    enabled: Boolean(viewerDocumentId) && !isDemoDataEnabled,
+  });
+  const viewerDocumentConfig = useMemo(
+    () =>
+      client && viewerDocument
+        ? buildCustomerViewerDocument({
+            client,
+            document: viewerDocument,
+            workspace,
+            permissions: currentUser?.permissions ?? [],
+          })
+        : null,
+    [client, currentUser?.permissions, viewerDocument, workspace],
+  );
+  const viewerEvidenceSections = useMemo<EnterpriseDocumentViewerProps["evidenceSections"]>(
+    () =>
+      client && viewerDocument
+        ? buildCustomerViewerEvidenceSections({
+            client,
+            document: viewerDocument,
+            workspace,
+            relatedLinks: viewerRelatedKnowledgeQuery.data?.links ?? [],
+            versions: documentVersionsQuery.data ?? [],
+          })
+        : [],
+    [client, documentVersionsQuery.data, viewerDocument, viewerRelatedKnowledgeQuery.data?.links, workspace],
+  );
 
   useEffect(() => {
     if (selectedRowId && !sortedRows.some((row) => String(row.id) === selectedRowId)) {
@@ -320,11 +412,56 @@ export function ClientProfilePage() {
   }, [activeTab, searchParams, selectedRowId, setSearchParams, sortedRows]);
 
   const pageError =
-    clientQuery.isError || notesQuery.isError || documentsQuery.isError || emailsQuery.isError || currentUserQuery.isError;
+    clientQuery.isError
+    || notesQuery.isError
+    || documentsQuery.isError
+    || emailsQuery.isError
+    || timelineQuery.isError
+    || relatedKnowledgeQuery.isError
+    || currentUserQuery.isError;
   const pageLoading =
-    clientQuery.isLoading || notesQuery.isLoading || documentsQuery.isLoading || emailsQuery.isLoading || currentUserQuery.isLoading;
+    clientQuery.isLoading
+    || notesQuery.isLoading
+    || documentsQuery.isLoading
+    || emailsQuery.isLoading
+    || timelineQuery.isLoading
+    || relatedKnowledgeQuery.isLoading
+    || currentUserQuery.isLoading;
   const hasAiAssistant = currentUser?.permissions.includes("ASK_CLIENT_AI") ?? false;
   const tabMeta = getTabMeta(activeTab);
+  const assistantSuggestedPrompts = useMemo(
+    () => [
+      "What happened recently for this customer?",
+      "Show documents related to this item.",
+      "Find earlier versions.",
+      "What other documents mention this policy reference?",
+      "What correspondence mentions this claim reference?",
+      "Explain the sequence leading to this review item.",
+    ],
+    [],
+  );
+  const assistantSourceReferences = useMemo(
+    () =>
+      (relatedKnowledgeQuery.data?.links ?? []).slice(0, 6).map((link) => ({
+        key: link.relationshipId,
+        label: link.relatedTitle,
+        kind: normalizeAssistantSourceKind(link.relatedSourceType),
+        detail: link.explanation,
+        disabled: true,
+      })),
+    [relatedKnowledgeQuery.data?.links],
+  );
+  const assistantEvidenceReferences = useMemo(
+    () =>
+      (timelineQuery.data?.events ?? []).slice(0, 4).map((event) => ({
+        key: event.eventId,
+        label: event.title,
+        target: "metadata" as const,
+        detail: event.summary,
+        disabled: true,
+      })),
+    [timelineQuery.data?.events],
+  );
 
   const workspaceChrome = useMemo<ShellWorkspaceChrome | null>(() => {
     if (!client || !currentUser) {
@@ -503,6 +640,7 @@ export function ClientProfilePage() {
   const activeColumns = buildColumns({
     activeTab,
     isTabletDown,
+    onOpenDocumentViewer: (documentId) => setViewerDocumentId(documentId),
     onEditNote: (noteId) => {
       const note = notesQuery.data?.find((item) => item.id === noteId);
       if (note) {
@@ -518,6 +656,7 @@ export function ClientProfilePage() {
   const mobileItems = buildMobileItems({
     activeTab,
     rows: sortedRows,
+    onOpenDocumentViewer: (documentId) => setViewerDocumentId(documentId),
     onOpenNote: (noteId) => {
       const note = notesQuery.data?.find((item) => item.id === noteId);
       if (note) {
@@ -534,7 +673,7 @@ export function ClientProfilePage() {
     <Stack spacing={1.25}>
       <CustomerSummaryPanel
         client={client}
-        lastActivity={timelineRows[0]?.occurredAt ? formatDateTime(timelineRows[0].occurredAt) : "No activity recorded"}
+        lastActivity={timelineRows[0]?.occurredAt ? String(timelineRows[0].occurredAt) : "No activity recorded"}
       />
 
       <Box
@@ -632,6 +771,8 @@ export function ClientProfilePage() {
               void notesQuery.refetch();
               void documentsQuery.refetch();
               void emailsQuery.refetch();
+              void timelineQuery.refetch();
+              void relatedKnowledgeQuery.refetch();
               if (isDemoDataEnabled) {
                 void workspaceQuery.refetch();
               }
@@ -698,7 +839,13 @@ export function ClientProfilePage() {
             </Stack>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0 }}>
-            <ClientSearchPanel clientId={clientId} compact />
+            <ClientSearchPanel
+              clientId={clientId}
+              compact
+              suggestedPrompts={assistantSuggestedPrompts}
+              sourceReferencesOverride={assistantSourceReferences}
+              evidenceReferencesOverride={assistantEvidenceReferences}
+            />
           </AccordionDetails>
         </Accordion>
       ) : null}
@@ -798,6 +945,17 @@ export function ClientProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {viewerDocumentConfig ? (
+        <DocumentViewerDialog
+          open={Boolean(viewerDocumentConfig)}
+          onClose={() => setViewerDocumentId(null)}
+          document={viewerDocumentConfig}
+          state="ready"
+          evidenceSections={viewerEvidenceSections}
+          layers={documentViewerPlaceholderLayers()}
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -967,11 +1125,13 @@ function SelectionDetail({ activeTab, row }: { activeTab: CustomerTab; row: Reco
 function buildColumns({
   activeTab,
   isTabletDown,
+  onOpenDocumentViewer,
   onEditNote,
   onDeleteNote,
 }: {
   activeTab: CustomerTab;
   isTabletDown: boolean;
+  onOpenDocumentViewer: (documentId: string) => void;
   onEditNote: (noteId: string) => void;
   onDeleteNote: (noteId: string) => void;
 }): GridColDef<Record<string, unknown>>[] {
@@ -1016,10 +1176,7 @@ function buildColumns({
                 <IconButton
                   size="small"
                   aria-label={`Preview ${String(row.title)}`}
-                  component="a"
-                  href={String(row.previewHref)}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => onOpenDocumentViewer(String(row.id))}
                 >
                   <VisibilityOutlinedIcon fontSize="small" />
                 </IconButton>
@@ -1129,7 +1286,7 @@ function buildColumns({
     case "claims":
       return [
         { field: "claimNumber", headerName: "Claim Number", minWidth: 180, flex: 0.9 },
-        { field: "policy", headerName: "Policy", minWidth: 180, flex: 0.9 },
+        { field: "carrier", headerName: "Carrier", minWidth: 180, flex: 0.9 },
         { field: "status", headerName: "Status", minWidth: 130, flex: 0.6 },
         { field: "opened", headerName: "Opened", minWidth: 140, flex: 0.7 },
         { field: "updated", headerName: "Updated", minWidth: 140, flex: 0.7 },
@@ -1168,11 +1325,13 @@ function buildColumns({
 function buildMobileItems({
   activeTab,
   rows,
+  onOpenDocumentViewer,
   onOpenNote,
   onDeleteNote,
 }: {
   activeTab: CustomerTab;
   rows: Record<string, unknown>[];
+  onOpenDocumentViewer: (documentId: string) => void;
   onOpenNote: (noteId: string) => void;
   onDeleteNote: (noteId: string) => void;
 }): MobileListItem[] {
@@ -1186,7 +1345,7 @@ function buildMobileItems({
           meta: String(row.modified),
           status: { label: String(row.status), tone: row.statusTone as StatusTone },
           actions: [
-            { key: "preview", label: "Preview", icon: <VisibilityOutlinedIcon fontSize="small" />, href: String(row.previewHref) },
+            { key: "preview", label: "Preview", icon: <VisibilityOutlinedIcon fontSize="small" />, onClick: () => onOpenDocumentViewer(String(row.id)) },
             { key: "download", label: "Download", icon: <DownloadOutlinedIcon fontSize="small" />, href: String(row.downloadHref) },
           ],
         };
@@ -1214,7 +1373,7 @@ function buildMobileItems({
           id: String(row.id),
           title: String(row.relatedCustomer),
           subtitle: String(row.relationship),
-          meta: `${String(row.source)} · ${String(row.status)}`,
+          meta: `${String(row.source)} · ${String(row.status)} · ${String(row.explanation ?? "")}`,
         };
       case "policies":
         return {
@@ -1228,7 +1387,7 @@ function buildMobileItems({
         return {
           id: String(row.id),
           title: String(row.claimNumber),
-          subtitle: String(row.policy),
+          subtitle: String(row.carrier),
           meta: `${String(row.opened)} · ${String(row.updated)}`,
           status: { label: String(row.status), tone: "warning" },
         };
@@ -1237,7 +1396,7 @@ function buildMobileItems({
           id: String(row.id),
           title: String(row.event),
           subtitle: String(row.detail),
-          meta: `${String(row.occurredAt)} · ${String(row.actor)}`,
+          meta: `${String(row.occurredAt)} · ${String(row.actor)}${row.businessReferences ? ` · ${String(row.businessReferences)}` : ""}`,
           status: { label: String(row.status), tone: row.statusTone as StatusTone },
         };
     }
@@ -1413,8 +1572,8 @@ function getTabMeta(tab: CustomerTab) {
     case "claims":
       return {
         label: "Claim References",
-        searchPlaceholder: "Filter claims by number, policy, or status",
-        emptyTitle: "No claims linked",
+        searchPlaceholder: "Filter claim references by number, policy reference, or status",
+        emptyTitle: "No claim references linked",
         emptyMessage: "No claim references are available for this customer.",
       };
     case "timeline":
@@ -1479,7 +1638,7 @@ function mapNoteRows(notes: Note[], currentUserName: string): NoteRow[] {
   }));
 }
 
-function mapPolicyRows(workspace: DemoClientWorkspace | undefined): PolicyRow[] {
+function mapPolicyRows(workspace: DemoClientWorkspace | undefined): PolicyReferenceRow[] {
   return (workspace?.policyReferences ?? []).map((policy) => ({
     id: policy.id,
     policyNumber: policy.policyNumber,
@@ -1491,15 +1650,43 @@ function mapPolicyRows(workspace: DemoClientWorkspace | undefined): PolicyRow[] 
   }));
 }
 
-function mapClaimRows(workspace: DemoClientWorkspace | undefined): ClaimRow[] {
+function mapClaimRows(workspace: DemoClientWorkspace | undefined): ClaimReferenceRow[] {
   return (workspace?.claimReferences ?? []).map((claim) => ({
     id: claim.id,
     claimNumber: claim.claimNumber,
-    policy: claim.carrier,
+    carrier: claim.carrier,
     status: claim.status,
     opened: claim.reportedDate,
     updated: claim.lossDate,
     summary: claim.summary,
+  }));
+}
+
+function mapRelationshipRows(links: RelatedKnowledgeLink[]): RelationshipRow[] {
+  return links.map((link) => ({
+    id: link.relationshipId,
+    relatedCustomer: link.relatedTitle,
+    relationship: humanizeRelationshipType(link.relationshipType),
+    source: link.sourceTitle,
+    status: link.inferred ? "Inferred" : "Deterministic",
+    explanation: link.explanation,
+    score: link.score == null ? "N/A" : link.score.toFixed(2),
+    derivationType: link.derivationType,
+  }));
+}
+
+function mapKnowledgeTimelineRows(events: CustomerKnowledgeTimelineEvent[]): TimelineRow[] {
+  return events.map((event) => ({
+    id: event.eventId,
+    event: event.title,
+    type: humanizeTimelineEventType(event.eventType),
+    occurredAt: formatDateTime(event.occurredAt ?? event.recordedAt),
+    actor: event.actor ?? "System",
+    detail: event.summary,
+    status: event.status,
+    statusTone: mapOperationalTone(event.status),
+    sourceType: event.sourceType,
+    businessReferences: event.businessReferenceFields.map((field) => `${field.label}: ${field.value}`).join(" · "),
   }));
 }
 
@@ -1596,13 +1783,19 @@ function selectSearchableFields(tab: CustomerTab, row: Record<string, unknown>) 
     case "notes":
       return { title: row.title, text: row.text, updated: row.updated };
     case "relationships":
-      return { relatedCustomer: row.relatedCustomer, relationship: row.relationship, source: row.source };
+      return {
+        relatedCustomer: row.relatedCustomer,
+        relationship: row.relationship,
+        source: row.source,
+        explanation: row.explanation,
+        derivationType: row.derivationType,
+      };
     case "policies":
       return { policyNumber: row.policyNumber, product: row.product, insurer: row.insurer, status: row.status };
     case "claims":
-      return { claimNumber: row.claimNumber, policy: row.policy, status: row.status, summary: row.summary };
+      return { claimNumber: row.claimNumber, carrier: row.carrier, status: row.status, summary: row.summary };
     case "timeline":
-      return { event: row.event, detail: row.detail, actor: row.actor, type: row.type };
+      return { event: row.event, detail: row.detail, actor: row.actor, type: row.type, references: row.businessReferences };
   }
 }
 
@@ -1646,7 +1839,11 @@ function describeSelection(activeTab: CustomerTab, row: Record<string, unknown>)
     case "relationships":
       return {
         title: String(row.relatedCustomer),
-        lines: [`${String(row.relationship)} · ${String(row.source)}`, `Status: ${String(row.status)}`],
+        lines: [
+          `${String(row.relationship)} · ${String(row.source)}`,
+          `${String(row.status)} · ${String(row.derivationType ?? "")}`,
+          String(row.explanation ?? ""),
+        ],
       };
     case "policies":
       return {
@@ -1656,13 +1853,328 @@ function describeSelection(activeTab: CustomerTab, row: Record<string, unknown>)
     case "claims":
       return {
         title: String(row.claimNumber),
-        lines: [`${String(row.policy)} · ${String(row.status)}`, `Opened ${String(row.opened)} · Updated ${String(row.updated)}`],
+        lines: [`${String(row.carrier)} · ${String(row.status)}`, `Opened ${String(row.opened)} · Updated ${String(row.updated)}`],
       };
     case "timeline":
       return {
         title: String(row.event),
-        lines: [`${String(row.type)} · ${String(row.actor)}`, `${String(row.occurredAt)} · ${String(row.detail)}`],
+        lines: [
+          `${String(row.type)} · ${String(row.actor)}`,
+          `${String(row.occurredAt)} · ${String(row.detail)}`,
+          String(row.businessReferences ?? ""),
+        ],
       };
+  }
+}
+
+function buildCustomerViewerDocument({
+  client,
+  document,
+  workspace,
+  permissions,
+}: {
+  client: Awaited<ReturnType<typeof getClient>>;
+  document: ClientDocumentSummary;
+  workspace: DemoClientWorkspace | undefined;
+  permissions: string[];
+}) {
+  const canViewOriginal = permissions.includes("VIEW_ORIGINAL_DOCUMENTS") && permissions.includes("VIEW_PII");
+
+  return {
+    id: document.id,
+    title: document.title,
+    subtitle: `${client.displayName} · ${document.source}`,
+    fileKind: "pdf" as const,
+    previewUrl: `/api/documents/${document.id}/preview`,
+    downloadUrl: `/api/documents/${document.id}/download`,
+    originalUrl: `/api/documents/${document.id}/preview`,
+    originalActionLabel: canViewOriginal ? "Open original" : "Open document",
+    pages: [{ id: `${document.id}-page-1`, label: "Page 1", pageNumber: 1 }],
+    isLargeFile: workspace ? workspace.aiSummaries.length + workspace.policyReferences.length > 6 : false,
+  };
+}
+
+function buildCustomerViewerEvidenceSections({
+  client,
+  document,
+  workspace,
+  relatedLinks,
+  versions,
+}: {
+  client: Awaited<ReturnType<typeof getClient>>;
+  document: ClientDocumentSummary;
+  workspace: DemoClientWorkspace | undefined;
+  relatedLinks: RelatedKnowledgeLink[];
+  versions: DocumentVersionSummary[];
+}): EvidenceWorkspaceSection[] {
+  const groupedReferences = collectBusinessReferenceFields(relatedLinks);
+  const versionSummary = versions.length > 0
+    ? versions.map((version) => `v${version.versionNumber}${version.current ? " (current)" : ""} · ${formatDateTime(version.createdAt)}`)
+    : ["Version history is not available from the current API."];
+  const relatedDocuments = relatedLinks.filter((link) => link.relatedSourceType === "DOCUMENT" || link.relatedSourceType === "DOCUMENT_VERSION");
+  const relatedEmails = relatedLinks.filter((link) => link.relatedSourceType === "EMAIL" || link.sourceType === "EMAIL");
+
+  return [
+    {
+      key: "ai-summary",
+      title: "AI Summary",
+      defaultExpanded: true,
+      summary: workspace?.aiSummaries[0] ? "Customer AI summary available" : "No AI summary payload",
+      searchText: workspace?.aiSummaries[0]?.summary,
+      content: (
+        <AISummary
+          state={workspace?.aiSummaries[0] ? "ready" : "unavailable"}
+          summary={workspace?.aiSummaries[0]?.summary}
+          confidence={normalizeConfidence(workspace?.aiSummaries[0]?.confidence)}
+          supportingNotes={workspace?.aiSummaries[0]?.evidence ?? []}
+        />
+      ),
+    },
+    {
+      key: "evidence",
+      title: "Evidence",
+      defaultExpanded: true,
+      summary: "Customer-linked document evidence",
+      countLabel: "1 item",
+      searchText: `${document.title} ${document.source} ${document.processingStatus} ${document.reviewStatus}`,
+      content: (
+        <EvidenceCard
+          title={document.title}
+          excerpt={`${document.source} document linked to ${client.displayName}.`}
+          citation={`${document.title} · ${formatDateTime(document.createdAt)}`}
+          source={document.source}
+          type="Document"
+          confidence={document.reviewStatus === "APPROVED" ? "HIGH" : "MEDIUM"}
+          metadata={[
+            `Processing: ${document.processingStatus}`,
+            `Review: ${document.reviewStatus}`,
+            `Redaction: ${document.redactionStatus}`,
+          ]}
+          navigationActions={[
+            { key: "doc-page", label: "Jump to page", kind: "page", disabled: true },
+            { key: "doc-highlight", label: "Jump to highlight", kind: "highlight", disabled: true },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "fields",
+      title: "Extracted Fields",
+      summary: "Current APIs do not expose document field extraction here",
+      content: (
+        <EvidenceMetadataGroup
+          title="Field availability"
+          fields={[
+            {
+              key: "field-availability",
+              label: "Extracted fields",
+              value: "Not exposed in the current Customer360 document API.",
+              state: "READ_ONLY",
+            },
+            {
+              key: "field-review",
+              label: "Manual review",
+              value: "Use Review workspace for extracted field validation.",
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "business-context",
+      title: "Related Business Context",
+      summary: groupedReferences.length > 0 ? "Customer context with searchable external references" : "Customer context and related knowledge",
+      content: (
+        <Stack spacing={1}>
+          <EvidenceMetadataGroup
+            title="Customer"
+            fields={[
+              {
+                key: "customer-name",
+                label: "Customer",
+                value: client.displayName,
+                state: "VERIFIED",
+                helperText: "Current Customer360 record",
+                confidence: "HIGH",
+              },
+              {
+                key: "customer-id",
+                label: "Customer ID",
+                value: `${client.clientId} · ${client.clientType}`,
+                state: "READ_ONLY",
+              },
+            ]}
+          />
+          {groupedReferences.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Business Reference Fields"
+              fields={groupedReferences.map((reference, index) => ({
+                key: `${reference.label}-${index}`,
+                label: reference.label,
+                value: reference.value,
+                state: "VERIFIED" as const,
+                confidence: "HIGH" as const,
+              }))}
+            />
+          ) : null}
+          <EvidenceMetadataGroup
+            title="Related documents"
+            fields={relatedDocuments.length > 0
+              ? relatedDocuments.slice(0, 4).map((link, index) => ({
+                  key: `related-doc-${index}`,
+                  label: humanizeRelationshipType(link.relationshipType),
+                  value: `${link.relatedTitle} · ${link.explanation}`,
+                  state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+                }))
+              : [
+                  {
+                    key: "related-doc",
+                    label: "Document",
+                    value: document.title,
+                    state: "READ_ONLY" as const,
+                  },
+                ]}
+          />
+          {relatedEmails.length > 0 ? (
+            <EvidenceMetadataGroup
+              title="Related emails"
+              fields={relatedEmails.slice(0, 3).map((link, index) => ({
+                key: `related-email-${index}`,
+                label: humanizeRelationshipType(link.relationshipType),
+                value: link.sourceType === "EMAIL" ? link.sourceTitle : link.relatedTitle,
+                state: link.inferred ? "NEEDS_REVIEW" : "READ_ONLY",
+              }))}
+            />
+          ) : null}
+        </Stack>
+      ),
+    },
+    {
+      key: "document-information",
+      title: "Document Information",
+      summary: "Version and lifecycle information",
+      content: (
+        <EvidenceMetadataGroup
+          title="Document information"
+          fields={[
+            {
+              key: "document-version",
+              label: "Version",
+              value: document.currentVersionId ?? "Current",
+              state: "READ_ONLY",
+            },
+            {
+              key: "document-created",
+              label: "Created",
+              value: formatDateTime(document.createdAt),
+              state: "READ_ONLY",
+            },
+            {
+              key: "document-type",
+              label: "Document type",
+              value: document.source,
+              state: "READ_ONLY",
+            },
+            {
+              key: "redaction-status",
+              label: "Redaction",
+              value: document.redactionStatus,
+              state: "READ_ONLY",
+            },
+            {
+              key: "version-history",
+              label: "Version history",
+              value: versionSummary.join(" | "),
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+    {
+      key: "activity",
+      title: "Activity",
+      summary: "History and comments",
+      content: (
+        <EvidenceMetadataGroup
+          title="Activity"
+          fields={[
+            {
+              key: "document-history",
+              label: "History",
+              value: `Added ${formatDateTime(document.createdAt)}`,
+              state: "READ_ONLY",
+            },
+            {
+              key: "related-knowledge",
+              label: "Related knowledge",
+              value: relatedLinks.length > 0 ? `${relatedLinks.length} related sources available` : "No related sources returned by the current API.",
+              state: "READ_ONLY",
+            },
+            {
+              key: "comments",
+              label: "Comments",
+              value: "No read-only comments are available from the current API.",
+              state: "READ_ONLY",
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+}
+
+function humanizeRelationshipType(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function humanizeTimelineEventType(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function collectBusinessReferenceFields(links: RelatedKnowledgeLink[]) {
+  const seen = new Set<string>();
+  const references: Array<{ label: string; value: string }> = [];
+  for (const link of links) {
+    Object.entries(link.supportingFields ?? {}).forEach(([key, value]) => {
+      if (!value || seen.has(`${key}:${value}`)) {
+        return;
+      }
+      if (!["policy_number", "claim_number", "insurer", "broker_reference", "external_reference"].includes(key)) {
+        return;
+      }
+      seen.add(`${key}:${value}`);
+      references.push({
+        label: key
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (character) => character.toUpperCase()),
+        value,
+      });
+    });
+  }
+  return references;
+}
+
+function normalizeAssistantSourceKind(value: string) {
+  switch (value.toUpperCase()) {
+    case "DOCUMENT":
+    case "DOCUMENT_VERSION":
+      return "DOCUMENT" as const;
+    case "EMAIL":
+      return "EMAIL" as const;
+    case "NOTE":
+      return "NOTE" as const;
+    case "CUSTOMER":
+      return "CUSTOMER" as const;
+    default:
+      return "METADATA" as const;
   }
 }
 

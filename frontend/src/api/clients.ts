@@ -9,6 +9,24 @@ import {
   listDemoNotes,
   updateDemoNote,
 } from "./demo";
+export {
+  getClientKnowledgeTimeline as listKnowledgeTimeline,
+  getClientRelatedKnowledge as listRelatedKnowledge,
+  getDocumentVersions as listDocumentVersions,
+  getSourceRelatedKnowledge as listSourceRelatedKnowledge,
+} from "./knowledge";
+export type {
+  BusinessReferenceField,
+  ClientKnowledgeTimelineParams,
+  CustomerKnowledgeTimelineEvent,
+  CustomerKnowledgeTimelineFilters,
+  CustomerKnowledgeTimelinePage,
+  DocumentVersionSummary,
+  KnowledgeEvidenceReference,
+  KnowledgeSourceReference,
+  RelatedKnowledgeLink,
+  RelatedKnowledgeResponse,
+} from "./knowledge";
 
 export type ClientType = "INDIVIDUAL" | "BUSINESS";
 export type ClientStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";

@@ -10,6 +10,8 @@ public record ApiError(
     String code,
     String message,
     String path,
+    String requestId,
+    String correlationId,
     List<FieldViolation> violations) {
 
   public ApiError {

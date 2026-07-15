@@ -33,13 +33,25 @@ public class PermissionService {
         Permission.VIEW_REDACTED_DOCUMENTS,
         Permission.VIEW_ORIGINAL_DOCUMENTS,
         Permission.VIEW_PII,
-        Permission.VIEW_AUDIT));
+        Permission.VIEW_AUDIT,
+        Permission.VIEW_OPERATIONS,
+        Permission.VIEW_HEALTH,
+        Permission.EXPORT_SENSITIVE_CONTENT));
 
     permissionsByRole.put(UserRole.ADMINISTRATOR, EnumSet.of(
         Permission.MANAGE_CONFIGURATION,
+        Permission.MANAGE_GOVERNANCE,
         Permission.MANAGE_USERS,
         Permission.VIEW_AUDIT,
-        Permission.EXPORT_AUDIT));
+        Permission.VIEW_OPERATIONS,
+        Permission.MANAGE_OPERATIONS,
+        Permission.MANAGE_JOBS,
+        Permission.MANAGE_REINDEX,
+        Permission.MANAGE_AI,
+        Permission.MANAGE_EMBEDDINGS,
+        Permission.VIEW_HEALTH,
+        Permission.EXPORT_AUDIT,
+        Permission.EXPORT_SENSITIVE_CONTENT));
   }
 
   public Set<Permission> permissionsForRoles(Collection<UserRole> roles) {

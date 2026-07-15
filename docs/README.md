@@ -16,7 +16,7 @@ The artifact set is intentionally modular. Each file should stay focused and rea
 - `07-ai-rag/` - OCR, classification, metadata extraction, embeddings, RAG
 - `08-security/` - security, audit, PII, guardrails, threat controls
 - `09-testing/` - test strategy, test cases, traceability
-- `10-operations/` - deployment, backup, monitoring, runbooks
+- `10-operations/` - deployment, observability, support guidance, runbooks
 - `11-handoff/` - AI handoff notes for future Codex sessions
 - `12-decisions/` - ADRs and decision log
 - `13-worklog/` - daily work notes and execution history

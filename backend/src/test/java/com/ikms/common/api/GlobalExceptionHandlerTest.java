@@ -2,6 +2,7 @@ package com.ikms.common.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ikms.observability.RequestContextHolder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -27,6 +28,11 @@ class GlobalExceptionHandlerTest {
     handler = new GlobalExceptionHandler();
   }
 
+  @org.junit.jupiter.api.AfterEach
+  void tearDown() {
+    RequestContextHolder.clear();
+  }
+
   @Test
   void shouldReturnValidationErrorPayload() throws Exception {
     var request = new MockHttpServletRequest("POST", "/test/validate");
@@ -50,13 +56,15 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void shouldReturnBadRequestForIllegalArgument() {
-    var response = handler.handleIllegalArgument(
+    var response = withContext(() -> handler.handleIllegalArgument(
         new IllegalArgumentException("Client ID is invalid."),
-        requestFor("/test/illegal-argument"));
+        requestFor("/test/illegal-argument")));
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody().code()).isEqualTo("invalid_request");
     assertThat(response.getBody().message()).isEqualTo("Client ID is invalid.");
+    assertThat(response.getBody().requestId()).isEqualTo("req-1");
+    assertThat(response.getBody().correlationId()).isEqualTo("corr-1");
   }
 
   @Test
@@ -91,6 +99,12 @@ class GlobalExceptionHandlerTest {
 
   private HttpServletRequest requestFor(String path) {
     return new MockHttpServletRequest("GET", path);
+  }
+
+  private <T> T withContext(java.util.function.Supplier<T> action) {
+    try (RequestContextHolder.Scope ignored = RequestContextHolder.openRequest("req-1", "corr-1")) {
+      return action.get();
+    }
   }
 
   static class TestController {

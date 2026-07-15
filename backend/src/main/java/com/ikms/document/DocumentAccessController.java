@@ -4,6 +4,7 @@ import com.ikms.audit.AuditService;
 import com.ikms.audit.AuditService.AuditEvent;
 import com.ikms.audit.AuditService.AuditOutcome;
 import com.ikms.security.AppUserPrincipal;
+import com.ikms.security.GovernanceAccessService;
 import com.ikms.security.SecurityTrimService;
 import java.time.Instant;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class DocumentAccessController {
   private final com.ikms.storage.FileStorageService fileStorageService;
   private final com.ikms.security.ContentSensitivityService contentSensitivityService;
   private final SecurityTrimService securityTrimService;
+  private final GovernanceAccessService governanceAccessService;
   private final AuditService auditService;
 
   public DocumentAccessController(
@@ -41,6 +43,7 @@ public class DocumentAccessController {
       com.ikms.storage.FileStorageService fileStorageService,
       com.ikms.security.ContentSensitivityService contentSensitivityService,
       SecurityTrimService securityTrimService,
+      GovernanceAccessService governanceAccessService,
       AuditService auditService) {
     this.documentRepository = documentRepository;
     this.documentVersionRepository = documentVersionRepository;
@@ -48,6 +51,7 @@ public class DocumentAccessController {
     this.fileStorageService = fileStorageService;
     this.contentSensitivityService = contentSensitivityService;
     this.securityTrimService = securityTrimService;
+    this.governanceAccessService = governanceAccessService;
     this.auditService = auditService;
   }
 
@@ -68,6 +72,14 @@ public class DocumentAccessController {
         .orElseThrow(() -> new IllegalArgumentException("Current document version not found: " + documentId));
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
     boolean containsPii = contentSensitivityService.documentContainsPii(documentId);
+    GovernanceAccessService.GovernanceDecision governanceDecision = governanceAccessService.evaluateDocumentAccess(
+        principal,
+        document,
+        GovernanceAccessService.GovernanceAction.forDocumentAccess(preview));
+    if (!governanceDecision.allowed()) {
+      auditDenied(documentId, principal, preview ? "DOCUMENT_PREVIEW_DENIED" : "DOCUMENT_DOWNLOAD_DENIED", governanceDecision.reason());
+      throw new ResponseStatusException(FORBIDDEN, governanceDecision.reason());
+    }
 
     if (containsPii && version.getRedactionStatus() != RedactionStatus.AVAILABLE) {
       try {

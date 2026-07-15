@@ -17,9 +17,10 @@ describe("ReviewDetailPage", () => {
       setWorkspaceChrome,
     });
 
-    expect(await screen.findByText("ACORD 125 Property Schedule")).toBeInTheDocument();
-    expect(screen.getByText("Document Viewer")).toBeInTheDocument();
+    expect((await screen.findAllByText("ACORD 125 Property Schedule")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Evidence Workspace")).toBeInTheDocument();
     expect(screen.getByText("Extracted Metadata")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open original" })).toBeInTheDocument();
 
     await waitFor(() =>
       expect(setWorkspaceChrome).toHaveBeenLastCalledWith(
@@ -45,8 +46,8 @@ describe("ReviewDetailPage", () => {
     await user.click(screen.getAllByRole("button", { name: "Edit metadata" })[0]!);
     await user.clear(screen.getByLabelText("Title"));
     await user.type(screen.getByLabelText("Title"), "Updated schedule");
-    await user.clear(screen.getByLabelText("Carrier"));
-    await user.type(screen.getByLabelText("Carrier"), "Updated Carrier");
+    await user.clear(screen.getAllByLabelText("Carrier")[0]!);
+    await user.type(screen.getAllByLabelText("Carrier")[0]!, "Updated Carrier");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
@@ -68,6 +69,19 @@ describe("ReviewDetailPage", () => {
     );
   });
 
+  it("surfaces processing findings from the document pipeline", async () => {
+    mockViewport(1440);
+    stubReviewDetailFetch();
+
+    renderReviewDetailPage({
+      initialEntry: "/review-queue/review-2",
+      setWorkspaceChrome: vi.fn(),
+    });
+
+    expect((await screen.findAllByDisplayValue("Mountain West Indemnity")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Validation Findings")).toBeInTheDocument();
+  });
+
   it("opens the context drawer on mobile", async () => {
     mockViewport(390);
     const user = userEvent.setup();
@@ -83,8 +97,8 @@ describe("ReviewDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "More actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Open context" }));
 
-    expect(await screen.findByText("Evidence Assistant")).toBeInTheDocument();
-    expect(screen.getByText("Workflow Status")).toBeInTheDocument();
+    expect(await screen.findByText("Enterprise AI Assistant")).toBeInTheDocument();
+    expect(screen.getByText("Conversation unavailable")).toBeInTheDocument();
   });
 });
 
@@ -166,6 +180,64 @@ function stubReviewDetailFetch() {
         metadataValues: {
           carrier: "Mountain West Indemnity",
           policyNumber: "TMP-PROP-90814",
+        },
+        processingJob: {
+          id: "job-review-2",
+          status: "WAITING_REVIEW",
+          currentStage: "VALIDATED",
+          retryCount: 1,
+          overallConfidence: 0.58,
+          ocrConfidence: 0.62,
+          classificationConfidence: 0.91,
+          metadataConfidence: 0.58,
+          businessReferenceConfidence: 0.77,
+          validationConfidence: 0.42,
+          duplicateConfidence: 0.1,
+          language: "en",
+          ocrProvider: "tesseract",
+          classificationProvider: "local-model",
+          lastErrorCode: null,
+          lastErrorMessage: "Unreadable OCR region for insurer footer",
+          reviewerComment: null,
+          startedAt: "2026-07-15T09:00:00Z",
+          reviewRequestedAt: "2026-07-15T09:01:00Z",
+          approvedAt: null,
+          rejectedAt: null,
+          publishedAt: null,
+          completedAt: null,
+          fields: [
+            {
+              fieldKey: "carrier",
+              fieldLabel: "Carrier",
+              fieldType: "TEXT",
+              businessReferenceType: "INSURER",
+              extractedValue: "Mountain West Indemnity",
+              correctedValue: null,
+              approvedValue: null,
+              confidence: 0.58,
+              sourceType: "OCR",
+              extractionMethod: "MODEL_EXTRACTION",
+              sourcePage: 1,
+              required: true,
+              validationState: "NEEDS_REVIEW",
+            },
+          ],
+          findings: [
+            {
+              findingCode: "OCR_LOW_CONFIDENCE",
+              severity: "WARNING",
+              stage: "VALIDATED",
+              fieldKey: "carrier",
+              message: "Unreadable OCR region for insurer footer",
+              evidenceText: "Mountain West Indemnity",
+              sourcePage: 1,
+              confidence: 0.42,
+              status: "OPEN",
+              resolutionComment: null,
+              createdAt: "2026-07-15T09:01:00Z",
+              resolvedAt: null,
+            },
+          ],
         },
       });
     }
@@ -263,6 +335,50 @@ function stubReviewDetailFetch() {
         metadataValues: {
           carrier: "Updated Carrier",
           policyNumber: "TMP-PROP-90814",
+        },
+      });
+    }
+    if (url.endsWith("/api/review-queue/review-2/retry") && init?.method === "POST") {
+      return jsonResponse({
+        id: "review-2",
+        itemType: "DOCUMENT",
+        itemId: "doc-silverridge-accord",
+        reason: "LOW_EXTRACTION_CONFIDENCE",
+        status: "IN_PROGRESS",
+        assignedTo: "processor",
+        title: "ACORD 125 Property Schedule",
+        clientId: "client-silverridge",
+        documentTypeId: "doc-type-accord",
+        metadataValues: {
+          carrier: "Mountain West Indemnity",
+          policyNumber: "TMP-PROP-90814",
+        },
+        processingJob: {
+          id: "job-review-2",
+          status: "RETRYING",
+          currentStage: "OCR_TEXT_EXTRACTION",
+          retryCount: 2,
+          overallConfidence: 0.58,
+          ocrConfidence: 0.62,
+          classificationConfidence: 0.91,
+          metadataConfidence: 0.58,
+          businessReferenceConfidence: 0.77,
+          validationConfidence: 0.42,
+          duplicateConfidence: 0.1,
+          language: "en",
+          ocrProvider: "tesseract",
+          classificationProvider: "local-model",
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          reviewerComment: "Retry requested from Review Detail",
+          startedAt: "2026-07-15T09:02:00Z",
+          reviewRequestedAt: "2026-07-15T09:01:00Z",
+          approvedAt: null,
+          rejectedAt: null,
+          publishedAt: null,
+          completedAt: null,
+          fields: [],
+          findings: [],
         },
       });
     }

@@ -13,5 +13,10 @@ public interface MetadataValueRepository extends JpaRepository<MetadataValue, UU
 
   List<MetadataValue> findByOwnerTypeAndTextValueContainingIgnoreCase(String ownerType, String textValue);
 
+  List<MetadataValue> findByOwnerTypeAndField_FieldKeyIgnoreCaseAndTextValueIgnoreCase(
+      String ownerType,
+      String fieldKey,
+      String textValue);
+
   void deleteByOwnerTypeAndOwnerId(String ownerType, UUID ownerId);
 }

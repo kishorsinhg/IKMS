@@ -2,6 +2,9 @@ package com.ikms.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ikms.security.domain.AppUserRepository;
+import com.ikms.observability.RequestContextHolder;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,7 @@ public class LoggingAuditService implements AuditService {
 
   @Override
   public void write(AuditEvent event) {
+    Map<String, Object> details = enrichDetails(event.details());
     AuditLog auditLog = new AuditLog();
     auditLog.setOccurredAt(event.occurredAt());
     auditLog.setActorUserId(event.actorUserId());
@@ -36,11 +40,11 @@ public class LoggingAuditService implements AuditService {
     auditLog.setTargetType(event.targetType());
     auditLog.setTargetId(event.targetId());
     auditLog.setPiiAccess(event.piiAccess());
-    auditLog.setDetails(writeDetails(event));
+    auditLog.setDetails(writeDetails(details));
     auditLogRepository.save(auditLog);
 
     log.info(
-        "audit category={} action={} outcome={} actorUserId={} clientId={} targetType={} targetId={} piiAccess={} details={}",
+        "audit category={} action={} outcome={} actorUserId={} clientId={} targetType={} targetId={} piiAccess={} requestId={} correlationId={} details={}",
         event.category(),
         event.action(),
         event.outcome(),
@@ -49,7 +53,9 @@ public class LoggingAuditService implements AuditService {
         event.targetType(),
         event.targetId(),
         event.piiAccess(),
-        event.details());
+        RequestContextHolder.requestId(),
+        RequestContextHolder.correlationId(),
+        details);
   }
 
   private String resolveActorUsername(java.util.UUID actorUserId) {
@@ -61,9 +67,18 @@ public class LoggingAuditService implements AuditService {
         .orElse(null);
   }
 
-  private String writeDetails(AuditEvent event) {
+  private Map<String, Object> enrichDetails(Map<String, ?> eventDetails) {
+    LinkedHashMap<String, Object> details = new LinkedHashMap<>();
+    if (eventDetails != null) {
+      details.putAll(eventDetails);
+    }
+    RequestContextHolder.traceIdentifiers().forEach(details::putIfAbsent);
+    return Map.copyOf(details);
+  }
+
+  private String writeDetails(Map<String, Object> details) {
     try {
-      return objectMapper.writeValueAsString(event.details());
+      return objectMapper.writeValueAsString(details);
     } catch (Exception exception) {
       return "{\"raw\":\"serialization_failed\"}";
     }

@@ -9,6 +9,8 @@
 
 Customer360 provides persistent access to all knowledge associated with a customer.
 
+Policy and Claim are external references or metadata within IKMS. The broker management system remains the system of record.
+
 ---
 
 # Layout
@@ -152,12 +154,14 @@ Navigation opens the source system.
 | Column | Width |
 |---|---:|
 | Claim Number | 180 |
-| Policy | 180 |
+| Carrier | 180 |
 | Status | 120 |
 | Opened | 150 |
 | Updated | 150 |
 
 Read-only reference data.
+
+Do not imply claim lifecycle ownership inside IKMS.
 
 ---
 
@@ -249,6 +253,7 @@ Support:
 - Customer context remains visible.
 - Every operational tab uses a grid.
 - Policy and claim references remain read-only.
+- Policy and Claim are external references or metadata within IKMS. The broker management system remains the system of record.
 - Do not use dashboard cards.
 - Use shared theme and icons.
 - Do not recreate standard MUI controls.

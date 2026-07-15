@@ -104,6 +104,41 @@ describe("AdminConfigurationPage", () => {
         }),
       ),
     );
+
+    await user.click(screen.getByRole("combobox", { name: "Configuration Type" }));
+    await user.click(screen.getByRole("option", { name: "AI Governance" }));
+    await user.click(await screen.findByRole("button", { name: /Open configuration Approved Model Registry/i }));
+    await user.clear(screen.getByLabelText("Prompt Policy Version"));
+    await user.type(screen.getByLabelText("Prompt Policy Version"), "prompt-policy-v2");
+    await user.click(screen.getByRole("button", { name: "Save AI governance" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:8080/api/governance/ai",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            approvedModels: ["mistral:mistral-small", "openai:gpt-5-mini"],
+            promptPolicyVersion: "prompt-policy-v2",
+            responsePolicyVersion: "response-policy-v1",
+            citationRequired: true,
+            groundingValidationRequired: true,
+          }),
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Configuration Type" }));
+    await user.click(screen.getByRole("option", { name: "Queues" }));
+    await user.click(await screen.findByRole("button", { name: /Open configuration Reindex Queue/i }));
+    await user.click(screen.getByRole("button", { name: "Pause queue" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:8080/api/operations/queues/REINDEX/pause",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
   });
 
   it("uses the mobile list pattern and opens the editor drawer from a selected item", async () => {
@@ -176,6 +211,200 @@ function stubAdminFetch() {
     if (url.endsWith("/api/admin/review-settings") && (!init || init.method === "GET")) {
       return jsonResponse({ id: "r1", mode: "confidence", lowConfidenceThreshold: 0.75, updatedAt: "2026-07-10T10:00:00Z" });
     }
+    if (url.endsWith("/api/governance/classification") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        levels: ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"],
+        defaultClassification: "INTERNAL",
+        aiRestrictionThreshold: "RESTRICTED",
+        exportRestrictionThreshold: "CONFIDENTIAL",
+        updatedAt: "2026-07-10T10:00:00Z",
+      });
+    }
+    if (url.endsWith("/api/governance/retention") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        policies: [{ contentType: "CUSTOMER_DOCUMENT", retentionDays: 2555, reviewAfterDays: 1825, archivalAfterDays: 2190, disposalAfterDays: 2555 }],
+        updatedAt: "2026-07-10T10:00:00Z",
+      });
+    }
+    if (url.endsWith("/api/governance/legal-holds") && (!init || init.method === "GET")) {
+      return jsonResponse([
+        {
+          id: "lh1",
+          targetType: "DOCUMENT",
+          targetId: "doc-1",
+          clientId: "c1",
+          legalHold: true,
+          holdType: "LITIGATION",
+          retentionPolicyKey: "legal-hold",
+          reviewAt: "2026-08-10T10:00:00Z",
+          archivalEligibleAt: null,
+          disposalEligibleAt: null,
+          executedAt: "2026-07-10T10:00:00Z",
+          reason: "Open litigation",
+        },
+      ]);
+    }
+    if (url.endsWith("/api/governance/ai") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        approvedModels: ["mistral:mistral-small", "openai:gpt-5-mini"],
+        promptPolicyVersion: "prompt-policy-v1",
+        responsePolicyVersion: "response-policy-v1",
+        citationRequired: true,
+        groundingValidationRequired: true,
+        updatedAt: "2026-07-10T10:00:00Z",
+      });
+    }
+    if (url.endsWith("/api/governance/security") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        encryptionAtRest: "AES-256",
+        encryptionInTransit: "TLS 1.2+",
+        keyManagement: "Vendor-neutral KMS abstraction",
+        secretManagement: "Environment-backed secret store",
+        exportApprovalRequired: true,
+        watermarkByDefault: true,
+        updatedAt: "2026-07-10T10:00:00Z",
+      });
+    }
+    if (url.endsWith("/api/governance/reports/compliance") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        activeLegalHolds: 1,
+        retentionExceptions: 0,
+        sensitiveDocuments: 4,
+        restrictedDocuments: 2,
+        piiAuditEvents: 3,
+        exportEvents: 1,
+        aiInteractions: 5,
+        stewardshipSignals: ["Customer remains the primary business context."],
+      });
+    }
+    if (url.endsWith("/api/operations/jobs") && (!init || init.method === "GET")) {
+      return jsonResponse([
+        {
+          jobId: "job-1",
+          jobType: "FULL_PROJECTION_REBUILD",
+          submittedBy: "admin-user",
+          submittedAt: "2026-07-15T10:00:00Z",
+          startedAt: "2026-07-15T10:01:00Z",
+          completedAt: null,
+          duration: null,
+          status: "RUNNING",
+          progress: 42,
+          errorSummary: null,
+          retryCount: 0,
+          queueKey: "REINDEX",
+          targetType: "PROJECTION",
+          targetId: "ALL",
+          priority: 100,
+          cancelRequested: false,
+          details: { scope: "full" },
+        },
+        {
+          jobId: "job-2",
+          jobType: "OCR_RETRY",
+          submittedBy: "admin-user",
+          submittedAt: "2026-07-15T09:00:00Z",
+          startedAt: null,
+          completedAt: "2026-07-15T09:05:00Z",
+          duration: 300000,
+          status: "FAILED",
+          progress: 100,
+          errorSummary: "OCR timeout",
+          retryCount: 1,
+          queueKey: "OCR",
+          targetType: "DOCUMENT",
+          targetId: "doc-44",
+          priority: 90,
+          cancelRequested: false,
+          details: { scope: "document" },
+        },
+      ]);
+    }
+    if (url.endsWith("/api/operations/queues") && (!init || init.method === "GET")) {
+      return jsonResponse([
+        {
+          queueKey: "REINDEX",
+          queueName: "Reindex Queue",
+          status: "RUNNING",
+          paused: false,
+          depth: 2,
+          runningItems: 1,
+          failedItems: 0,
+          updatedAt: "2026-07-15T10:02:00Z",
+          explanation: "Controls reindex and projection rebuild jobs.",
+        },
+      ]);
+    }
+    if (url.endsWith("/api/operations/queues/REINDEX/pause") && init?.method === "POST") {
+      return jsonResponse({
+        queueKey: "REINDEX",
+        queueName: "Reindex Queue",
+        status: "PAUSED",
+        paused: true,
+        depth: 2,
+        runningItems: 0,
+        failedItems: 0,
+        updatedAt: "2026-07-15T10:03:00Z",
+        explanation: "Controls reindex and projection rebuild jobs.",
+      });
+    }
+    if (url.endsWith("/api/operations/schedulers") && (!init || init.method === "GET")) {
+      return jsonResponse([
+        {
+          schedulerKey: "nightly-reindex",
+          displayName: "Nightly Reindex",
+          description: "Refresh retrieval projections.",
+          enabled: true,
+          nextExecution: "2026-07-16T00:00:00Z",
+          lastExecution: "2026-07-15T00:00:00Z",
+          lastStatus: "COMPLETED",
+          history: [],
+        },
+      ]);
+    }
+    if (url.endsWith("/api/operations/cache") && (!init || init.method === "GET")) {
+      return jsonResponse([
+        {
+          cacheKey: "retrieval-cache",
+          displayName: "Retrieval cache",
+          entryCount: 0,
+          lastAction: "READY",
+          lastActionAt: "2026-07-15T10:00:00Z",
+        },
+      ]);
+    }
+    if (url.endsWith("/api/operations/health") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        overallStatus: "WARNING",
+        components: [
+          {
+            component: "Database",
+            status: "HEALTHY",
+            explanation: "Spring Data repositories are available.",
+          },
+        ],
+      });
+    }
+    if (url.endsWith("/api/operations/diagnostics") && (!init || init.method === "GET")) {
+      return jsonResponse({
+        systemInformation: {
+          javaVersion: "21",
+          retrievalImplementation: "PostgreSQL + pgvector",
+        },
+        activeWorkers: {
+          runningOperationsJobs: 1,
+          runningDocumentJobs: 0,
+        },
+        queueDepth: {
+          "Reindex Queue": 2,
+        },
+        failedJobs: 1,
+        bottlenecks: ["Operational job failures require operator review."],
+        configurationValidation: [],
+        dependencyValidation: ["No OpenSearch dependency is introduced."],
+        recentFailures: [],
+        metrics: [],
+      });
+    }
     if (url.endsWith("/api/admin/ai-settings") && (!init || init.method === "GET")) {
       return jsonResponse({
         id: "a1",
@@ -214,6 +443,16 @@ function stubAdminFetch() {
         status: "READY",
         message: "Provider configuration validated.",
         checkedAt: "2026-07-10T10:05:00Z",
+      });
+    }
+    if (url.endsWith("/api/governance/ai") && init?.method === "POST") {
+      return jsonResponse({
+        approvedModels: ["mistral:mistral-small", "openai:gpt-5-mini"],
+        promptPolicyVersion: "prompt-policy-v2",
+        responsePolicyVersion: "response-policy-v1",
+        citationRequired: true,
+        groundingValidationRequired: true,
+        updatedAt: "2026-07-10T10:10:00Z",
       });
     }
     return jsonResponse({});

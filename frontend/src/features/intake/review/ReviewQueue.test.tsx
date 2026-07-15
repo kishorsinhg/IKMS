@@ -104,6 +104,41 @@ describe("ReviewQueuePage", () => {
     expect(await screen.findByText("Selected review item")).toBeInTheDocument();
     expect(screen.getByText("Customer context")).toBeInTheDocument();
   });
+
+  it("shows processing context and retries a selected review item", async () => {
+    mockViewport(1440);
+    const user = userEvent.setup();
+    const fetchMock = stubReviewFetch();
+    const setWorkspaceChrome = vi.fn();
+
+    renderReviewPage({
+      initialEntry: "/review-queue",
+      setWorkspaceChrome,
+    });
+
+    expect(await screen.findByText("Inbound renewal")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(setWorkspaceChrome).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          contextSections: expect.arrayContaining([
+            expect.objectContaining({
+              title: "Processing Status",
+            }),
+          ]),
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Retry processing" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:8080/api/review-queue/item-1/retry",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
 });
 
 function renderReviewPage({
@@ -161,6 +196,48 @@ function stubReviewFetch() {
           clientId: null,
           documentTypeId: null,
           metadataValues: { carrier: "", policyNumber: "" },
+          processingJob: {
+            id: "job-item-1",
+            status: "WAITING_REVIEW",
+            currentStage: "VALIDATED",
+            retryCount: 0,
+            overallConfidence: 0.66,
+            ocrConfidence: 0.7,
+            classificationConfidence: 0.82,
+            metadataConfidence: 0.66,
+            businessReferenceConfidence: 0.72,
+            validationConfidence: 0.61,
+            duplicateConfidence: 0.08,
+            language: "en",
+            ocrProvider: "tesseract",
+            classificationProvider: "local-model",
+            lastErrorCode: null,
+            lastErrorMessage: null,
+            reviewerComment: null,
+            startedAt: "2026-07-15T09:00:00Z",
+            reviewRequestedAt: "2026-07-15T09:01:00Z",
+            approvedAt: null,
+            rejectedAt: null,
+            publishedAt: null,
+            completedAt: null,
+            fields: [],
+            findings: [
+              {
+                findingCode: "LOW_CONFIDENCE",
+                severity: "WARNING",
+                stage: "VALIDATED",
+                fieldKey: "policyNumber",
+                message: "Policy reference requires manual confirmation",
+                evidenceText: "PN-42",
+                sourcePage: 1,
+                confidence: 0.61,
+                status: "OPEN",
+                resolutionComment: null,
+                createdAt: "2026-07-15T09:01:00Z",
+                resolvedAt: null,
+              },
+            ],
+          },
         },
         {
           id: "item-2",
@@ -200,6 +277,48 @@ function stubReviewFetch() {
         clientId: null,
         documentTypeId: null,
         metadataValues: { carrier: "", policyNumber: "" },
+        processingJob: {
+          id: "job-item-1",
+          status: "WAITING_REVIEW",
+          currentStage: "VALIDATED",
+          retryCount: 0,
+          overallConfidence: 0.66,
+          ocrConfidence: 0.7,
+          classificationConfidence: 0.82,
+          metadataConfidence: 0.66,
+          businessReferenceConfidence: 0.72,
+          validationConfidence: 0.61,
+          duplicateConfidence: 0.08,
+          language: "en",
+          ocrProvider: "tesseract",
+          classificationProvider: "local-model",
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          reviewerComment: null,
+          startedAt: "2026-07-15T09:00:00Z",
+          reviewRequestedAt: "2026-07-15T09:01:00Z",
+          approvedAt: null,
+          rejectedAt: null,
+          publishedAt: null,
+          completedAt: null,
+          fields: [],
+          findings: [
+            {
+              findingCode: "LOW_CONFIDENCE",
+              severity: "WARNING",
+              stage: "VALIDATED",
+              fieldKey: "policyNumber",
+              message: "Policy reference requires manual confirmation",
+              evidenceText: "PN-42",
+              sourcePage: 1,
+              confidence: 0.61,
+              status: "OPEN",
+              resolutionComment: null,
+              createdAt: "2026-07-15T09:01:00Z",
+              resolvedAt: null,
+            },
+          ],
+        },
       });
     }
     if (url.endsWith("/api/clients")) {
@@ -249,6 +368,47 @@ function stubReviewFetch() {
     }
     if (url.endsWith("/api/review-queue/item-1/approve") && init?.method === "POST") {
       return jsonResponse({ success: true });
+    }
+    if (url.endsWith("/api/review-queue/item-1/retry") && init?.method === "POST") {
+      return jsonResponse({
+        id: "item-1",
+        itemType: "DOCUMENT",
+        itemId: "doc-1",
+        reason: "UNLINKED",
+        status: "IN_PROGRESS",
+        assignedTo: "processor",
+        title: "Inbound renewal",
+        clientId: null,
+        documentTypeId: null,
+        metadataValues: { carrier: "", policyNumber: "" },
+        processingJob: {
+          id: "job-item-1",
+          status: "RETRYING",
+          currentStage: "OCR_TEXT_EXTRACTION",
+          retryCount: 1,
+          overallConfidence: 0.66,
+          ocrConfidence: 0.7,
+          classificationConfidence: 0.82,
+          metadataConfidence: 0.66,
+          businessReferenceConfidence: 0.72,
+          validationConfidence: 0.61,
+          duplicateConfidence: 0.08,
+          language: "en",
+          ocrProvider: "tesseract",
+          classificationProvider: "local-model",
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          reviewerComment: "Retry requested from Review Queue",
+          startedAt: "2026-07-15T09:02:00Z",
+          reviewRequestedAt: "2026-07-15T09:01:00Z",
+          approvedAt: null,
+          rejectedAt: null,
+          publishedAt: null,
+          completedAt: null,
+          fields: [],
+          findings: [],
+        },
+      });
     }
     if (url.endsWith("/api/review-queue/item-1/reject") && init?.method === "POST") {
       return jsonResponse({ success: true });
