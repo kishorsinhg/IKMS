@@ -1,0 +1,11 @@
+spring:
+  config:
+    activate:
+      on-profile: demo
+
+ikms:
+  demo:
+    mode: ${IKMS_DEMO_MODE:seed}
+    exit-after-run: ${IKMS_DEMO_EXIT_AFTER_RUN:false}
+    namespace: ${IKMS_DEMO_NAMESPACE:ikms-demo-2026-07}
+    reference-date: ${IKMS_DEMO_REFERENCE_DATE:2026-07-18}
